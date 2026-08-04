@@ -1501,6 +1501,7 @@ h3 {
   --qp-accent: #2f6fec;
   --qp-accent-rgb: 47, 111, 236;
   --qp-success: #15806a;
+  --qp-success-rgb: 21, 128, 106;
   --qp-danger: #ba4a4a;
   --qp-warning: #9b7523;
   --qp-shadow-md:
@@ -1538,6 +1539,7 @@ h3 {
     --qp-accent: #8db8ff;
     --qp-accent-rgb: 141, 184, 255;
     --qp-success: #6ed7bf;
+    --qp-success-rgb: 110, 215, 191;
     --qp-danger: #f0a2a2;
     --qp-warning: #f3ca72;
     --qp-shadow-md:
@@ -1573,6 +1575,7 @@ h3 {
   --qp-accent: #2f6fec;
   --qp-accent-rgb: 47, 111, 236;
   --qp-success: #15806a;
+  --qp-success-rgb: 21, 128, 106;
   --qp-danger: #ba4a4a;
   --qp-warning: #9b7523;
   --qp-shadow-md:
@@ -1607,6 +1610,7 @@ h3 {
   --qp-accent: #8db8ff;
   --qp-accent-rgb: 141, 184, 255;
   --qp-success: #6ed7bf;
+  --qp-success-rgb: 110, 215, 191;
   --qp-danger: #f0a2a2;
   --qp-warning: #f3ca72;
   --qp-shadow-md:
@@ -3704,7 +3708,7 @@ h3,
   background-clip: padding-box;
 }
 
-/* Settings status pill: identical size, position and color in every theme. */
+/* Settings header card: light theme matches dark/workbench geometry. */
 :root[data-theme="light"] .settings-header,
 :root:not([data-theme]) .settings-header,
 :root[data-theme="dark"] .settings-header,
@@ -3712,6 +3716,30 @@ h3,
   align-items: flex-start;
 }
 
+:root[data-theme="light"] .settings-header,
+:root:not([data-theme]) .settings-header {
+  gap: 14px;
+  min-height: 84px;
+  padding: 15px 18px;
+}
+
+:root[data-theme="light"] .settings-header .eyebrow,
+:root:not([data-theme]) .settings-header .eyebrow {
+  margin-bottom: 7px;
+  color: var(--qp-accent);
+  font-size: 12px;
+  text-transform: none;
+}
+
+:root[data-theme="light"] .settings-header h1,
+:root:not([data-theme]) .settings-header h1 {
+  max-width: none;
+  margin: 0;
+  font-size: 25px;
+  line-height: 1.08;
+}
+
+/* Settings status pill: identical size and position in every theme. */
 :root[data-theme="light"] .settings-header .status-pill,
 :root:not([data-theme]) .settings-header .status-pill,
 :root[data-theme="dark"] .settings-header .status-pill,
@@ -3720,30 +3748,23 @@ h3,
   height: 30px;
   min-height: 0;
   max-height: 30px;
+  margin-top: 13px;
+  margin-right: 13px;
   padding: 0 10px;
-  border: 1px solid #35544b;
-  border-radius: 999px;
-  color: #d8f2e3;
-  background: #253435;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
 }
 
-/* Light headers keep 22px/24px padding vs dark 15px/18px, so the light
-   pill uses smaller margins to land on the same 28px/31px header offsets. */
+/* Light pill: green-on-white glass via translucent theme variables;
+   dark pills keep their theme green glass rules above. */
 :root[data-theme="light"] .settings-header .status-pill,
 :root:not([data-theme]) .settings-header .status-pill {
-  margin-top: 6px;
-  margin-right: 7px;
-}
-
-:root[data-theme="dark"] .settings-header .status-pill,
-:root[data-theme="workbench"] .settings-header .status-pill {
-  margin-top: 13px;
-  margin-right: 13px;
+  border-color: rgba(var(--qp-success-rgb), 0.28);
+  color: var(--qp-success);
+  background: rgba(var(--qp-success-rgb), 0.1);
+  box-shadow: inset 0 1px 0 var(--qp-highlight);
 }
 
 :root[data-theme="dark"] .settings-savebar,
