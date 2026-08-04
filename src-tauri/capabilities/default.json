@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Capability for QuickPick desktop windows",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-set-decorations",
+    "core:window:allow-start-dragging"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "QuickPick",
+  "version": "0.1.0",
+  "identifier": "com.quickpick.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "QuickPick 设置",
+        "width": 560,
+        "height": 720,
+        "minWidth": 500,
+        "minHeight": 620,
+        "center": true,
+        "resizable": true,
+        "transparent": true,
+        "decorations": false,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico", "icons/icon.png"]
+  }
+}

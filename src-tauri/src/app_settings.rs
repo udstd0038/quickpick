@@ -1,0 +1,513 @@
+use serde::{Deserialize, Serialize};
+use std::{fs, path::PathBuf};
+use tauri::{AppHandle, Manager};
+use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
+
+const SETTINGS_FILE_NAME: &str = "settings.json";
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppSettings {
+    #[serde(default = "default_autostart_enabled")]
+    pub autostart_enabled: bool,
+    #[serde(default = "default_selection_hotkey")]
+    pub selection_hotkey: String,
+    #[serde(default = "default_screenshot_hotkey")]
+    pub screenshot_hotkey: String,
+    #[serde(default = "default_theme_mode")]
+    pub theme_mode: String,
+    #[serde(default = "default_window_effect")]
+    pub window_effect: String,
+    #[serde(default = "default_text_ai_provider")]
+    pub text_ai_provider: String,
+    #[serde(default)]
+    pub text_ai_base_url: String,
+    #[serde(default)]
+    pub text_ai_model: String,
+    #[serde(default = "default_vision_ai_provider")]
+    pub vision_ai_provider: String,
+    #[serde(default)]
+    pub vision_ai_base_url: String,
+    #[serde(default)]
+    pub vision_ai_model: String,
+    #[serde(default = "default_translation_target_language")]
+    pub translation_target_language: String,
+    #[serde(default)]
+    pub ai_timeout_seconds: u16,
+    #[serde(default, skip_serializing)]
+    pub ai_provider: String,
+    #[serde(default, skip_serializing)]
+    pub ai_base_url: String,
+    #[serde(default, skip_serializing)]
+    pub ai_text_model: String,
+    #[serde(default, skip_serializing)]
+    pub ai_vision_model: String,
+}
+
+fn default_text_ai_provider() -> String {
+    "deepseek".to_string()
+}
+
+fn default_vision_ai_provider() -> String {
+    "xiaomi_mimo".to_string()
+}
+
+fn default_translation_target_language() -> String {
+    "zh-Hans".to_string()
+}
+
+fn default_autostart_enabled() -> bool {
+    true
+}
+
+fn default_selection_hotkey() -> String {
+    "Alt+2".to_string()
+}
+
+fn default_screenshot_hotkey() -> String {
+    "Alt+3".to_string()
+}
+
+fn default_theme_mode() -> String {
+    "system".to_string()
+}
+
+fn default_window_effect() -> String {
+    "mica".to_string()
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            autostart_enabled: default_autostart_enabled(),
+            selection_hotkey: default_selection_hotkey(),
+            screenshot_hotkey: default_screenshot_hotkey(),
+            theme_mode: default_theme_mode(),
+            window_effect: default_window_effect(),
+            text_ai_provider: default_text_ai_provider(),
+            text_ai_base_url: String::new(),
+            text_ai_model: String::new(),
+            vision_ai_provider: default_vision_ai_provider(),
+            vision_ai_base_url: String::new(),
+            vision_ai_model: String::new(),
+            translation_target_language: default_translation_target_language(),
+            ai_timeout_seconds: 30,
+            ai_provider: String::new(),
+            ai_base_url: String::new(),
+            ai_text_model: String::new(),
+            ai_vision_model: String::new(),
+        }
+    }
+}
+
+pub fn load_app_settings(app: &AppHandle) -> Result<AppSettings, String> {
+    let path = settings_path(app)?;
+    if !path.exists() {
+        return Ok(AppSettings::default());
+    }
+
+    let content = fs::read_to_string(&path).map_err(|_| "读取设置文件失败".to_string())?;
+    serde_json::from_str::<AppSettings>(&content)
+        .map(normalize_settings_for_load)
+        .map_err(|_| "设置文件格式无效".to_string())
+}
+
+pub fn save_app_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
+    let settings = normalize_settings_for_save(settings.clone())?;
+
+    let path = settings_path(app)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|_| "创建设置目录失败".to_string())?;
+    }
+
+    let content =
+        serde_json::to_string_pretty(&settings).map_err(|_| "序列化设置失败".to_string())?;
+    fs::write(path, content).map_err(|_| "保存设置文件失败".to_string())
+}
+
+pub fn normalize_settings_for_save(mut settings: AppSettings) -> Result<AppSettings, String> {
+    normalize_common_fields(&mut settings);
+    settings.selection_hotkey = normalize_hotkey_for_save(&settings.selection_hotkey, "划词菜单")?;
+    settings.screenshot_hotkey =
+        normalize_hotkey_for_save(&settings.screenshot_hotkey, "区域截图")?;
+    validate_settings(&settings)?;
+
+    Ok(settings)
+}
+
+fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|_| "定位应用设置目录失败".to_string())?;
+    Ok(dir.join(SETTINGS_FILE_NAME))
+}
+
+fn normalize_settings_for_load(mut settings: AppSettings) -> AppSettings {
+    normalize_common_fields(&mut settings);
+    settings.selection_hotkey =
+        normalize_hotkey_for_load(&settings.selection_hotkey, &default_selection_hotkey());
+    settings.screenshot_hotkey =
+        normalize_hotkey_for_load(&settings.screenshot_hotkey, &default_screenshot_hotkey());
+
+    if settings.selection_hotkey == settings.screenshot_hotkey {
+        settings.selection_hotkey = default_selection_hotkey();
+        settings.screenshot_hotkey = default_screenshot_hotkey();
+    }
+
+    settings
+}
+
+fn normalize_common_fields(settings: &mut AppSettings) {
+    let legacy_provider = settings.ai_provider.trim().to_string();
+    if settings.text_ai_provider.trim().is_empty() && !settings.ai_provider.trim().is_empty() {
+        settings.text_ai_provider = settings.ai_provider.trim().to_string();
+    }
+    if settings.vision_ai_provider.trim().is_empty() && !settings.ai_provider.trim().is_empty() {
+        settings.vision_ai_provider = match legacy_provider.as_str() {
+            "deepseek" => default_vision_ai_provider(),
+            value => value.to_string(),
+        };
+    }
+    if settings.text_ai_base_url.trim().is_empty() && !settings.ai_base_url.trim().is_empty() {
+        settings.text_ai_base_url = settings.ai_base_url.trim().to_string();
+    }
+    if legacy_provider != "deepseek"
+        && settings.vision_ai_base_url.trim().is_empty()
+        && !settings.ai_base_url.trim().is_empty()
+    {
+        settings.vision_ai_base_url = settings.ai_base_url.trim().to_string();
+    }
+    if settings.text_ai_model.trim().is_empty() && !settings.ai_text_model.trim().is_empty() {
+        settings.text_ai_model = settings.ai_text_model.trim().to_string();
+    }
+    if legacy_provider != "deepseek"
+        && settings.vision_ai_model.trim().is_empty()
+        && !settings.ai_vision_model.trim().is_empty()
+    {
+        settings.vision_ai_model = settings.ai_vision_model.trim().to_string();
+    }
+
+    settings.text_ai_provider = normalize_text_provider(&settings.text_ai_provider);
+    settings.vision_ai_provider = normalize_vision_provider(&settings.vision_ai_provider);
+    settings.text_ai_base_url = settings.text_ai_base_url.trim().to_string();
+    settings.text_ai_model = settings.text_ai_model.trim().to_string();
+    settings.vision_ai_base_url = settings.vision_ai_base_url.trim().to_string();
+    settings.vision_ai_model = settings.vision_ai_model.trim().to_string();
+    settings.translation_target_language =
+        normalize_translation_language(&settings.translation_target_language);
+    settings.ai_provider = match settings.ai_provider.trim() {
+        "deepseek" => "deepseek".to_string(),
+        "xiaomi_mimo" => "xiaomi_mimo".to_string(),
+        "kimi" => "kimi".to_string(),
+        "glm" => "glm".to_string(),
+        "minimax" => "minimax".to_string(),
+        "qwen" => "qwen".to_string(),
+        _ => "openai_compatible".to_string(),
+    };
+    settings.ai_base_url.clear();
+    settings.ai_text_model.clear();
+    settings.ai_vision_model.clear();
+    settings.theme_mode = match settings.theme_mode.trim() {
+        "light" => "light".to_string(),
+        "dark" => "dark".to_string(),
+        "workbench" => "dark".to_string(),
+        _ => "system".to_string(),
+    };
+    settings.window_effect = "mica".to_string();
+
+    if settings.ai_timeout_seconds < 5 || settings.ai_timeout_seconds > 120 {
+        settings.ai_timeout_seconds = AppSettings::default().ai_timeout_seconds;
+    }
+}
+
+fn normalize_text_provider(value: &str) -> String {
+    match value.trim() {
+        "openai_compatible" => "openai_compatible".to_string(),
+        "deepseek" => "deepseek".to_string(),
+        "xiaomi_mimo" => "xiaomi_mimo".to_string(),
+        "kimi" => "kimi".to_string(),
+        "glm" => "glm".to_string(),
+        "minimax" => "minimax".to_string(),
+        "qwen" => "qwen".to_string(),
+        _ => default_text_ai_provider(),
+    }
+}
+
+fn normalize_vision_provider(value: &str) -> String {
+    match value.trim() {
+        "openai_compatible" => "openai_compatible".to_string(),
+        "xiaomi_mimo" => "xiaomi_mimo".to_string(),
+        "kimi" => "kimi".to_string(),
+        "glm" => "glm".to_string(),
+        "minimax" => "minimax".to_string(),
+        "qwen" => "qwen".to_string(),
+        _ => default_vision_ai_provider(),
+    }
+}
+
+fn normalize_translation_language(value: &str) -> String {
+    match value.trim() {
+        "zh-Hans" => "zh-Hans".to_string(),
+        "en" => "en".to_string(),
+        "ja" => "ja".to_string(),
+        "ko" => "ko".to_string(),
+        "fr" => "fr".to_string(),
+        "de" => "de".to_string(),
+        "es" => "es".to_string(),
+        _ => default_translation_target_language(),
+    }
+}
+
+fn normalize_hotkey_for_load(value: &str, fallback: &str) -> String {
+    normalize_hotkey_for_save(value, "快捷键").unwrap_or_else(|_| fallback.to_string())
+}
+
+fn normalize_hotkey_for_save(value: &str, label: &str) -> Result<String, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(format!("{label}快捷键不能为空"));
+    }
+
+    let shortcut = parse_hotkey(trimmed, label)?;
+    if !shortcut.mods.contains(Modifiers::ALT) {
+        return Err(format!("{label}快捷键首版需包含 Alt，例如 Alt+2"));
+    }
+
+    Ok(format_shortcut(shortcut))
+}
+
+pub fn parse_hotkey(value: &str, label: &str) -> Result<Shortcut, String> {
+    value
+        .parse::<Shortcut>()
+        .map_err(|_| format!("{label}快捷键格式无效，请使用 Alt+2 或 Ctrl+Alt+Q 这类格式"))
+}
+
+fn validate_settings(settings: &AppSettings) -> Result<(), String> {
+    let selection_shortcut = parse_hotkey(&settings.selection_hotkey, "划词菜单")?;
+    let screenshot_shortcut = parse_hotkey(&settings.screenshot_hotkey, "区域截图")?;
+    if selection_shortcut.id() == screenshot_shortcut.id() {
+        return Err("划词菜单和区域截图不能使用同一个快捷键".to_string());
+    }
+
+    if !matches!(settings.theme_mode.as_str(), "system" | "light" | "dark") {
+        return Err("主题模式无效".to_string());
+    }
+
+    if settings.window_effect.as_str() != "mica" {
+        return Err("窗口效果无效".to_string());
+    }
+
+    validate_base_url(&settings.text_ai_base_url, "文本模型 Base URL")?;
+    validate_base_url(&settings.vision_ai_base_url, "视觉模型 Base URL")?;
+
+    if settings.ai_timeout_seconds < 5 || settings.ai_timeout_seconds > 120 {
+        return Err("请求超时需在 5 到 120 秒之间".to_string());
+    }
+
+    if settings.text_ai_model.chars().count() > 120
+        || settings.vision_ai_model.chars().count() > 120
+    {
+        return Err("模型名称过长，请缩短后保存".to_string());
+    }
+
+    Ok(())
+}
+
+fn validate_base_url(value: &str, label: &str) -> Result<(), String> {
+    let base_url = value.trim();
+    if !base_url.is_empty()
+        && !(base_url.starts_with("https://") || base_url.starts_with("http://"))
+    {
+        return Err(format!("{label} 必须以 http:// 或 https:// 开头"));
+    }
+
+    Ok(())
+}
+
+fn format_shortcut(shortcut: Shortcut) -> String {
+    let mut parts = Vec::new();
+
+    if shortcut.mods.contains(Modifiers::CONTROL) {
+        parts.push("Ctrl".to_string());
+    }
+    if shortcut.mods.contains(Modifiers::SHIFT) {
+        parts.push("Shift".to_string());
+    }
+    if shortcut.mods.contains(Modifiers::ALT) {
+        parts.push("Alt".to_string());
+    }
+    if shortcut.mods.contains(Modifiers::SUPER) {
+        parts.push("Win".to_string());
+    }
+
+    parts.push(format_code(shortcut.key));
+    parts.join("+")
+}
+
+fn format_code(code: Code) -> String {
+    match code {
+        Code::Digit0 => "0".to_string(),
+        Code::Digit1 => "1".to_string(),
+        Code::Digit2 => "2".to_string(),
+        Code::Digit3 => "3".to_string(),
+        Code::Digit4 => "4".to_string(),
+        Code::Digit5 => "5".to_string(),
+        Code::Digit6 => "6".to_string(),
+        Code::Digit7 => "7".to_string(),
+        Code::Digit8 => "8".to_string(),
+        Code::Digit9 => "9".to_string(),
+        Code::KeyA => "A".to_string(),
+        Code::KeyB => "B".to_string(),
+        Code::KeyC => "C".to_string(),
+        Code::KeyD => "D".to_string(),
+        Code::KeyE => "E".to_string(),
+        Code::KeyF => "F".to_string(),
+        Code::KeyG => "G".to_string(),
+        Code::KeyH => "H".to_string(),
+        Code::KeyI => "I".to_string(),
+        Code::KeyJ => "J".to_string(),
+        Code::KeyK => "K".to_string(),
+        Code::KeyL => "L".to_string(),
+        Code::KeyM => "M".to_string(),
+        Code::KeyN => "N".to_string(),
+        Code::KeyO => "O".to_string(),
+        Code::KeyP => "P".to_string(),
+        Code::KeyQ => "Q".to_string(),
+        Code::KeyR => "R".to_string(),
+        Code::KeyS => "S".to_string(),
+        Code::KeyT => "T".to_string(),
+        Code::KeyU => "U".to_string(),
+        Code::KeyV => "V".to_string(),
+        Code::KeyW => "W".to_string(),
+        Code::KeyX => "X".to_string(),
+        Code::KeyY => "Y".to_string(),
+        Code::KeyZ => "Z".to_string(),
+        Code::F1 => "F1".to_string(),
+        Code::F2 => "F2".to_string(),
+        Code::F3 => "F3".to_string(),
+        Code::F4 => "F4".to_string(),
+        Code::F5 => "F5".to_string(),
+        Code::F6 => "F6".to_string(),
+        Code::F7 => "F7".to_string(),
+        Code::F8 => "F8".to_string(),
+        Code::F9 => "F9".to_string(),
+        Code::F10 => "F10".to_string(),
+        Code::F11 => "F11".to_string(),
+        Code::F12 => "F12".to_string(),
+        Code::Space => "Space".to_string(),
+        Code::Tab => "Tab".to_string(),
+        Code::Enter => "Enter".to_string(),
+        Code::Escape => "Esc".to_string(),
+        Code::PrintScreen => "PrintScreen".to_string(),
+        _ => code.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn settings_with_hotkeys(selection_hotkey: &str, screenshot_hotkey: &str) -> AppSettings {
+        AppSettings {
+            selection_hotkey: selection_hotkey.to_string(),
+            screenshot_hotkey: screenshot_hotkey.to_string(),
+            ..AppSettings::default()
+        }
+    }
+
+    #[test]
+    fn hotkeys_are_normalized_for_save() {
+        let settings = settings_with_hotkeys(" alt + q ", "CTRL+ALT+3");
+        let settings = normalize_settings_for_save(settings).unwrap();
+
+        assert_eq!(settings.selection_hotkey, "Alt+Q");
+        assert_eq!(settings.screenshot_hotkey, "Ctrl+Alt+3");
+    }
+
+    #[test]
+    fn hotkeys_must_include_alt() {
+        let settings = settings_with_hotkeys("Ctrl+Q", "Alt+3");
+
+        assert!(normalize_settings_for_save(settings).is_err());
+    }
+
+    #[test]
+    fn hotkeys_must_not_duplicate() {
+        let settings = settings_with_hotkeys("Alt+2", "alt+Digit2");
+
+        assert!(normalize_settings_for_save(settings).is_err());
+    }
+
+    #[test]
+    fn appearance_settings_are_normalized() {
+        let settings = AppSettings {
+            theme_mode: "neon".to_string(),
+            window_effect: "legacy_unsupported".to_string(),
+            ..AppSettings::default()
+        };
+        let settings = normalize_settings_for_save(settings).unwrap();
+
+        assert_eq!(settings.theme_mode, "system");
+        assert_eq!(settings.window_effect, "mica");
+
+        let settings = AppSettings {
+            theme_mode: "workbench".to_string(),
+            ..AppSettings::default()
+        };
+        let settings = normalize_settings_for_save(settings).unwrap();
+
+        assert_eq!(settings.theme_mode, "dark");
+    }
+
+    #[test]
+    fn supported_ai_providers_are_preserved() {
+        for provider in [
+            "openai_compatible",
+            "deepseek",
+            "xiaomi_mimo",
+            "kimi",
+            "glm",
+            "minimax",
+            "qwen",
+        ] {
+            let settings = AppSettings {
+                text_ai_provider: provider.to_string(),
+                ..AppSettings::default()
+            };
+            let settings = normalize_settings_for_save(settings).unwrap();
+
+            assert_eq!(settings.text_ai_provider, provider);
+        }
+    }
+
+    #[test]
+    fn vision_provider_does_not_keep_deepseek() {
+        let settings = AppSettings {
+            vision_ai_provider: "deepseek".to_string(),
+            ..AppSettings::default()
+        };
+        let settings = normalize_settings_for_save(settings).unwrap();
+
+        assert_eq!(settings.vision_ai_provider, "xiaomi_mimo");
+    }
+
+    #[test]
+    fn legacy_single_provider_is_migrated_to_split_settings() {
+        let settings = AppSettings {
+            ai_provider: "deepseek".to_string(),
+            ai_base_url: "https://api.deepseek.com".to_string(),
+            ai_text_model: "deepseek-v4-flash".to_string(),
+            ai_vision_model: "deepseek-v4-flash".to_string(),
+            text_ai_provider: String::new(),
+            vision_ai_provider: String::new(),
+            ..AppSettings::default()
+        };
+        let settings = normalize_settings_for_save(settings).unwrap();
+
+        assert_eq!(settings.text_ai_provider, "deepseek");
+        assert_eq!(settings.vision_ai_provider, "xiaomi_mimo");
+        assert_eq!(settings.text_ai_model, "deepseek-v4-flash");
+        assert_eq!(settings.vision_ai_model, "");
+    }
+}

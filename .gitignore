@@ -1,0 +1,11 @@
+node_modules
+dist
+target
+src-tauri/target
+src-tauri/target-ui-check
+src-tauri/gen/schemas
+.vite
+.DS_Store
+*.log
+*.tmp
+*.bak
