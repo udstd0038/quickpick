@@ -3767,6 +3767,90 @@ h3,
   box-shadow: inset 0 1px 0 var(--qp-highlight);
 }
 
+/* Settings cards: light theme matches dark/workbench geometry. */
+:root[data-theme="light"] .settings-window,
+:root:not([data-theme]) .settings-window {
+  gap: 8px;
+}
+
+:root[data-theme="light"] .settings-layout,
+:root:not([data-theme]) .settings-layout {
+  gap: 10px;
+}
+
+:root[data-theme="light"] .settings-nav,
+:root:not([data-theme]) .settings-nav {
+  align-self: stretch;
+  gap: 4px;
+  min-height: 46px;
+  padding: 7px;
+}
+
+:root[data-theme="light"] .settings-nav a,
+:root:not([data-theme]) .settings-nav a,
+:root[data-theme="light"] .settings-nav button,
+:root:not([data-theme]) .settings-nav button {
+  min-height: 30px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+:root[data-theme="light"] .settings-sections,
+:root:not([data-theme]) .settings-sections {
+  gap: 9px;
+  padding-right: 6px;
+}
+
+:root[data-theme="light"] .settings-section,
+:root:not([data-theme]) .settings-section {
+  padding: 14px;
+}
+
+:root[data-theme="light"] .settings-section h2,
+:root:not([data-theme]) .settings-section h2 {
+  margin-bottom: 8px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+:root[data-theme="light"] .setting-list,
+:root:not([data-theme]) .setting-list {
+  gap: 0;
+}
+
+:root[data-theme="light"] .setting-row,
+:root:not([data-theme]) .setting-row,
+:root[data-theme="light"] .setting-field,
+:root:not([data-theme]) .setting-field {
+  gap: 6px;
+  min-height: 0;
+  padding: 9px 0;
+}
+
+:root[data-theme="light"] .setting-input,
+:root:not([data-theme]) .setting-input,
+:root[data-theme="light"] .glass-select-trigger,
+:root:not([data-theme]) .glass-select-trigger,
+:root[data-theme="light"] .hotkey-capture,
+:root:not([data-theme]) .hotkey-capture {
+  min-height: 34px;
+  border-radius: 7px;
+}
+
+:root[data-theme="light"] .settings-savebar,
+:root:not([data-theme]) .settings-savebar {
+  gap: 8px;
+  min-height: 54px;
+  margin-bottom: 10px;
+  padding: 9px 10px;
+}
+
+:root[data-theme="light"] .settings-save-button,
+:root:not([data-theme]) .settings-save-button {
+  min-height: 38px;
+  padding: 0 18px;
+}
+
 :root[data-theme="dark"] .settings-savebar,
 :root[data-theme="workbench"] .settings-savebar {
   align-items: stretch;
