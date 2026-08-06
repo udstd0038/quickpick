@@ -23,18 +23,18 @@
     </filter>
   </defs>
   <g filter="url(#soft)">
-    <rect x="10" y="10" width="108" height="108" rx="32" fill="url(#plate)"/>
-    <ellipse cx="40" cy="22" rx="44" ry="26" fill="url(#tint)"/>
-    <ellipse cx="48" cy="24" rx="25" ry="12" fill="url(#gloss)" opacity="0.69"/>
-    <ellipse cx="36" cy="18" rx="12.5" ry="6" fill="url(#gloss)" opacity="0.65"/>
-    <ellipse cx="92" cy="104" rx="30" ry="14" fill="url(#gloss)" opacity="0.24"/>
-    <rect x="11" y="11" width="106" height="106" rx="31" fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="3.5" filter="url(#softEdge)"/>
+    <rect x="2" y="2" width="124" height="124" rx="36" fill="url(#plate)"/>
+    <ellipse cx="36.4" cy="15.8" rx="50.5" ry="29.8" fill="url(#tint)"/>
+    <ellipse cx="45.6" cy="18.1" rx="28.7" ry="13.8" fill="url(#gloss)" opacity="0.69"/>
+    <ellipse cx="32.1" cy="11.2" rx="14.4" ry="6.9" fill="url(#gloss)" opacity="0.65"/>
+    <ellipse cx="96.2" cy="109.9" rx="34.4" ry="16.1" fill="url(#gloss)" opacity="0.24"/>
+    <rect x="3.2" y="3.2" width="121.6" height="121.6" rx="35.6" fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="4" filter="url(#softEdge)"/>
   </g>
-    <path d="M52 38 L38 38 L38 52" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M76 38 L90 38 L90 52" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M52 90 L38 90 L38 76" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M76 90 L90 90 L90 76" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M50 53 L74 53" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
-    <path d="M50 65 L80 65" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
-    <path d="M50 77 L68 77" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M50.2 34.2 L34.2 34.2 L34.2 50.2" stroke="#FFFFFF" stroke-width="10.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M77.8 34.2 L93.8 34.2 L93.8 50.2" stroke="#FFFFFF" stroke-width="10.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M50.2 93.8 L34.2 93.8 L34.2 77.8" stroke="#FFFFFF" stroke-width="10.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M77.8 93.8 L93.8 93.8 L93.8 77.8" stroke="#FFFFFF" stroke-width="10.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M47.9 51.4 L75.5 51.4" stroke="#FFFFFF" stroke-width="9.2" stroke-linecap="round" fill="none"/>
+    <path d="M47.9 65.1 L82.4 65.1" stroke="#FFFFFF" stroke-width="9.2" stroke-linecap="round" fill="none"/>
+    <path d="M47.9 78.9 L68.6 78.9" stroke="#FFFFFF" stroke-width="9.2" stroke-linecap="round" fill="none"/>
 </svg>

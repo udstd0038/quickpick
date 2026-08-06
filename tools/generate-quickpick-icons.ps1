@@ -64,9 +64,9 @@ function New-AppIconBitmap {
     $scale = $Size / 128.0
     $sx = { param([double]$value) [float]($value * $scale) }
 
-    $platePath = New-RoundedRectPath (& $sx 10) (& $sx 10) (& $sx 108) (& $sx 108) (& $sx 32)
+    $platePath = New-RoundedRectPath (& $sx 2) (& $sx 2) (& $sx 124) (& $sx 124) (& $sx 36)
     $gradientBrush = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-        [System.Drawing.RectangleF]::new((& $sx 10), (& $sx 10), (& $sx 108), (& $sx 108)),
+        [System.Drawing.RectangleF]::new((& $sx 2), (& $sx 2), (& $sx 124), (& $sx 124)),
         (New-Color "#D2C7FC"),
         (New-Color "#2E4FE0"),
         45.0
@@ -96,41 +96,41 @@ function New-AppIconBitmap {
         $glowPath.Dispose()
     }
     # Lavender tint, gloss cloud, specular spot, bottom bounce.
-    & $glow 40 22 44 26 "#E4DCFE" 60
-    & $glow 48 24 25 12 "#FFFFFF" 80
-    & $glow 36 18 12.5 6 "#FFFFFF" 98
-    & $glow 92 104 30 14 "#FFFFFF" 34
+    & $glow 36.4 15.8 50.5 29.8 "#E4DCFE" 60
+    & $glow 45.6 18.1 28.7 13.8 "#FFFFFF" 80
+    & $glow 32.1 11.2 14.4 6.9 "#FFFFFF" 98
+    & $glow 96.2 109.9 34.4 16.1 "#FFFFFF" 34
 
     # Soft inner edge light via three layered strokes.
-    $edgePath = New-RoundedRectPath (& $sx 11) (& $sx 11) (& $sx 106) (& $sx 106) (& $sx 31)
-    foreach ($edge in @(@(3.5, 12), @(2.5, 22), @(1.2, 40))) {
+    $edgePath = New-RoundedRectPath (& $sx 3.2) (& $sx 3.2) (& $sx 121.6) (& $sx 121.6) (& $sx 35.6)
+    foreach ($edge in @(@(4.0, 12), @(2.9, 22), @(1.4, 40))) {
         $edgePen = [System.Drawing.Pen]::new((New-Color "#FFFFFF" $edge[1]), [float](& $sx $edge[0]))
         $graphics.DrawPath($edgePen, $edgePath)
         $edgePen.Dispose()
     }
 
-    $bracketPen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 9))
+    $bracketPen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 10.3))
     $bracketPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $bracketPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
     $bracketPen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
-    $linePen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 8))
+    $linePen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 9.2))
     $linePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $linePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
 
     $brackets = @(
-        @((52, 38), (38, 38), (38, 52)),
-        @((76, 38), (90, 38), (90, 52)),
-        @((52, 90), (38, 90), (38, 76)),
-        @((76, 90), (90, 90), (90, 76))
+        @((50.2, 34.2), (34.2, 34.2), (34.2, 50.2)),
+        @((77.8, 34.2), (93.8, 34.2), (93.8, 50.2)),
+        @((50.2, 93.8), (34.2, 93.8), (34.2, 77.8)),
+        @((77.8, 93.8), (93.8, 93.8), (93.8, 77.8))
     )
     foreach ($bracket in $brackets) {
         $points = $bracket | ForEach-Object { [System.Drawing.PointF]::new((& $sx $_[0]), (& $sx $_[1])) }
         $graphics.DrawLines($bracketPen, [System.Drawing.PointF[]]$points)
     }
     $textLines = @(
-        @(50, 53, 74, 53),
-        @(50, 65, 80, 65),
-        @(50, 77, 68, 77)
+        @(47.9, 51.4, 75.5, 51.4),
+        @(47.9, 65.1, 82.4, 65.1),
+        @(47.9, 78.9, 68.6, 78.9)
     )
     foreach ($line in $textLines) {
         $graphics.DrawLine($linePen, (& $sx $line[0]), (& $sx $line[1]), (& $sx $line[2]), (& $sx $line[3]))
