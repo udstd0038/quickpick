@@ -125,20 +125,20 @@ function New-TrayIconBitmap {
     $scale = $Size / 128.0
     $sx = { param([double]$value) [float]($value * $scale) }
 
-    $bracketPen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 9))
+    $bracketPen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 12))
     $bracketPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $bracketPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
     $bracketPen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
 
-    $linePen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 8))
+    $linePen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 10))
     $linePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $linePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
 
     $brackets = @(
-        @((52, 38), (38, 38), (38, 52)),
-        @((76, 38), (90, 38), (90, 52)),
-        @((52, 90), (38, 90), (38, 76)),
-        @((76, 90), (90, 90), (90, 76))
+        @((48, 18), (18, 18), (18, 48)),
+        @((80, 18), (110, 18), (110, 48)),
+        @((48, 110), (18, 110), (18, 80)),
+        @((80, 110), (110, 110), (110, 80))
     )
     foreach ($bracket in $brackets) {
         $points = $bracket | ForEach-Object { [System.Drawing.PointF]::new((& $sx $_[0]), (& $sx $_[1])) }
@@ -146,9 +146,9 @@ function New-TrayIconBitmap {
     }
 
     $textLines = @(
-        @(50, 53, 74, 53),
-        @(50, 65, 80, 65),
-        @(50, 77, 68, 77)
+        @(38, 50, 74, 50),
+        @(38, 64, 86, 64),
+        @(38, 78, 66, 78)
     )
     foreach ($line in $textLines) {
         $graphics.DrawLine($linePen, (& $sx $line[0]), (& $sx $line[1]), (& $sx $line[2]), (& $sx $line[3]))

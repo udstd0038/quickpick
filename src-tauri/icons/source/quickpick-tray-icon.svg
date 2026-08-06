@@ -1,9 +1,9 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-    <path d="M52 38 L38 38 L38 52" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M76 38 L90 38 L90 52" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M52 90 L38 90 L38 76" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M76 90 L90 90 L90 76" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M50 53 L74 53" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
-    <path d="M50 65 L80 65" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
-    <path d="M50 77 L68 77" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M48 18 L18 18 L18 48" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M80 18 L110 18 L110 48" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M48 110 L18 110 L18 80" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M80 110 L110 110 L110 80" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M38 50 L74 50" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" fill="none"/>
+    <path d="M38 64 L86 64" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" fill="none"/>
+    <path d="M38 78 L66 78" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" fill="none"/>
 </svg>
