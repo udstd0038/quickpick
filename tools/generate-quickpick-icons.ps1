@@ -120,63 +120,43 @@ function New-TrayIconBitmap {
     Set-HighQualityGraphics $graphics
     $graphics.Clear([System.Drawing.Color]::Transparent)
 
-    $scale = $Size / 64.0
+    # Tray glyph: white linear "corner brackets + three text lines" (set D).
+    # Geometry is defined in a 128-unit design space.
+    $scale = $Size / 128.0
     $sx = { param([double]$value) [float]($value * $scale) }
-    $circle = [System.Drawing.RectangleF]::new((& $sx 4), (& $sx 4), (& $sx 56), (& $sx 56))
-    $bgBrush = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-        $circle,
-        (New-Color "#3A3A3A"),
-        (New-Color "#222222"),
-        45.0
+
+    $bracketPen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 9))
+    $bracketPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $bracketPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $bracketPen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+
+    $linePen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 8))
+    $linePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $linePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+
+    $brackets = @(
+        @((52, 38), (38, 38), (38, 52)),
+        @((76, 38), (90, 38), (90, 52)),
+        @((52, 90), (38, 90), (38, 76)),
+        @((76, 90), (90, 90), (90, 76))
     )
-    $borderColor = New-Color "#F1F1F1" 38
-    $glowColor = New-Color "#FFFFFF" 26
-    $markColor = New-Color "#D8D8D8" 248
-    $markShadowColor = New-Color "#000000" 72
-    $topTextureColor = New-Color "#FFFFFF" 31
-    $bottomTextureColor = New-Color "#000000" 46
-    $highlightColor = New-Color "#FFFFFF" 72
-    $graphics.FillEllipse($bgBrush, $circle)
-    $borderPen = [System.Drawing.Pen]::new($borderColor, [float](& $sx 2.6))
-    $graphics.DrawEllipse($borderPen, $circle)
-    $topTextureBrush = [System.Drawing.SolidBrush]::new($topTextureColor)
-    $graphics.FillEllipse($topTextureBrush, (& $sx 13), (& $sx 8), (& $sx 34), (& $sx 16))
-    $bottomTextureBrush = [System.Drawing.SolidBrush]::new($bottomTextureColor)
-    $graphics.FillEllipse($bottomTextureBrush, (& $sx 28), (& $sx 49), (& $sx 30), (& $sx 11))
+    foreach ($bracket in $brackets) {
+        $points = $bracket | ForEach-Object { [System.Drawing.PointF]::new((& $sx $_[0]), (& $sx $_[1])) }
+        $graphics.DrawLines($bracketPen, [System.Drawing.PointF[]]$points)
+    }
 
-    $arcBox = [System.Drawing.RectangleF]::new((& $sx 15), (& $sx 13), (& $sx 38), (& $sx 38))
-    $shadowArcBox = [System.Drawing.RectangleF]::new((& $sx 16), (& $sx 15), (& $sx 38), (& $sx 38))
-    $shadowPen = [System.Drawing.Pen]::new($markShadowColor, [float](& $sx 8.2))
-    $shadowPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $shadowPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $graphics.DrawArc($shadowPen, $shadowArcBox, 145, 300)
-    $graphics.DrawLine($shadowPen, (& $sx 44.7), (& $sx 50.2), (& $sx 56.4), (& $sx 56.8))
-
-    $glowPen = [System.Drawing.Pen]::new($glowColor, [float](& $sx 8.5))
-    $glowPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $glowPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $graphics.DrawArc($glowPen, $arcBox, 145, 300)
-
-    $markPen = [System.Drawing.Pen]::new($markColor, [float](& $sx 6.2))
-    $markPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $markPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $graphics.DrawArc($markPen, $arcBox, 145, 300)
-    $graphics.DrawLine($markPen, (& $sx 43.5), (& $sx 48.6), (& $sx 55.2), (& $sx 55.2))
-
-    $highlightPen = [System.Drawing.Pen]::new($highlightColor, [float](& $sx 1.8))
-    $highlightPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $highlightPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $graphics.DrawArc($highlightPen, $arcBox, 205, 112)
+    $textLines = @(
+        @(50, 53, 74, 53),
+        @(50, 65, 80, 65),
+        @(50, 77, 68, 77)
+    )
+    foreach ($line in $textLines) {
+        $graphics.DrawLine($linePen, (& $sx $line[0]), (& $sx $line[1]), (& $sx $line[2]), (& $sx $line[3]))
+    }
 
     $graphics.Dispose()
-    $bgBrush.Dispose()
-    $borderPen.Dispose()
-    $topTextureBrush.Dispose()
-    $bottomTextureBrush.Dispose()
-    $shadowPen.Dispose()
-    $glowPen.Dispose()
-    $markPen.Dispose()
-    $highlightPen.Dispose()
+    $bracketPen.Dispose()
+    $linePen.Dispose()
 
     $bitmap
 }
