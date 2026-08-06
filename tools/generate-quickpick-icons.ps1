@@ -58,56 +58,90 @@ function New-AppIconBitmap {
     Set-HighQualityGraphics $graphics
     $graphics.Clear([System.Drawing.Color]::Transparent)
 
-    $scale = $Size / 1024.0
+    # Set E: rounded-square plate, five-stop blue-violet gradient, layered
+    # glass highlights, soft inner edge, white brackets + text lines glyph.
+    # Geometry is defined in a 128-unit design space.
+    $scale = $Size / 128.0
     $sx = { param([double]$value) [float]($value * $scale) }
-    $rect = [System.Drawing.RectangleF]::new((& $sx 88), (& $sx 72), (& $sx 848), (& $sx 880))
-    $bgPath = New-RoundedRectPath $rect.X $rect.Y $rect.Width $rect.Height (& $sx 230)
 
-    $bgBrush = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-        $rect,
-        (New-Color "#FFFFFF"),
-        (New-Color "#DDEEFF"),
+    $platePath = New-RoundedRectPath (& $sx 10) (& $sx 10) (& $sx 108) (& $sx 108) (& $sx 32)
+    $gradientBrush = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
+        [System.Drawing.RectangleF]::new((& $sx 10), (& $sx 10), (& $sx 108), (& $sx 108)),
+        (New-Color "#D2C7FC"),
+        (New-Color "#2E4FE0"),
         45.0
     )
-    $graphics.FillPath($bgBrush, $bgPath)
+    $blend = [System.Drawing.Drawing2D.ColorBlend]::new(5)
+    $blend.Colors = @(
+        (New-Color "#D2C7FC"),
+        (New-Color "#A3B8FB"),
+        (New-Color "#64A5FA"),
+        (New-Color "#3D79F4"),
+        (New-Color "#2E4FE0")
+    )
+    $blend.Positions = @(0.0, 0.22, 0.5, 0.78, 1.0)
+    $gradientBrush.InterpolationColors = $blend
+    $graphics.FillPath($gradientBrush, $platePath)
 
-    $topGlow = [System.Drawing.SolidBrush]::new((New-Color "#FFFFFF" 188))
-    $graphics.FillEllipse($topGlow, (& $sx 156), (& $sx 96), (& $sx 610), (& $sx 270))
-    $bottomGlow = [System.Drawing.SolidBrush]::new((New-Color "#8CCBFF" 42))
-    $graphics.FillEllipse($bottomGlow, (& $sx 500), (& $sx 710), (& $sx 300), (& $sx 150))
-    $borderPen = [System.Drawing.Pen]::new((New-Color "#3A80ED" 44), [float](& $sx 12))
-    $graphics.DrawPath($borderPen, $bgPath)
-    $innerPath = New-RoundedRectPath (& $sx 118) (& $sx 104) (& $sx 788) (& $sx 814) (& $sx 202)
-    $innerPen = [System.Drawing.Pen]::new((New-Color "#FFFFFF" 218), [float](& $sx 5))
-    $graphics.DrawPath($innerPen, $innerPath)
+    # Radial glow helper: soft highlights that fade to transparent.
+    $glow = {
+        param([double]$cx, [double]$cy, [double]$rx, [double]$ry, [string]$hex, [int]$alpha)
+        $glowPath = [System.Drawing.Drawing2D.GraphicsPath]::new()
+        $glowPath.AddEllipse([float](& $sx ($cx - $rx)), [float](& $sx ($cy - $ry)), [float](& $sx ($rx * 2)), [float](& $sx ($ry * 2)))
+        $glowBrush = [System.Drawing.Drawing2D.PathGradientBrush]::new($glowPath)
+        $glowBrush.CenterColor = New-Color $hex $alpha
+        $glowBrush.SurroundColors = @([System.Drawing.Color]::FromArgb(0, 255, 255, 255))
+        $graphics.FillPath($glowBrush, $glowPath)
+        $glowBrush.Dispose()
+        $glowPath.Dispose()
+    }
+    # Lavender tint, gloss cloud, specular spot, bottom bounce.
+    & $glow 40 22 44 26 "#E4DCFE" 60
+    & $glow 48 24 25 12 "#FFFFFF" 80
+    & $glow 36 18 12.5 6 "#FFFFFF" 98
+    & $glow 92 104 30 14 "#FFFFFF" 34
 
-    $arcBox = [System.Drawing.RectangleF]::new((& $sx 270), (& $sx 272), (& $sx 492), (& $sx 492))
-    $glowPen = [System.Drawing.Pen]::new((New-Color "#7DB7FF" 74), [float](& $sx 124))
-    $glowPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $glowPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $graphics.DrawArc($glowPen, $arcBox, 145, 300)
+    # Soft inner edge light via three layered strokes.
+    $edgePath = New-RoundedRectPath (& $sx 11) (& $sx 11) (& $sx 106) (& $sx 106) (& $sx 31)
+    foreach ($edge in @(@(3.5, 12), @(2.5, 22), @(1.2, 40))) {
+        $edgePen = [System.Drawing.Pen]::new((New-Color "#FFFFFF" $edge[1]), [float](& $sx $edge[0]))
+        $graphics.DrawPath($edgePen, $edgePath)
+        $edgePen.Dispose()
+    }
 
-    $mainPen = [System.Drawing.Pen]::new((New-Color "#2F7DF6" 242), [float](& $sx 88))
-    $mainPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $mainPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $graphics.DrawArc($mainPen, $arcBox, 145, 300)
+    $bracketPen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 9))
+    $bracketPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $bracketPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $bracketPen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+    $linePen = [System.Drawing.Pen]::new((New-Color "#FFFFFF"), [float](& $sx 8))
+    $linePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $linePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
 
-    $tailPen = [System.Drawing.Pen]::new((New-Color "#2F7DF6" 242), [float](& $sx 88))
-    $tailPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $tailPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $graphics.DrawLine($tailPen, (& $sx 626), (& $sx 738), (& $sx 778), (& $sx 810))
+    $brackets = @(
+        @((52, 38), (38, 38), (38, 52)),
+        @((76, 38), (90, 38), (90, 52)),
+        @((52, 90), (38, 90), (38, 76)),
+        @((76, 90), (90, 90), (90, 76))
+    )
+    foreach ($bracket in $brackets) {
+        $points = $bracket | ForEach-Object { [System.Drawing.PointF]::new((& $sx $_[0]), (& $sx $_[1])) }
+        $graphics.DrawLines($bracketPen, [System.Drawing.PointF[]]$points)
+    }
+    $textLines = @(
+        @(50, 53, 74, 53),
+        @(50, 65, 80, 65),
+        @(50, 77, 68, 77)
+    )
+    foreach ($line in $textLines) {
+        $graphics.DrawLine($linePen, (& $sx $line[0]), (& $sx $line[1]), (& $sx $line[2]), (& $sx $line[3]))
+    }
 
     $graphics.Dispose()
-    $bgBrush.Dispose()
-    $topGlow.Dispose()
-    $bottomGlow.Dispose()
-    $borderPen.Dispose()
-    $innerPen.Dispose()
-    $glowPen.Dispose()
-    $mainPen.Dispose()
-    $tailPen.Dispose()
-    $bgPath.Dispose()
-    $innerPath.Dispose()
+    $gradientBrush.Dispose()
+    $platePath.Dispose()
+    $edgePath.Dispose()
+    $bracketPen.Dispose()
+    $linePen.Dispose()
 
     $bitmap
 }

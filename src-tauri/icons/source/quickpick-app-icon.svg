@@ -1,24 +1,40 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="126" y1="88" x2="894" y2="936" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFFFFF"/>
-      <stop offset="0.52" stop-color="#F2F8FF"/>
-      <stop offset="1" stop-color="#DDEEFF"/>
+    <linearGradient id="plate" x1="28" y1="12" x2="100" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D2C7FC"/>
+      <stop offset="0.22" stop-color="#A3B8FB"/>
+      <stop offset="0.5" stop-color="#64A5FA"/>
+      <stop offset="0.78" stop-color="#3D79F4"/>
+      <stop offset="1" stop-color="#2E4FE0"/>
     </linearGradient>
-    <linearGradient id="mark" x1="226" y1="238" x2="804" y2="788" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7DB7FF"/>
-      <stop offset="0.48" stop-color="#2F7DF6"/>
-      <stop offset="1" stop-color="#65D9FF"/>
-    </linearGradient>
-    <filter id="softShadow" x="92" y="76" width="840" height="860" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="34" stdDeviation="46" flood-color="#7EA9D6" flood-opacity="0.22"/>
+    <radialGradient id="gloss" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="tint" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#E4DCFE" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#E4DCFE" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#3D51D8" flood-opacity="0.3"/>
+    </filter>
+    <filter id="softEdge" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="1.4"/>
     </filter>
   </defs>
-  <g filter="url(#softShadow)">
-    <rect x="88" y="72" width="848" height="880" rx="230" fill="url(#bg)"/>
-    <rect x="103" y="88" width="818" height="848" rx="214" stroke="#3A80ED" stroke-opacity="0.18" stroke-width="12"/>
-    <path d="M184 250C272 165 409 126 536 148C662 170 762 252 804 368" stroke="#FFFFFF" stroke-opacity="0.85" stroke-width="36" stroke-linecap="round"/>
-    <path d="M270 518C270 382 380 272 516 272C652 272 762 382 762 518C762 614 707 697 626 738" stroke="url(#mark)" stroke-width="94" stroke-linecap="round"/>
-    <path d="M626 738L778 810" stroke="url(#mark)" stroke-width="94" stroke-linecap="round"/>
+  <g filter="url(#soft)">
+    <rect x="10" y="10" width="108" height="108" rx="32" fill="url(#plate)"/>
+    <ellipse cx="40" cy="22" rx="44" ry="26" fill="url(#tint)"/>
+    <ellipse cx="48" cy="24" rx="25" ry="12" fill="url(#gloss)" opacity="0.69"/>
+    <ellipse cx="36" cy="18" rx="12.5" ry="6" fill="url(#gloss)" opacity="0.65"/>
+    <ellipse cx="92" cy="104" rx="30" ry="14" fill="url(#gloss)" opacity="0.24"/>
+    <rect x="11" y="11" width="106" height="106" rx="31" fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="3.5" filter="url(#softEdge)"/>
   </g>
+    <path d="M52 38 L38 38 L38 52" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M76 38 L90 38 L90 52" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M52 90 L38 90 L38 76" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M76 90 L90 90 L90 76" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M50 53 L74 53" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M50 65 L80 65" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M50 77 L68 77" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" fill="none"/>
 </svg>

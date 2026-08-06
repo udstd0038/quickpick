@@ -1,7 +1,19 @@
 <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="9" cy="9" r="8.25" fill="#F8FBFF"/>
-  <circle cx="9" cy="9" r="7.35" stroke="#2F7DF6" stroke-opacity="0.24" stroke-width="1.1"/>
-  <path d="M5.4 9.2C5.4 6.8 7.4 4.8 9.8 4.8C12.2 4.8 14.3 6.8 14.3 9.2C14.3 11 13.1 12.7 11.8 13.4" stroke="#1B55C8" stroke-opacity="0.22" stroke-width="2.9" stroke-linecap="round"/>
-  <path d="M5.1 9C5.1 6.5 7.1 4.5 9.6 4.5C12.1 4.5 14.1 6.5 14.1 9C14.1 10.8 13 12.4 11.5 13.1" stroke="#2F7DF6" stroke-width="2.3" stroke-linecap="round"/>
-  <path d="M11.5 13.1L15.1 15.1" stroke="#2F7DF6" stroke-width="2.3" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="p" x1="2" y1="1" x2="16" y2="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A8DAFF"/>
+      <stop offset="0.55" stop-color="#5FB4FD"/>
+      <stop offset="1" stop-color="#2E86F6"/>
+    </linearGradient>
+  </defs>
+  <rect x="1.4" y="1.4" width="15.2" height="15.2" rx="4.5" fill="url(#p)"/>
+  <g stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M7.3 5.3 L5.3 5.3 L5.3 7.3"/>
+    <path d="M10.7 5.3 L12.7 5.3 L12.7 7.3"/>
+    <path d="M7.3 12.7 L5.3 12.7 L5.3 10.7"/>
+    <path d="M10.7 12.7 L12.7 12.7 L12.7 10.7"/>
+    <path d="M7.1 7.5 L10.4 7.5" stroke-width="1.4"/>
+    <path d="M7.1 9.2 L11.3 9.2" stroke-width="1.4"/>
+    <path d="M7.1 10.9 L9.6 10.9" stroke-width="1.4"/>
+  </g>
 </svg>
