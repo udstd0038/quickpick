@@ -2624,13 +2624,6 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
   return (
     <main className="app-shell settings-window">
       <SettingsTitlebar />
-      <header className="settings-header">
-        <div>
-          <p className="eyebrow">设置</p>
-          <h1>QuickPick 设置</h1>
-        </div>
-        <span className="status-pill">{coreStatus}</span>
-      </header>
 
       <section className="settings-layout">
         <nav className="settings-nav" aria-label="设置分类" ref={navRef}>

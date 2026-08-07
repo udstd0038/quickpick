@@ -14,9 +14,9 @@
       {
         "label": "main",
         "title": "QuickPick 设置",
-        "width": 560,
+        "width": 720,
         "height": 720,
-        "minWidth": 500,
+        "minWidth": 640,
         "minHeight": 620,
         "center": true,
         "resizable": true,

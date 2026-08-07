@@ -219,12 +219,10 @@ pub fn open_input_popup(
     status: String,
     theme: NativeTheme,
 ) -> Result<InputPopupHandle, String> {
-    let (sender, receiver) = mpsc::channel();
-    let (event_sender, event_receiver) = mpsc::channel();
-    thread::Builder::new()
-        .name("quickpick-input-popup".to_string())
-        .spawn(move || {
-            let _ = native_window::run_input_updatable(
+        let (sender, receiver) = mpsc::channel();
+        let (event_sender, event_receiver) = mpsc::channel();
+        let spawn_input = move || {
+            match native_window::run_input_updatable(
                 input_text,
                 source_language,
                 target_language,
@@ -235,8 +233,14 @@ pub fn open_input_popup(
                 theme,
                 receiver,
                 event_sender,
-            );
-        })
+            ) {
+                Ok(()) => {}
+                Err(error) => eprintln!("QuickPick input popup thread error: {error}"),
+            }
+        };
+        thread::Builder::new()
+            .name("quickpick-input-popup".to_string())
+            .spawn(spawn_input)
         .map_err(|error| format!("创建输入翻译弹窗线程失败：{error}"))?;
 
     Ok(InputPopupHandle {
@@ -299,26 +303,24 @@ mod native_window {
             BeginPaint, BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, CreateFontW, CreatePen,
             CreateRoundRectRgn, CreateSolidBrush, DeleteDC, DeleteObject, DrawTextW, EndPaint,
             FillRect, FrameRect, IntersectClipRect, InvalidateRect, LineTo, MoveToEx, RestoreDC,
-            RoundRect, SaveDC, SelectObject, SetBkColor, SetBkMode, SetTextColor, SetWindowRgn,
+            RoundRect, SaveDC, SelectObject, SetBkMode, SetTextColor, SetWindowRgn,
             UpdateWindow, DT_CENTER, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER,
             DT_WORDBREAK, HDC, PAINTSTRUCT, PS_SOLID, SRCCOPY, TRANSPARENT,
         },
         System::LibraryLoader::GetModuleHandleW,
         UI::{
-            Input::KeyboardAndMouse::{ReleaseCapture, SetCapture},
+            Input::KeyboardAndMouse::{ReleaseCapture, SetCapture, SetFocus},
             WindowsAndMessaging::{
-                CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect,
-                GetForegroundWindow, GetMessageW, GetWindowLongPtrW, GetWindowTextLengthW,
-                GetWindowTextW, IsWindow, LoadCursorW,
-                MoveWindow, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageW,
+                BringWindowToTop, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
+                GetClientRect, GetForegroundWindow, GetMessageW, GetWindowLongPtrW, IsWindow,
+                LoadCursorW, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageW,
                 SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
                 TranslateMessage, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, HTCAPTION, HWND_NOTOPMOST,
                 HWND_TOPMOST, IDC_ARROW, MSG, PM_REMOVE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-                SWP_SHOWWINDOW, SW_SHOW, SW_SHOWNOACTIVATE, WM_COMMAND, WM_CREATE,
-                WM_CTLCOLOREDIT, WM_DESTROY, WM_ERASEBKGND, WM_KEYDOWN, WM_KILLFOCUS,
-                WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY,
-                WM_NCLBUTTONDOWN, WM_PAINT, WM_QUIT, WM_SIZE, WNDCLASSW, WS_CHILD, WS_EX_TOOLWINDOW,
-                WS_POPUP, WS_VISIBLE, WS_VSCROLL,
+                SWP_SHOWWINDOW, SW_SHOW, SW_SHOWNOACTIVATE, WM_CHAR, WM_DESTROY, WM_ERASEBKGND,
+                WM_KEYDOWN, WM_LBUTTONDOWN,
+                WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_NCLBUTTONDOWN, WM_PAINT,
+                WM_QUIT, WM_SIZE, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
             },
         },
     };
@@ -502,9 +504,6 @@ mod native_window {
         translation_direction: String,
         theme: NativeTheme,
         event_sender: Option<Sender<InputPopupEvent>>,
-        edit_hwnd: HWND,
-        edit_font: isize,
-        edit_brush: isize,
         pinned: bool,
         scroll: i32,
         animation_tick: u32,
@@ -515,6 +514,7 @@ mod native_window {
         open_language_menu: Option<LanguageMenuKind>,
         hovered_language_option: Option<usize>,
         language_menu_options: Vec<Button<usize>>,
+        input_focused: bool,
         edit_rect: RECT,
         content_rect: RECT,
         result_rect: RECT,
@@ -654,8 +654,9 @@ mod native_window {
         can_switch_language: bool,
         theme: NativeTheme,
     ) -> Result<(), String> {
+        eprintln!("QuickPick run_input_updatable started");
         let width = 560;
-        let height = 420;
+        let height = 460;
         let (x, y) = clamp_window_position(width, height);
         let previous_foreground = unsafe { GetForegroundWindow() };
         let mut state = ResultPopupState::new(
@@ -1212,7 +1213,17 @@ mod native_window {
         if activate {
             ShowWindow(hwnd, SW_SHOW);
             UpdateWindow(hwnd);
-            SetForegroundWindow(hwnd);
+            let _ = SetForegroundWindow(hwnd);
+            BringWindowToTop(hwnd);
+            SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            );
         } else {
             ShowWindow(hwnd, SW_SHOWNOACTIVATE);
             SetWindowPos(
@@ -2476,9 +2487,6 @@ mod native_window {
                 translation_direction,
                 theme,
                 event_sender,
-                edit_hwnd: null_mut(),
-                edit_font: 0,
-                edit_brush: 0,
                 pinned: false,
                 scroll: 0,
                 animation_tick: 0,
@@ -2489,6 +2497,7 @@ mod native_window {
                 open_language_menu: None,
                 hovered_language_option: None,
                 language_menu_options: Vec::new(),
+                input_focused: true,
                 edit_rect: empty_rect(),
                 content_rect: empty_rect(),
                 result_rect: empty_rect(),
@@ -2512,10 +2521,9 @@ mod native_window {
         receiver: Receiver<InputPopupUpdate>,
         event_sender: Sender<InputPopupEvent>,
     ) -> Result<(), String> {
-        let width = 640;
-        let height = 520;
+        let width = 560;
+        let height = 460;
         let (x, y) = clamp_window_position(width, height);
-        let previous_foreground = unsafe { GetForegroundWindow() };
         let mut state = InputPopupState::new(
             input_text,
             source_language,
@@ -2527,7 +2535,8 @@ mod native_window {
             theme,
             Some(event_sender),
         );
-        let hwnd = create_popup_window(
+        preset_input_layout(&mut state, width, height);
+        let hwnd = match create_popup_window(
             INPUT_CLASS_NAME,
             INPUT_WINDOW_TITLE,
             input_window_proc,
@@ -2537,10 +2546,14 @@ mod native_window {
             height,
             &mut state as *mut InputPopupState as isize,
             true,
-        )?;
-
+        ) {
+            Ok(hwnd) => hwnd,
+            Err(error) => {
+                eprintln!("QuickPick input popup create failed: {error}");
+                return Err(error);
+            }
+        };
         input_message_loop(hwnd, &mut state, receiver);
-        restore_previous_foreground(previous_foreground);
         Ok(())
     }
 
@@ -2562,13 +2575,6 @@ mod native_window {
         let state = &mut *state_ptr;
 
         match message {
-            WM_CREATE => {
-                if let Err(error) = create_input_edit(hwnd, state) {
-                    eprintln!("创建输入翻译输入框失败：{error}");
-                    return -1;
-                }
-                0
-            }
             WM_ERASEBKGND => 1,
             WM_PAINT => {
                 paint_input(hwnd, state);
@@ -2576,36 +2582,7 @@ mod native_window {
             }
             WM_SIZE => {
                 layout_input_state(hwnd, state);
-                if !state.edit_hwnd.is_null() {
-                    unsafe {
-                        MoveWindow(
-                            state.edit_hwnd,
-                            state.edit_rect.left,
-                            state.edit_rect.top,
-                            state.edit_rect.right - state.edit_rect.left,
-                            state.edit_rect.bottom - state.edit_rect.top,
-                            1,
-                        );
-                    }
-                }
                 0
-            }
-            WM_CTLCOLOREDIT => {
-                let palette = popup_palette(state.theme);
-                if state.edit_brush == 0 {
-                    state.edit_brush = CreateSolidBrush(palette.window_bg) as isize;
-                }
-                let hdc = wparam as HDC;
-                SetBkColor(hdc, palette.window_bg);
-                SetTextColor(hdc, palette.text);
-                state.edit_brush as LRESULT
-            }
-            WM_COMMAND => {
-                if wparam as u32 == 0x0305 {
-                    trigger_input_translation(hwnd, state);
-                    return 0;
-                }
-                DefWindowProcW(hwnd, message, wparam, lparam)
             }
             WM_MOUSEMOVE => {
                 let point = point_from_lparam(lparam);
@@ -2658,6 +2635,15 @@ mod native_window {
                     state.pressed_button = Some(kind);
                     SetCapture(hwnd);
                     invalidate_input_buttons(hwnd, state, Some(kind), Some(kind));
+                    return 0;
+                }
+
+                if point_in_rect(state.edit_rect, point) {
+                    state.input_focused = true;
+                    unsafe {
+                        SetFocus(hwnd);
+                    }
+                    invalidate_input_edit(hwnd, state);
                     return 0;
                 }
 
@@ -2768,28 +2754,33 @@ mod native_window {
                 if wparam == ESC_KEY {
                     DestroyWindow(hwnd);
                     0
+                } else if state.input_focused {
+                    handle_input_keydown(hwnd, state, wparam, lparam);
+                    0
                 } else {
                     DefWindowProcW(hwnd, message, wparam, lparam)
                 }
             }
-            WM_KILLFOCUS => {
-                state.pressed_button = None;
-                ReleaseCapture();
-                0
+            WM_CHAR => {
+                if state.input_focused {
+                    let code_unit = wparam as u32;
+                    if let Some(ch) = char::from_u32(code_unit) {
+                        if ch as u32 >= 32 || ch == '\r' || ch == '\n' {
+                            state.input_text.push(ch);
+                            invalidate_input_edit(hwnd, state);
+                        }
+                    } else if code_unit == 0 {
+                        state.input_text.push('\0');
+                        invalidate_input_edit(hwnd, state);
+                    }
+                    0
+                } else {
+                    DefWindowProcW(hwnd, message, wparam, lparam)
+                }
             }
             WM_DESTROY => {
                 state.pressed_button = None;
                 ReleaseCapture();
-                if state.edit_font != 0 {
-                    unsafe {
-                        DeleteObject(state.edit_font as _);
-                    }
-                }
-                if state.edit_brush != 0 {
-                    unsafe {
-                        DeleteObject(state.edit_brush as _);
-                    }
-                }
                 PostQuitMessage(0);
                 0
             }
@@ -2870,56 +2861,6 @@ mod native_window {
         }
     }
 
-    unsafe fn create_input_edit(hwnd: HWND, state: &mut InputPopupState) -> Result<(), String> {
-        layout_input_state(hwnd, state);
-        let edit_class = to_wide("EDIT");
-        let edit_title = to_wide("");
-        let instance = GetModuleHandleW(null_mut());
-        let edit_hwnd = CreateWindowExW(
-            0,
-            edit_class.as_ptr(),
-            edit_title.as_ptr(),
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL | 0x0004 | 0x0001 | 0x0040 | 0x0100,
-            state.edit_rect.left,
-            state.edit_rect.top,
-            state.edit_rect.right - state.edit_rect.left,
-            state.edit_rect.bottom - state.edit_rect.top,
-            hwnd,
-            null_mut(),
-            instance,
-            null_mut(),
-        );
-        if edit_hwnd.is_null() {
-            return Err("创建输入框失败".to_string());
-        }
-        state.edit_hwnd = edit_hwnd;
-
-        let face = to_wide(UI_FONT_FACE);
-        let font = CreateFontW(
-            -UI_FONT_SIZE,
-            0,
-            0,
-            0,
-            UI_FONT_WEIGHT_NORMAL,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            face.as_ptr(),
-        );
-        state.edit_font = font as isize;
-        SendMessageW(edit_hwnd, 0x0030, state.edit_font as WPARAM, 1); // WM_SETFONT
-        SendMessageW(edit_hwnd, 0x014d, 2, 10 | (10 << 16)); // EM_SETMARGINS
-        let wide_input = to_wide(&state.input_text);
-        SendMessageW(edit_hwnd, 0x000c, 0, wide_input.as_ptr() as LPARAM); // WM_SETTEXT
-        SendMessageW(edit_hwnd, 0x0007, 0, 0); // WM_SETFOCUS
-        Ok(())
-    }
-
     fn layout_input_state(hwnd: HWND, state: &mut InputPopupState) {
         let mut client = empty_rect();
         unsafe {
@@ -2930,17 +2871,32 @@ mod native_window {
 
         state.edit_rect = RECT {
             left: 14,
-            top: 58,
+            top: 56,
             right: right - 14,
-            bottom: 190,
+            bottom: 128,
         };
         state.result_rect = RECT {
             left: 14,
-            top: 232,
+            top: 148,
             right: right - 14,
             bottom: bottom - 50,
         };
         state.buttons = input_buttons(client);
+    }
+
+    fn preset_input_layout(state: &mut InputPopupState, width: i32, height: i32) {
+        state.edit_rect = RECT {
+            left: 14,
+            top: 56,
+            right: width - 14,
+            bottom: 128,
+        };
+        state.result_rect = RECT {
+            left: 14,
+            top: 148,
+            right: width - 14,
+            bottom: height - 50,
+        };
     }
 
     fn input_buttons(client: RECT) -> Vec<Button<InputButtonKind>> {
@@ -3000,20 +2956,20 @@ mod native_window {
         });
 
         buttons.push(Button {
-            kind: InputButtonKind::Translate,
-            rect: RECT {
-                left: right - 14 - 112,
-                top: 198,
-                right: right - 14,
-                bottom: 228,
-            },
-        });
-        buttons.push(Button {
             kind: InputButtonKind::Copy,
             rect: RECT {
                 left: right - 14 - 112,
                 top: bottom - 40,
                 right: right - 14,
+                bottom: bottom - 8,
+            },
+        });
+        buttons.push(Button {
+            kind: InputButtonKind::Translate,
+            rect: RECT {
+                left: right - 14 - 112 - 8 - 112,
+                top: bottom - 40,
+                right: right - 14 - 112 - 8,
                 bottom: bottom - 8,
             },
         });
@@ -3033,7 +2989,13 @@ mod native_window {
         frame_rect(hdc, client, palette.window_border);
 
         layout_input_state(hwnd, state);
-        paint_input_edit_panel(hdc, state.edit_rect, palette);
+        paint_input_edit_panel(
+            hdc,
+            state.edit_rect,
+            &state.input_text,
+            state.input_focused,
+            palette,
+        );
         paint_soft_rect(hdc, state.result_rect, 14, palette.panel_bg, palette.panel_border);
         if state.loading() {
             paint_skeleton(hdc, inset_rect(state.result_rect, 8, 8), state.animation_tick, palette);
@@ -3106,7 +3068,8 @@ mod native_window {
                         hdc,
                         button.rect,
                         &label,
-                        button.kind == InputButtonKind::Translate,
+                        button.kind == InputButtonKind::Translate
+                            || button.kind == InputButtonKind::Copy,
                         visual_state,
                         palette,
                     );
@@ -3130,12 +3093,18 @@ mod native_window {
         }
     }
 
-    fn paint_input_edit_panel(hdc: HDC, rect: RECT, palette: PopupPalette) {
+    fn paint_input_edit_panel(
+        hdc: HDC,
+        rect: RECT,
+        text: &str,
+        focused: bool,
+        palette: PopupPalette,
+    ) {
         let label_rect = RECT {
             left: rect.left + 2,
-            top: rect.top - 22,
+            top: rect.top - 16,
             right: rect.right - 2,
-            bottom: rect.top - 6,
+            bottom: rect.top - 2,
         };
         draw_text_strong(
             hdc,
@@ -3143,6 +3112,30 @@ mod native_window {
             label_rect,
             palette.text_secondary,
             DT_SINGLELINE | DT_VCENTER,
+        );
+        let panel = RECT {
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+        };
+        let border = if focused {
+            palette.primary_border
+        } else {
+            palette.panel_border
+        };
+        paint_soft_rect(hdc, panel, 10, palette.panel_bg, border);
+        let text_rect = inset_rect(panel, 12, 8);
+        draw_text(
+            hdc,
+            if text.is_empty() { "请输入要翻译的文本" } else { text },
+            text_rect,
+            if text.is_empty() {
+                palette.text_secondary
+            } else {
+                palette.text
+            },
+            DT_WORDBREAK | DT_NOPREFIX | DT_END_ELLIPSIS,
         );
     }
 
@@ -3158,8 +3151,7 @@ mod native_window {
     }
 
     fn trigger_input_translation(hwnd: HWND, state: &mut InputPopupState) {
-        let input_text = read_edit_text(state.edit_hwnd);
-        state.input_text = input_text.clone();
+        let input_text = state.input_text.clone();
         if let Some(sender) = &state.event_sender {
             let _ = sender.send(InputPopupEvent::TranslateRequested {
                 input_text,
@@ -3178,18 +3170,47 @@ mod native_window {
         }
     }
 
-    fn read_edit_text(edit_hwnd: HWND) -> String {
-        if edit_hwnd.is_null() {
-            return String::new();
+    fn handle_input_keydown(
+        hwnd: HWND,
+        state: &mut InputPopupState,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) {
+        const VK_BACK: usize = 0x08;
+        const VK_RETURN: usize = 0x0d;
+        const VK_DELETE: usize = 0x2e;
+        const VK_V: usize = 0x56;
+        let ctrl_pressed = (lparam & (1 << 29)) != 0;
+
+        if wparam == VK_BACK {
+            state.input_text.pop();
+        } else if wparam == VK_DELETE {
+            state.input_text.pop();
+        } else if wparam == VK_RETURN {
+            state.input_text.push('\n');
+        } else if wparam == VK_V && ctrl_pressed {
+            if let Some(text) = read_clipboard_text() {
+                state.input_text.push_str(&text);
+            }
         }
-        let length = unsafe { GetWindowTextLengthW(edit_hwnd) };
-        if length <= 0 {
-            return String::new();
+        invalidate_input_edit(hwnd, state);
+    }
+
+    fn invalidate_input_edit(hwnd: HWND, state: &InputPopupState) {
+        if rect_has_area(state.edit_rect) {
+            let rect = state.edit_rect;
+            unsafe {
+                InvalidateRect(hwnd, &rect, 0);
+            }
+        } else {
+            unsafe {
+                InvalidateRect(hwnd, null_mut(), 0);
+            }
         }
-        let mut buffer = vec![0u16; (length as usize) + 1];
-        let written = unsafe { GetWindowTextW(edit_hwnd, buffer.as_mut_ptr(), buffer.len() as i32) };
-        buffer.truncate(written.max(0) as usize);
-        String::from_utf16_lossy(&buffer)
+    }
+
+    fn read_clipboard_text() -> Option<String> {
+        clipboard_win::get_clipboard_string().ok()
     }
 
 }

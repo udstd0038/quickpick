@@ -2827,6 +2827,9 @@ fn activate_input_translate(app: &tauri::AppHandle) {
 }
 
 async fn run_input_translate_flow(app: tauri::AppHandle) -> Result<SelectionActionResult, String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
     let settings = match app_settings::load_app_settings(&app) {
         Ok(settings) => settings,
         Err(error) => {
@@ -2912,9 +2915,9 @@ async fn process_input_translation_events(
     app: &tauri::AppHandle,
     result_popup: &native_popup::InputPopupHandle,
     settings: &app_settings::AppSettings,
-    source_language: String,
-    target_language: String,
-    translation_direction: String,
+    _source_language: String,
+    _target_language: String,
+    _translation_direction: String,
 ) -> Result<(), String> {
     loop {
         let (input_text, source_language, target_language, translation_direction);
