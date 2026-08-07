@@ -2212,7 +2212,9 @@ fn setup_global_shortcuts(
                         activate_selection_bar(app, shortcut_release_keys(shortcut))
                     }
                     Some(HotkeyAction::Screenshot) => capture_region_from_entry(app),
-                    Some(HotkeyAction::InputTranslate) => activate_input_translate(app),
+                    Some(HotkeyAction::InputTranslate) => {
+                        activate_input_translate(app);
+                    }
                     None => {}
                 }
             })
@@ -2827,9 +2829,6 @@ fn activate_input_translate(app: &tauri::AppHandle) {
 }
 
 async fn run_input_translate_flow(app: tauri::AppHandle) -> Result<SelectionActionResult, String> {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
-    }
     let settings = match app_settings::load_app_settings(&app) {
         Ok(settings) => settings,
         Err(error) => {

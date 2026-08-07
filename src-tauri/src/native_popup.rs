@@ -219,7 +219,7 @@ pub fn open_input_popup(
     status: String,
     theme: NativeTheme,
 ) -> Result<InputPopupHandle, String> {
-        let (sender, receiver) = mpsc::channel();
+    let (sender, receiver) = mpsc::channel();
         let (event_sender, event_receiver) = mpsc::channel();
         let spawn_input = move || {
             match native_window::run_input_updatable(
@@ -654,7 +654,6 @@ mod native_window {
         can_switch_language: bool,
         theme: NativeTheme,
     ) -> Result<(), String> {
-        eprintln!("QuickPick run_input_updatable started");
         let width = 560;
         let height = 460;
         let (x, y) = clamp_window_position(width, height);
@@ -682,7 +681,6 @@ mod native_window {
             &mut state as *mut ResultPopupState as isize,
             false,
         )?;
-
         message_loop(hwnd);
         if state.restore_focus {
             restore_previous_foreground(previous_foreground);
@@ -785,7 +783,6 @@ mod native_window {
             &mut state as *mut TrayMenuState as isize,
             true,
         )?;
-
         message_loop(hwnd);
         Ok(state.result)
     }
@@ -958,11 +955,6 @@ mod native_window {
             WM_KILLFOCUS => {
                 state.pressed_button = None;
                 ReleaseCapture();
-                if !state.pinned {
-                    state.restore_focus = false;
-                    DestroyWindow(hwnd);
-                    return 0;
-                }
                 DefWindowProcW(hwnd, message, wparam, lparam)
             }
             WM_DESTROY => {
@@ -1138,7 +1130,6 @@ mod native_window {
             WM_KILLFOCUS => {
                 state.pressed_button = None;
                 ReleaseCapture();
-                DestroyWindow(hwnd);
                 0
             }
             WM_DESTROY => {
@@ -1212,9 +1203,6 @@ mod native_window {
     unsafe fn show_popup_window(hwnd: HWND, activate: bool) {
         if activate {
             ShowWindow(hwnd, SW_SHOW);
-            UpdateWindow(hwnd);
-            let _ = SetForegroundWindow(hwnd);
-            BringWindowToTop(hwnd);
             SetWindowPos(
                 hwnd,
                 HWND_TOPMOST,
@@ -1222,8 +1210,9 @@ mod native_window {
                 0,
                 0,
                 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
             );
+            UpdateWindow(hwnd);
         } else {
             ShowWindow(hwnd, SW_SHOWNOACTIVATE);
             SetWindowPos(
@@ -2553,6 +2542,10 @@ mod native_window {
                 return Err(error);
             }
         };
+        unsafe {
+            SetForegroundWindow(hwnd);
+            SetFocus(hwnd);
+        }
         input_message_loop(hwnd, &mut state, receiver);
         Ok(())
     }
