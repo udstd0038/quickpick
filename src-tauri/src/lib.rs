@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::{
     image::Image,
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    menu::{CheckMenuItem, Menu, MenuItem},
+    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     window::{Effect, EffectsBuilder},
     Emitter, Manager, Theme, WindowEvent,
 };
@@ -2404,22 +2405,14 @@ fn shortcut_key_virtual_code(code: Code) -> Option<i32> {
 
 fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
+    let settings = app_settings::load_app_settings(app).unwrap_or_default();
+    let tray_menu = build_tray_menu(app, settings.autostart_enabled)?;
 
-    TrayIconBuilder::new()
+    let tray = TrayIconBuilder::new()
         .tooltip("QuickPick")
         .icon(icon)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
-            if matches!(
-                event,
-                TrayIconEvent::Click {
-                    button: MouseButton::Right,
-                    button_state: MouseButtonState::Up,
-                    ..
-                }
-            ) {
-                show_tray_menu(tray.app_handle().clone());
-            }
             if matches!(
                 event,
                 TrayIconEvent::DoubleClick {
@@ -2431,8 +2424,39 @@ fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             }
         })
         .build(app)?;
+    tray.set_menu(Some(tray_menu))?;
+    tray.on_menu_event(|app, event| match event.id().as_ref() {
+        "settings" => show_settings_window(app),
+        "autostart" => toggle_autostart_from_tray(app),
+        "quit" => app.exit(0),
+        _ => {}
+    });
 
     Ok(())
+}
+
+fn build_tray_menu(
+    app: &tauri::AppHandle,
+    autostart_enabled: bool,
+) -> tauri::Result<Menu<tauri::Wry>> {
+    use tauri::menu::PredefinedMenuItem;
+
+    let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
+    let autostart = CheckMenuItem::with_id(
+        app,
+        "autostart",
+        "自启动",
+        true,
+        autostart_enabled,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let menu = Menu::with_items(
+        app,
+        &[&settings, &separator, &autostart, &separator, &quit],
+    )?;
+    Ok(menu)
 }
 
 fn toggle_autostart_from_tray(app: &tauri::AppHandle) {
@@ -2448,33 +2472,17 @@ fn toggle_autostart_from_tray(app: &tauri::AppHandle) {
     match app_settings::save_app_settings(app, &settings)
         .and_then(|_| apply_autostart_setting(settings.autostart_enabled))
     {
-        Ok(()) => {}
+        Ok(()) => {
+            if let Some(tray) = app.tray_by_id("main") {
+                if let Ok(menu) = build_tray_menu(app, settings.autostart_enabled) {
+                    let _ = tray.set_menu(Some(menu));
+                }
+            }
+        }
         Err(error) => {
             eprintln!("QuickPick autostart toggle failed: {error}");
         }
     }
-}
-
-fn show_tray_menu(app: tauri::AppHandle) {
-    let _ = std::thread::spawn(move || {
-        let settings = app_settings::load_app_settings(&app).unwrap_or_default();
-        let theme = native_theme::NativeTheme::from_theme_mode(&settings.theme_mode);
-        let action = match native_popup::select_tray_menu_action(theme, settings.autostart_enabled)
-        {
-            Ok(action) => action,
-            Err(error) => {
-                eprintln!("QuickPick tray menu skipped: {error}");
-                None
-            }
-        };
-
-        match action {
-            Some(native_popup::TrayMenuAction::Settings) => show_settings_window(&app),
-            Some(native_popup::TrayMenuAction::ToggleAutostart) => toggle_autostart_from_tray(&app),
-            Some(native_popup::TrayMenuAction::Quit) => app.exit(0),
-            None => {}
-        }
-    });
 }
 
 fn capture_region_from_entry(app: &tauri::AppHandle) {

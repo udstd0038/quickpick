@@ -311,7 +311,7 @@ mod native_window {
         UI::{
             Input::KeyboardAndMouse::{ReleaseCapture, SetCapture, SetFocus},
             WindowsAndMessaging::{
-                BringWindowToTop, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
+                CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
                 GetClientRect, GetForegroundWindow, GetMessageW, GetWindowLongPtrW, IsWindow,
                 LoadCursorW, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageW,
                 SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
