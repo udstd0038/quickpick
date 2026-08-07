@@ -2625,8 +2625,9 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     <main className="app-shell settings-window">
       <SettingsTitlebar />
 
-      <section className="settings-layout">
-        <nav className="settings-nav" aria-label="设置分类" ref={navRef}>
+      <div className="settings-shell">
+        <section className="settings-layout">
+          <nav className="settings-nav" aria-label="设置分类" ref={navRef}>
           <span
             className="settings-nav-indicator"
             ref={navIndicatorRef}
@@ -2657,13 +2658,13 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               {item.label}
             </button>
           ))}
-        </nav>
+          </nav>
 
-        <div
-          className="settings-sections"
-          ref={sectionsRef}
-          onScroll={updateActiveSettingsSection}
-        >
+          <div
+            className="settings-sections"
+            ref={sectionsRef}
+            onScroll={updateActiveSettingsSection}
+          >
           <SettingsSection id="general" title="通用">
             <SettingField label="开机自启">
               <label className="toggle-control">
@@ -3050,7 +3051,6 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           </SettingsSection>
         </div>
       </section>
-
       <footer className="settings-savebar" aria-label="保存设置">
         <span
           className={`settings-feedback settings-feedback-${settingsStatus.kind}`}
@@ -3069,6 +3069,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           保存设置
         </button>
       </footer>
+      </div>
     </main>
   );
 }

@@ -1213,6 +1213,8 @@ mod native_window {
                 SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
             );
             UpdateWindow(hwnd);
+            let _ = SetForegroundWindow(hwnd);
+            SetFocus(hwnd);
         } else {
             ShowWindow(hwnd, SW_SHOWNOACTIVATE);
             SetWindowPos(

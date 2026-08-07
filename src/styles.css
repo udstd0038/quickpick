@@ -1660,9 +1660,20 @@ body,
 
 .settings-window {
   --qp-titlebar-height: 40px;
-  grid-template-rows: var(--qp-titlebar-height) auto minmax(0, 1fr) auto;
+  grid-template-rows: var(--qp-titlebar-height) minmax(0, 1fr) auto;
   height: 100vh;
   overflow: hidden;
+}
+
+.settings-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 16px 12px;
+  box-sizing: border-box;
 }
 
 .settings-titlebar {
@@ -1799,6 +1810,7 @@ body,
 
 .settings-savebar {
   margin-bottom: 12px;
+  width: calc(100% - 40px);
 }
 
 .hero-band,
