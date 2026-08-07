@@ -14,6 +14,8 @@ pub struct AppSettings {
     pub selection_hotkey: String,
     #[serde(default = "default_screenshot_hotkey")]
     pub screenshot_hotkey: String,
+    #[serde(default = "default_input_translate_hotkey")]
+    pub input_translate_hotkey: String,
     #[serde(default = "default_theme_mode")]
     pub theme_mode: String,
     #[serde(default = "default_window_effect")]
@@ -30,6 +32,16 @@ pub struct AppSettings {
     pub vision_ai_base_url: String,
     #[serde(default)]
     pub vision_ai_model: String,
+    #[serde(default = "default_input_ai_provider")]
+    pub input_ai_provider: String,
+    #[serde(default)]
+    pub input_ai_base_url: String,
+    #[serde(default)]
+    pub input_ai_model: String,
+    #[serde(default = "default_input_translate_source_language")]
+    pub input_translate_source_language: String,
+    #[serde(default = "default_input_translate_target_language")]
+    pub input_translate_target_language: String,
     #[serde(default = "default_translation_target_language")]
     pub translation_target_language: String,
     #[serde(default)]
@@ -52,7 +64,19 @@ fn default_vision_ai_provider() -> String {
     "xiaomi_mimo".to_string()
 }
 
+fn default_input_ai_provider() -> String {
+    "deepseek".to_string()
+}
+
 fn default_translation_target_language() -> String {
+    "zh-Hans".to_string()
+}
+
+fn default_input_translate_source_language() -> String {
+    "auto".to_string()
+}
+
+fn default_input_translate_target_language() -> String {
     "zh-Hans".to_string()
 }
 
@@ -66,6 +90,10 @@ fn default_selection_hotkey() -> String {
 
 fn default_screenshot_hotkey() -> String {
     "Alt+3".to_string()
+}
+
+fn default_input_translate_hotkey() -> String {
+    "Alt+4".to_string()
 }
 
 fn default_theme_mode() -> String {
@@ -82,6 +110,7 @@ impl Default for AppSettings {
             autostart_enabled: default_autostart_enabled(),
             selection_hotkey: default_selection_hotkey(),
             screenshot_hotkey: default_screenshot_hotkey(),
+            input_translate_hotkey: default_input_translate_hotkey(),
             theme_mode: default_theme_mode(),
             window_effect: default_window_effect(),
             text_ai_provider: default_text_ai_provider(),
@@ -90,6 +119,11 @@ impl Default for AppSettings {
             vision_ai_provider: default_vision_ai_provider(),
             vision_ai_base_url: String::new(),
             vision_ai_model: String::new(),
+            input_ai_provider: default_input_ai_provider(),
+            input_ai_base_url: String::new(),
+            input_ai_model: String::new(),
+            input_translate_source_language: default_input_translate_source_language(),
+            input_translate_target_language: default_input_translate_target_language(),
             translation_target_language: default_translation_target_language(),
             ai_timeout_seconds: 30,
             ai_provider: String::new(),
@@ -130,6 +164,8 @@ pub fn normalize_settings_for_save(mut settings: AppSettings) -> Result<AppSetti
     settings.selection_hotkey = normalize_hotkey_for_save(&settings.selection_hotkey, "划词菜单")?;
     settings.screenshot_hotkey =
         normalize_hotkey_for_save(&settings.screenshot_hotkey, "区域截图")?;
+    settings.input_translate_hotkey =
+        normalize_hotkey_for_save(&settings.input_translate_hotkey, "输入翻译")?;
     validate_settings(&settings)?;
 
     Ok(settings)
@@ -149,10 +185,18 @@ fn normalize_settings_for_load(mut settings: AppSettings) -> AppSettings {
         normalize_hotkey_for_load(&settings.selection_hotkey, &default_selection_hotkey());
     settings.screenshot_hotkey =
         normalize_hotkey_for_load(&settings.screenshot_hotkey, &default_screenshot_hotkey());
+    settings.input_translate_hotkey = normalize_hotkey_for_load(
+        &settings.input_translate_hotkey,
+        &default_input_translate_hotkey(),
+    );
 
-    if settings.selection_hotkey == settings.screenshot_hotkey {
+    if settings.selection_hotkey == settings.screenshot_hotkey
+        || settings.selection_hotkey == settings.input_translate_hotkey
+        || settings.screenshot_hotkey == settings.input_translate_hotkey
+    {
         settings.selection_hotkey = default_selection_hotkey();
         settings.screenshot_hotkey = default_screenshot_hotkey();
+        settings.input_translate_hotkey = default_input_translate_hotkey();
     }
 
     settings
@@ -190,12 +234,19 @@ fn normalize_common_fields(settings: &mut AppSettings) {
 
     settings.text_ai_provider = normalize_text_provider(&settings.text_ai_provider);
     settings.vision_ai_provider = normalize_vision_provider(&settings.vision_ai_provider);
+    settings.input_ai_provider = normalize_text_provider(&settings.input_ai_provider);
     settings.text_ai_base_url = settings.text_ai_base_url.trim().to_string();
     settings.text_ai_model = settings.text_ai_model.trim().to_string();
     settings.vision_ai_base_url = settings.vision_ai_base_url.trim().to_string();
     settings.vision_ai_model = settings.vision_ai_model.trim().to_string();
+    settings.input_ai_base_url = settings.input_ai_base_url.trim().to_string();
+    settings.input_ai_model = settings.input_ai_model.trim().to_string();
     settings.translation_target_language =
         normalize_translation_language(&settings.translation_target_language);
+    settings.input_translate_source_language =
+        normalize_translation_source_language(&settings.input_translate_source_language);
+    settings.input_translate_target_language =
+        normalize_translation_language(&settings.input_translate_target_language);
     settings.ai_provider = match settings.ai_provider.trim() {
         "deepseek" => "deepseek".to_string(),
         "xiaomi_mimo" => "xiaomi_mimo".to_string(),
@@ -259,6 +310,14 @@ fn normalize_translation_language(value: &str) -> String {
     }
 }
 
+fn normalize_translation_source_language(value: &str) -> String {
+    match value.trim() {
+        "auto" => "auto".to_string(),
+        value if normalize_translation_language(value) == value => value.to_string(),
+        _ => default_input_translate_source_language(),
+    }
+}
+
 fn normalize_hotkey_for_load(value: &str, fallback: &str) -> String {
     normalize_hotkey_for_save(value, "快捷键").unwrap_or_else(|_| fallback.to_string())
 }
@@ -289,6 +348,12 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
     if selection_shortcut.id() == screenshot_shortcut.id() {
         return Err("划词菜单和区域截图不能使用同一个快捷键".to_string());
     }
+    let input_shortcut = parse_hotkey(&settings.input_translate_hotkey, "输入翻译")?;
+    if input_shortcut.id() == selection_shortcut.id()
+        || input_shortcut.id() == screenshot_shortcut.id()
+    {
+        return Err("输入翻译不能和划词菜单或区域截图使用同一个快捷键".to_string());
+    }
 
     if !matches!(settings.theme_mode.as_str(), "system" | "light" | "dark") {
         return Err("主题模式无效".to_string());
@@ -300,6 +365,7 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
 
     validate_base_url(&settings.text_ai_base_url, "文本模型 Base URL")?;
     validate_base_url(&settings.vision_ai_base_url, "视觉模型 Base URL")?;
+    validate_base_url(&settings.input_ai_base_url, "输入模型 Base URL")?;
 
     if settings.ai_timeout_seconds < 5 || settings.ai_timeout_seconds > 120 {
         return Err("请求超时需在 5 到 120 秒之间".to_string());
@@ -307,6 +373,7 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
 
     if settings.text_ai_model.chars().count() > 120
         || settings.vision_ai_model.chars().count() > 120
+        || settings.input_ai_model.chars().count() > 120
     {
         return Err("模型名称过长，请缩短后保存".to_string());
     }
@@ -408,33 +475,46 @@ fn format_code(code: Code) -> String {
 mod tests {
     use super::*;
 
-    fn settings_with_hotkeys(selection_hotkey: &str, screenshot_hotkey: &str) -> AppSettings {
+    fn settings_with_hotkeys(
+        selection_hotkey: &str,
+        screenshot_hotkey: &str,
+        input_translate_hotkey: &str,
+    ) -> AppSettings {
         AppSettings {
             selection_hotkey: selection_hotkey.to_string(),
             screenshot_hotkey: screenshot_hotkey.to_string(),
+            input_translate_hotkey: input_translate_hotkey.to_string(),
             ..AppSettings::default()
         }
     }
 
     #[test]
     fn hotkeys_are_normalized_for_save() {
-        let settings = settings_with_hotkeys(" alt + q ", "CTRL+ALT+3");
+        let settings = settings_with_hotkeys(" alt + q ", "CTRL+ALT+3", "Alt+4");
         let settings = normalize_settings_for_save(settings).unwrap();
 
         assert_eq!(settings.selection_hotkey, "Alt+Q");
         assert_eq!(settings.screenshot_hotkey, "Ctrl+Alt+3");
+        assert_eq!(settings.input_translate_hotkey, "Alt+4");
     }
 
     #[test]
     fn hotkeys_must_include_alt() {
-        let settings = settings_with_hotkeys("Ctrl+Q", "Alt+3");
+        let settings = settings_with_hotkeys("Ctrl+Q", "Alt+3", "Alt+4");
 
         assert!(normalize_settings_for_save(settings).is_err());
     }
 
     #[test]
     fn hotkeys_must_not_duplicate() {
-        let settings = settings_with_hotkeys("Alt+2", "alt+Digit2");
+        let settings = settings_with_hotkeys("Alt+2", "alt+Digit2", "Alt+4");
+
+        assert!(normalize_settings_for_save(settings).is_err());
+    }
+
+    #[test]
+    fn input_hotkey_must_not_duplicate_other_actions() {
+        let settings = settings_with_hotkeys("Alt+2", "Alt+3", "alt+Digit2");
 
         assert!(normalize_settings_for_save(settings).is_err());
     }

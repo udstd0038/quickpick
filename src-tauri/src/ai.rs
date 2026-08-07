@@ -44,7 +44,8 @@ pub async fn run_text_action(
     let (system_prompt, user_prefix) = text_prompts(action, source_language, target_language)?;
     let endpoint = chat_completions_endpoint(settings, api_key, AiModelKind::Text)?;
     let model = effective_text_model(settings)?;
-    let request = text_chat_request(settings, model, system_prompt, user_prefix, selected_text);
+    let request =
+        text_chat_request(settings, AiModelKind::Text, model, system_prompt, user_prefix, selected_text);
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(settings.ai_timeout_seconds.into()))
@@ -78,6 +79,64 @@ pub async fn run_text_action(
         .map(|content| content.trim().to_string())
         .filter(|content| !content.is_empty())
         .ok_or_else(|| "AI 返回为空，请稍后重试或检查模型配置".to_string())
+}
+
+pub async fn run_input_text_action(
+    settings: &AppSettings,
+    api_key: &str,
+    action: &str,
+    selected_text: &str,
+    source_language: &str,
+    target_language: &str,
+) -> Result<String, String> {
+    if selected_text.chars().count() > MAX_TEXT_INPUT_CHARS {
+        return Err("输入文本过长，请缩短到 12000 字以内后再试".to_string());
+    }
+
+    let (system_prompt, user_prefix) = text_prompts(action, source_language, target_language)?;
+    let endpoint = chat_completions_endpoint(settings, api_key, AiModelKind::Input)?;
+    let model = effective_input_model(settings)?;
+    let request = text_chat_request(
+        settings,
+        AiModelKind::Input,
+        model,
+        system_prompt,
+        user_prefix,
+        selected_text,
+    );
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(settings.ai_timeout_seconds.into()))
+        .build()
+        .map_err(|_| "初始化 AI 请求客户端失败".to_string())?;
+
+    let response = client
+        .post(endpoint)
+        .bearer_auth(api_key)
+        .json(&request)
+        .send()
+        .await
+        .map_err(map_request_error)?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(map_http_status(status.as_u16()));
+    }
+
+    let body = response
+        .json::<ChatCompletionResponse>()
+        .await
+        .map_err(|_| {
+            "AI 返回格式无法解析，请检查输入模型 Base URL 和模型是否兼容 OpenAI chat/completions"
+                .to_string()
+        })?;
+
+    body.choices
+        .into_iter()
+        .find_map(|choice| choice.message.content)
+        .map(|content| content.trim().to_string())
+        .filter(|content| !content.is_empty())
+        .ok_or_else(|| "AI 返回为空，请稍后重试或检查输入模型配置".to_string())
 }
 
 pub async fn run_image_action(
@@ -203,6 +262,7 @@ fn image_prompts(
 
 fn text_chat_request(
     settings: &AppSettings,
+    kind: AiModelKind,
     model: String,
     system_prompt: String,
     user_prefix: String,
@@ -223,7 +283,12 @@ fn text_chat_request(
         "temperature": 0.2,
     });
 
-    if text_provider_id(settings) == PROVIDER_DEEPSEEK {
+    let provider_id = match kind {
+        AiModelKind::Text => text_provider_id(settings),
+        AiModelKind::Input => input_provider_id(settings),
+        AiModelKind::Vision => vision_provider_id(settings),
+    };
+    if provider_id == PROVIDER_DEEPSEEK {
         request["thinking"] = serde_json::json!({ "type": "disabled" });
     }
 
@@ -234,6 +299,7 @@ fn text_chat_request(
 enum AiModelKind {
     Text,
     Vision,
+    Input,
 }
 
 fn chat_completions_endpoint(
@@ -244,6 +310,7 @@ fn chat_completions_endpoint(
     let base_url = match kind {
         AiModelKind::Text => effective_text_base_url(settings, api_key),
         AiModelKind::Vision => effective_vision_base_url(settings, api_key),
+        AiModelKind::Input => effective_input_base_url(settings, api_key),
     };
     let trimmed = base_url.trim().trim_end_matches('/');
     if trimmed.is_empty() {
@@ -296,6 +363,26 @@ fn effective_vision_base_url(settings: &AppSettings, api_key: &str) -> String {
     }
 }
 
+fn effective_input_base_url(settings: &AppSettings, api_key: &str) -> String {
+    let configured = settings.input_ai_base_url.trim();
+    if !configured.is_empty() {
+        return configured.to_string();
+    }
+
+    match input_provider_id(settings) {
+        PROVIDER_DEEPSEEK => "https://api.deepseek.com".to_string(),
+        PROVIDER_XIAOMI_MIMO if api_key.trim().starts_with("tp-") => {
+            "https://token-plan-cn.xiaomimimo.com/v1".to_string()
+        }
+        PROVIDER_XIAOMI_MIMO => "https://api.xiaomimimo.com/v1".to_string(),
+        PROVIDER_KIMI => "https://api.moonshot.cn/v1".to_string(),
+        PROVIDER_GLM => "https://open.bigmodel.cn/api/paas/v4".to_string(),
+        PROVIDER_MINIMAX => "https://api.minimaxi.com/v1".to_string(),
+        PROVIDER_QWEN => "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
+        _ => String::new(),
+    }
+}
+
 fn effective_text_model(settings: &AppSettings) -> Result<String, String> {
     let configured = settings.text_ai_model.trim();
     if !configured.is_empty() {
@@ -331,6 +418,23 @@ fn effective_vision_model(settings: &AppSettings) -> Result<String, String> {
     }
 }
 
+fn effective_input_model(settings: &AppSettings) -> Result<String, String> {
+    let configured = settings.input_ai_model.trim();
+    if !configured.is_empty() {
+        return Ok(configured.to_string());
+    }
+
+    match input_provider_id(settings) {
+        PROVIDER_DEEPSEEK => Ok("deepseek-v4-flash".to_string()),
+        PROVIDER_XIAOMI_MIMO => Ok("mimo-v2.5".to_string()),
+        PROVIDER_KIMI => Ok("kimi-k2.6".to_string()),
+        PROVIDER_GLM => Ok("glm-5.2".to_string()),
+        PROVIDER_MINIMAX => Ok("MiniMax-M2.7".to_string()),
+        PROVIDER_QWEN => Ok("qwen-plus".to_string()),
+        _ => Err("输入模型未配置".to_string()),
+    }
+}
+
 fn text_provider_id(settings: &AppSettings) -> &str {
     match settings.text_ai_provider.trim() {
         PROVIDER_DEEPSEEK => PROVIDER_DEEPSEEK,
@@ -345,6 +449,18 @@ fn text_provider_id(settings: &AppSettings) -> &str {
 
 fn vision_provider_id(settings: &AppSettings) -> &str {
     match settings.vision_ai_provider.trim() {
+        PROVIDER_XIAOMI_MIMO => PROVIDER_XIAOMI_MIMO,
+        PROVIDER_KIMI => PROVIDER_KIMI,
+        PROVIDER_GLM => PROVIDER_GLM,
+        PROVIDER_MINIMAX => PROVIDER_MINIMAX,
+        PROVIDER_QWEN => PROVIDER_QWEN,
+        _ => PROVIDER_OPENAI_COMPATIBLE,
+    }
+}
+
+fn input_provider_id(settings: &AppSettings) -> &str {
+    match settings.input_ai_provider.trim() {
+        PROVIDER_DEEPSEEK => PROVIDER_DEEPSEEK,
         PROVIDER_XIAOMI_MIMO => PROVIDER_XIAOMI_MIMO,
         PROVIDER_KIMI => PROVIDER_KIMI,
         PROVIDER_GLM => PROVIDER_GLM,

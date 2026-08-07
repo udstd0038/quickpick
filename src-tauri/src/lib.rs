@@ -39,20 +39,26 @@ impl Default for AppState {
 struct HotkeyBindings {
     selection_hotkey: String,
     screenshot_hotkey: String,
+    input_translate_hotkey: String,
     selection_id: u32,
     screenshot_id: u32,
+    input_translate_id: u32,
 }
 
 impl HotkeyBindings {
     fn from_settings(settings: &app_settings::AppSettings) -> Result<Self, String> {
         let selection = app_settings::parse_hotkey(&settings.selection_hotkey, "划词菜单")?;
         let screenshot = app_settings::parse_hotkey(&settings.screenshot_hotkey, "区域截图")?;
+        let input_translate =
+            app_settings::parse_hotkey(&settings.input_translate_hotkey, "输入翻译")?;
 
         Ok(Self {
             selection_hotkey: settings.selection_hotkey.clone(),
             screenshot_hotkey: settings.screenshot_hotkey.clone(),
+            input_translate_hotkey: settings.input_translate_hotkey.clone(),
             selection_id: selection.id(),
             screenshot_id: screenshot.id(),
+            input_translate_id: input_translate.id(),
         })
     }
 
@@ -63,6 +69,9 @@ impl HotkeyBindings {
         }
         if id == self.screenshot_id {
             return Some(HotkeyAction::Screenshot);
+        }
+        if id == self.input_translate_id {
+            return Some(HotkeyAction::InputTranslate);
         }
         None
     }
@@ -79,6 +88,7 @@ impl Default for HotkeyBindings {
 enum HotkeyAction {
     Selection,
     Screenshot,
+    InputTranslate,
 }
 
 #[derive(Serialize)]
@@ -2202,6 +2212,7 @@ fn setup_global_shortcuts(
                         activate_selection_bar(app, shortcut_release_keys(shortcut))
                     }
                     Some(HotkeyAction::Screenshot) => capture_region_from_entry(app),
+                    Some(HotkeyAction::InputTranslate) => activate_input_translate(app),
                     None => {}
                 }
             })
@@ -2256,6 +2267,7 @@ fn register_hotkey_bindings(
         .register_multiple([
             bindings.selection_hotkey.as_str(),
             bindings.screenshot_hotkey.as_str(),
+            bindings.input_translate_hotkey.as_str(),
         ])
         .map_err(|error| format!("快捷键注册失败，可能已被其他软件占用：{error}"))
 }
@@ -2805,6 +2817,183 @@ fn activate_selection_bar(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
             }
         }
     });
+}
+
+fn activate_input_translate(app: &tauri::AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let _ = tauri::async_runtime::block_on(run_input_translate_flow(app.clone()));
+    });
+}
+
+async fn run_input_translate_flow(app: tauri::AppHandle) -> Result<SelectionActionResult, String> {
+    let settings = match app_settings::load_app_settings(&app) {
+        Ok(settings) => settings,
+        Err(error) => {
+            show_native_message_popup(
+                &app,
+                "输入翻译配置读取失败".to_string(),
+                error.clone(),
+                "请到设置页检查输入模型配置。".to_string(),
+            );
+            return Err(error);
+        }
+    };
+    let api_key_configured = match security::api_key_status(&app, "input") {
+        Ok(status) => status.configured,
+        Err(error) => {
+            show_native_message_popup(
+                &app,
+                "输入模型 Key 状态读取失败".to_string(),
+                error.clone(),
+                "未读取 API Key 明文，本次没有发起 AI 请求。".to_string(),
+            );
+            return Err(error);
+        }
+    };
+    let input_provider = settings.input_ai_provider.trim();
+    let needs_explicit_base_url =
+        input_provider == "openai_compatible" && settings.input_ai_base_url.trim().is_empty();
+    let needs_explicit_model =
+        input_provider == "openai_compatible" && settings.input_ai_model.trim().is_empty();
+    if !api_key_configured || needs_explicit_base_url || needs_explicit_model {
+        show_native_message_popup(
+            &app,
+            "输入模型配置不完整".to_string(),
+            "请先到设置页完成输入模型供应商、Base URL、模型和 API Key 配置。".to_string(),
+            "本次没有发起 AI 请求。".to_string(),
+        );
+        return Ok(SelectionActionResult {
+            message: "请先补齐输入模型配置".to_string(),
+        });
+    }
+
+    let source_language = settings.input_translate_source_language.clone();
+    let target_language = settings.input_translate_target_language.clone();
+    let translation_direction = default_translation_direction();
+    let result_popup = match native_popup::open_input_popup(
+        String::new(),
+        source_language.clone(),
+        target_language.clone(),
+        translation_direction.clone(),
+        String::new(),
+        String::new(),
+        "waiting".to_string(),
+        native_theme_for_app(&app),
+    ) {
+        Ok(popup) => popup,
+        Err(error) => {
+            show_native_message_popup(
+                &app,
+                "输入翻译弹窗创建失败".to_string(),
+                error.clone(),
+                "请稍后重试。".to_string(),
+            );
+            return Err(error);
+        }
+    };
+
+    process_input_translation_events(
+        &app,
+        &result_popup,
+        &settings,
+        source_language,
+        target_language,
+        translation_direction,
+    )
+    .await?;
+
+    Ok(SelectionActionResult {
+        message: "输入翻译已关闭".to_string(),
+    })
+}
+
+async fn process_input_translation_events(
+    app: &tauri::AppHandle,
+    result_popup: &native_popup::InputPopupHandle,
+    settings: &app_settings::AppSettings,
+    source_language: String,
+    target_language: String,
+    translation_direction: String,
+) -> Result<(), String> {
+    loop {
+        let (input_text, source_language, target_language, translation_direction);
+        if let Some(update) = result_popup.recv_event() {
+            let native_popup::InputPopupEvent::TranslateRequested {
+                input_text: event_input,
+                source_language: event_source,
+                target_language: event_target,
+                direction: event_direction,
+            } = update;
+            input_text = event_input;
+            source_language = event_source;
+            target_language = event_target;
+            translation_direction = event_direction;
+        } else {
+            return Ok(());
+        }
+
+        let trimmed = input_text.trim().to_string();
+        if trimmed.is_empty() {
+            result_popup.update(String::new(), "请输入要翻译的文本。".to_string(), "waiting".to_string(), source_language, target_language, translation_direction);
+            continue;
+        }
+
+        let (request_source_language, request_target_language) = translation_request_languages(
+            &source_language,
+            &target_language,
+            &translation_direction,
+        );
+        result_popup.update(
+            String::new(),
+            String::new(),
+            "loading".to_string(),
+            source_language.clone(),
+            target_language.clone(),
+            translation_direction.clone(),
+        );
+
+        let ai_result = match security::load_api_key(app, "input") {
+            Ok(Some(mut api_key)) => {
+                let result = ai::run_input_text_action(
+                    settings,
+                    &api_key,
+                    "translate",
+                    &trimmed,
+                    &request_source_language,
+                    &request_target_language,
+                )
+                .await;
+                api_key.clear();
+                result
+            }
+            Ok(None) => Err("输入模型 API Key 未配置，请先到设置中保存".to_string()),
+            Err(error) => Err(error),
+        };
+
+        match ai_result {
+            Ok(content) => {
+                result_popup.update(
+                    content,
+                    String::new(),
+                    "success".to_string(),
+                    source_language,
+                    target_language,
+                    translation_direction,
+                );
+            }
+            Err(error) => {
+                result_popup.update(
+                    String::new(),
+                    error,
+                    "error".to_string(),
+                    source_language,
+                    target_language,
+                    translation_direction,
+                );
+            }
+        }
+    }
 }
 
 fn refresh_selection_snapshot(

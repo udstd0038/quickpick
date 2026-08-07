@@ -81,6 +81,7 @@ type AppSettings = {
   autostartEnabled: boolean;
   selectionHotkey: string;
   screenshotHotkey: string;
+  inputTranslateHotkey: string;
   themeMode: "system" | "light" | "dark";
   windowEffect: "mica";
   textAiProvider: string;
@@ -89,6 +90,11 @@ type AppSettings = {
   visionAiProvider: string;
   visionAiBaseUrl: string;
   visionAiModel: string;
+  inputAiProvider: string;
+  inputAiBaseUrl: string;
+  inputAiModel: string;
+  inputTranslateSourceLanguage: string;
+  inputTranslateTargetLanguage: string;
   translationTargetLanguage: string;
   aiProvider: string;
   aiBaseUrl: string;
@@ -97,7 +103,10 @@ type AppSettings = {
   aiTimeoutSeconds: number;
 };
 
-type HotkeySettingKey = "selectionHotkey" | "screenshotHotkey";
+type HotkeySettingKey =
+  | "selectionHotkey"
+  | "screenshotHotkey"
+  | "inputTranslateHotkey";
 
 type ApiKeyStatus = {
   configured: boolean;
@@ -199,6 +208,7 @@ const defaultAppSettings: AppSettings = {
   autostartEnabled: true,
   selectionHotkey: "Alt+2",
   screenshotHotkey: "Alt+3",
+  inputTranslateHotkey: "Alt+4",
   themeMode: "system",
   windowEffect: "mica",
   textAiProvider: "deepseek",
@@ -207,6 +217,11 @@ const defaultAppSettings: AppSettings = {
   visionAiProvider: "xiaomi_mimo",
   visionAiBaseUrl: "",
   visionAiModel: "",
+  inputAiProvider: "deepseek",
+  inputAiBaseUrl: "",
+  inputAiModel: "",
+  inputTranslateSourceLanguage: "auto",
+  inputTranslateTargetLanguage: "zh-Hans",
   translationTargetLanguage: "zh-Hans",
   aiProvider: "",
   aiBaseUrl: "",
@@ -271,6 +286,7 @@ const visionAiProviderOptions = textAiProviderOptions.filter(
   (option) => option.id !== "deepseek",
 );
 const aiProviderOptions = textAiProviderOptions;
+const inputAiProviderOptions = textAiProviderOptions;
 
 const themeModeOptions = [
   { id: "system", label: "跟随系统" },
@@ -296,7 +312,9 @@ type GlassSelectOption<T extends string = string> = {
 const settingsNavItems = [
   { id: "general", label: "通用" },
   { id: "hotkeys", label: "快捷键" },
-  { id: "ai", label: "AI" },
+  { id: "ai-selection", label: "划词模型" },
+  { id: "ai-screenshot", label: "截图模型" },
+  { id: "ai-input", label: "输入模型" },
   { id: "appearance", label: "外观" },
   { id: "privacy", label: "隐私" },
 ] as const;
@@ -362,6 +380,24 @@ function applyVisionAiProviderDefaults(
   };
 }
 
+function applyInputAiProviderDefaults(
+  current: AppSettings,
+  providerId: string,
+): AppSettings {
+  const provider =
+    inputAiProviderOptions.find((option) => option.id === providerId) ||
+    inputAiProviderOptions[0];
+
+  return {
+    ...current,
+    inputAiProvider: provider.id,
+    inputAiBaseUrl: provider.baseUrl || current.inputAiBaseUrl,
+    inputAiModel:
+      provider.textModel ||
+      (provider.id === "openai_compatible" ? current.inputAiModel : ""),
+  };
+}
+
 function normalizeAppSettings(current: AppSettings): AppSettings {
   const textProvider =
     textAiProviderOptions.find((option) => option.id === current.textAiProvider) ||
@@ -369,6 +405,9 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
   const visionProvider =
     visionAiProviderOptions.find((option) => option.id === current.visionAiProvider) ||
     visionAiProviderOptions[0];
+  const inputProvider =
+    inputAiProviderOptions.find((option) => option.id === current.inputAiProvider) ||
+    inputAiProviderOptions[1];
   const rawThemeMode = String(current.themeMode).trim();
   const themeMode = rawThemeMode === "workbench"
     ? "dark"
@@ -380,6 +419,18 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
   )
     ? current.translationTargetLanguage
     : defaultAppSettings.translationTargetLanguage;
+  const inputTranslateSourceLanguage =
+    current.inputTranslateSourceLanguage === "auto" ||
+    translationLanguageOptions.some(
+      (option) => option.id === current.inputTranslateSourceLanguage,
+    )
+      ? current.inputTranslateSourceLanguage
+      : defaultAppSettings.inputTranslateSourceLanguage;
+  const inputTranslateTargetLanguage = translationLanguageOptions.some(
+    (option) => option.id === current.inputTranslateTargetLanguage,
+  )
+    ? current.inputTranslateTargetLanguage
+    : defaultAppSettings.inputTranslateTargetLanguage;
   const timeout = Number(current.aiTimeoutSeconds);
 
   return {
@@ -387,6 +438,9 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
     selectionHotkey: current.selectionHotkey.trim() || defaultAppSettings.selectionHotkey,
     screenshotHotkey:
       current.screenshotHotkey.trim() || defaultAppSettings.screenshotHotkey,
+    inputTranslateHotkey:
+      current.inputTranslateHotkey.trim() ||
+      defaultAppSettings.inputTranslateHotkey,
     themeMode,
     windowEffect: "mica",
     textAiProvider: textProvider.id,
@@ -397,6 +451,15 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
     visionAiModel:
       current.visionAiModel.trim() ||
       (visionProvider.id === "openai_compatible" ? "" : visionProvider.visionModel),
+    inputAiProvider: inputProvider.id,
+    inputAiBaseUrl: current.inputAiBaseUrl.trim() || inputProvider.baseUrl,
+    inputAiModel:
+      current.inputAiModel.trim() ||
+      (inputProvider.id === "openai_compatible"
+        ? ""
+        : inputProvider.textModel),
+    inputTranslateSourceLanguage,
+    inputTranslateTargetLanguage,
     translationTargetLanguage,
     aiProvider: "",
     aiBaseUrl: "",
@@ -2048,6 +2111,37 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     kind: "loading",
     message: "正在检查视觉模型 Key",
   });
+  const [inputApiKeyInput, setInputApiKeyInput] = useState("");
+  const [inputApiKeyConfigured, setInputApiKeyConfigured] = useState(false);
+  const [inputApiKeyStatus, setInputApiKeyStatus] = useState<SettingsStatus>({
+    kind: "loading",
+    message: "正在检查输入模型 Key",
+  });
+
+  const loadInputApiKeyStatus = () => {
+    invoke<ApiKeyStatus>("get_api_key_status", { scope: "input" })
+      .then((value) => {
+        setInputApiKeyConfigured(value.configured);
+        setInputApiKeyStatus({
+          kind: "idle",
+          message: value.configured
+            ? "输入模型 Key 已加密保存"
+            : "输入模型 Key 未配置",
+        });
+      })
+      .catch((error) => {
+        setInputApiKeyConfigured(false);
+        setInputApiKeyStatus({
+          kind: "error",
+          message:
+            typeof error === "string" ? error : "检查输入模型 Key 状态失败",
+        });
+      });
+  };
+
+  useEffect(() => {
+    loadInputApiKeyStatus();
+  }, []);
 
   useEffect(() => {
     applyDocumentAppearance(settings);
@@ -2210,12 +2304,23 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       return;
     }
 
-    const otherKey: HotkeySettingKey =
-      key === "selectionHotkey" ? "screenshotHotkey" : "selectionHotkey";
-    if (sameShortcut(shortcut, settings[otherKey])) {
+    const conflictWith =
+      key === "selectionHotkey"
+        ? "划词和截图"
+        : key === "screenshotHotkey"
+          ? "截图和输入翻译"
+          : "输入翻译和划词";
+    if (
+      (key !== "selectionHotkey" &&
+        sameShortcut(shortcut, settings.selectionHotkey)) ||
+      (key !== "screenshotHotkey" &&
+        sameShortcut(shortcut, settings.screenshotHotkey)) ||
+      (key !== "inputTranslateHotkey" &&
+        sameShortcut(shortcut, settings.inputTranslateHotkey))
+    ) {
       setSettingsStatus({
         kind: "error",
-        message: "划词和截图不能使用同一个快捷键",
+        message: `${conflictWith}不能使用同一个快捷键`,
       });
       return;
     }
@@ -2263,6 +2368,11 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     markSettingsDirty("视觉模型供应商默认值已填入，请保存设置");
   };
 
+  const selectInputProvider = (providerId: string) => {
+    setSettings((current) => applyInputAiProviderDefaults(current, providerId));
+    markSettingsDirty("输入模型供应商默认值已填入，请保存设置");
+  };
+
   const updateTextApiKeyInput = (value: string) => {
     setTextApiKeyInput(value);
     if (textApiKeyStatus.kind === "success" || textApiKeyStatus.kind === "error") {
@@ -2287,16 +2397,51 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     }
   };
 
-  const saveScopedApiKey = (scope: "text" | "vision") => {
+  const updateInputApiKeyInput = (value: string) => {
+    setInputApiKeyInput(value);
+    if (inputApiKeyStatus.kind === "success" || inputApiKeyStatus.kind === "error") {
+      setInputApiKeyStatus({
+        kind: "idle",
+        message: inputApiKeyConfigured
+          ? "输入新 Key 后保存会替换输入模型 Key"
+          : "输入模型 Key 未配置",
+      });
+    }
+  };
+
+  const saveScopedApiKey = (scope: "text" | "vision" | "input") => {
     const isText = scope === "text";
-    const input = isText ? textApiKeyInput : visionApiKeyInput;
-    const status = isText ? textApiKeyStatus : visionApiKeyStatus;
-    const setInput = isText ? setTextApiKeyInput : setVisionApiKeyInput;
+    const isVision = scope === "vision";
+    const input = isText
+      ? textApiKeyInput
+      : isVision
+        ? visionApiKeyInput
+        : inputApiKeyInput;
+    const status = isText
+      ? textApiKeyStatus
+      : isVision
+        ? visionApiKeyStatus
+        : inputApiKeyStatus;
+    const setInput = isText
+      ? setTextApiKeyInput
+      : isVision
+        ? setVisionApiKeyInput
+        : setInputApiKeyInput;
     const setConfigured = isText
       ? setTextApiKeyConfigured
-      : setVisionApiKeyConfigured;
-    const setStatus = isText ? setTextApiKeyStatus : setVisionApiKeyStatus;
-    const label = isText ? "文本模型 Key" : "视觉模型 Key";
+      : isVision
+        ? setVisionApiKeyConfigured
+        : setInputApiKeyConfigured;
+    const setStatus = isText
+      ? setTextApiKeyStatus
+      : isVision
+        ? setVisionApiKeyStatus
+        : setInputApiKeyStatus;
+    const label = isText
+      ? "文本模型 Key"
+      : isVision
+        ? "视觉模型 Key"
+        : "输入模型 Key";
 
     if (status.kind === "saving") {
       return;
@@ -2344,15 +2489,34 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       });
   };
 
-  const clearScopedApiKey = (scope: "text" | "vision") => {
+  const clearScopedApiKey = (scope: "text" | "vision" | "input") => {
     const isText = scope === "text";
-    const status = isText ? textApiKeyStatus : visionApiKeyStatus;
-    const setInput = isText ? setTextApiKeyInput : setVisionApiKeyInput;
+    const isVision = scope === "vision";
+    const status = isText
+      ? textApiKeyStatus
+      : isVision
+        ? visionApiKeyStatus
+        : inputApiKeyStatus;
+    const setInput = isText
+      ? setTextApiKeyInput
+      : isVision
+        ? setVisionApiKeyInput
+        : setInputApiKeyInput;
     const setConfigured = isText
       ? setTextApiKeyConfigured
-      : setVisionApiKeyConfigured;
-    const setStatus = isText ? setTextApiKeyStatus : setVisionApiKeyStatus;
-    const label = isText ? "文本模型 Key" : "视觉模型 Key";
+      : isVision
+        ? setVisionApiKeyConfigured
+        : setInputApiKeyConfigured;
+    const setStatus = isText
+      ? setTextApiKeyStatus
+      : isVision
+        ? setVisionApiKeyStatus
+        : setInputApiKeyStatus;
+    const label = isText
+      ? "文本模型 Key"
+      : isVision
+        ? "视觉模型 Key"
+        : "输入模型 Key";
 
     if (status.kind === "saving") {
       return;
@@ -2570,8 +2734,21 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 onKeyDown={(event) => captureHotkey("screenshotHotkey", event)}
               />
             </SettingField>
+            <SettingField label="输入翻译">
+              <HotkeyCaptureButton
+                label="输入翻译"
+                value={settings.inputTranslateHotkey}
+                placeholder="Alt+4"
+                active={capturingHotkey === "inputTranslateHotkey"}
+                onStart={() => startHotkeyCapture("inputTranslateHotkey")}
+                onCancel={() => finishHotkeyCapture("已取消快捷键录制")}
+                onKeyDown={(event) =>
+                  captureHotkey("inputTranslateHotkey", event)
+                }
+              />
+            </SettingField>
           </SettingsSection>
-          <SettingsSection id="ai" title="文本模型">
+          <SettingsSection id="ai-selection" title="划词模型">
             <SettingField label="文本供应商">
               <GlassSelect
                 ariaLabel="选择文本模型供应商"
@@ -2658,7 +2835,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               </span>
             </div>
           </SettingsSection>
-          <SettingsSection id="ai-vision" title="视觉模型">
+          <SettingsSection id="ai-screenshot" title="截图模型">
             <SettingField label="视觉供应商">
               <GlassSelect
                 ariaLabel="选择视觉模型供应商"
@@ -2744,6 +2921,124 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 {visionApiKeyStatus.message}
               </span>
             </div>
+          </SettingsSection>
+          <SettingsSection id="ai-input" title="输入模型">
+            <SettingField label="输入供应商">
+              <GlassSelect
+                ariaLabel="选择输入模型供应商"
+                value={settings.inputAiProvider}
+                options={inputAiProviderOptions}
+                onChange={selectInputProvider}
+              />
+            </SettingField>
+            <SettingField label="输入 Base URL">
+              <input
+                className="setting-input"
+                type="url"
+                value={settings.inputAiBaseUrl}
+                placeholder="https://api.deepseek.com"
+                spellCheck={false}
+                onChange={(event) =>
+                  updateSetting("inputAiBaseUrl", event.currentTarget.value)
+                }
+              />
+            </SettingField>
+            <SettingField label="输入模型">
+              <input
+                className="setting-input"
+                type="text"
+                value={settings.inputAiModel}
+                placeholder="deepseek-v4-flash"
+                spellCheck={false}
+                onChange={(event) =>
+                  updateSetting("inputAiModel", event.currentTarget.value)
+                }
+              />
+            </SettingField>
+            <SettingField label="输入 API Key">
+              <div className="secret-control">
+                <input
+                  className="setting-input"
+                  type="password"
+                  value={inputApiKeyInput}
+                  placeholder={
+                    inputApiKeyConfigured
+                      ? "输入模型 Key 已加密保存，输入新 Key 可替换"
+                      : "输入输入模型 API Key"
+                  }
+                  spellCheck={false}
+                  autoComplete="off"
+                  onChange={(event) =>
+                    updateInputApiKeyInput(event.currentTarget.value)
+                  }
+                />
+                <button
+                  className="ghost-control"
+                  type="button"
+                  onClick={() => saveScopedApiKey("input")}
+                  disabled={
+                    inputApiKeyStatus.kind === "loading" ||
+                    inputApiKeyStatus.kind === "saving"
+                  }
+                >
+                  保存输入 Key
+                </button>
+                <button
+                  className="ghost-control"
+                  type="button"
+                  onClick={() => clearScopedApiKey("input")}
+                  disabled={
+                    !inputApiKeyConfigured ||
+                    inputApiKeyStatus.kind === "loading" ||
+                    inputApiKeyStatus.kind === "saving"
+                  }
+                >
+                  清除
+                </button>
+              </div>
+            </SettingField>
+            <TextRow
+              label="输入 Key 状态"
+              value={inputApiKeyConfigured ? "已加密保存" : "未配置"}
+            />
+            <div className="settings-key-feedback">
+              <span
+                className={`settings-feedback settings-feedback-${inputApiKeyStatus.kind}`}
+              >
+                {inputApiKeyStatus.message}
+              </span>
+            </div>
+            <div className="settings-key-feedback">
+              <span
+                className="settings-feedback settings-feedback-idle"
+                aria-label="输入翻译行为设置"
+              >
+                输入翻译行为
+              </span>
+            </div>
+            <SettingField label="默认源语言">
+              <GlassSelect
+                ariaLabel="选择输入翻译默认源语言"
+                value={settings.inputTranslateSourceLanguage}
+                options={[
+                  { id: "auto", label: "自动检测" },
+                  ...translationLanguageOptions,
+                ]}
+                onChange={(value) =>
+                  updateSetting("inputTranslateSourceLanguage", value)
+                }
+              />
+            </SettingField>
+            <SettingField label="默认目标语言">
+              <GlassSelect
+                ariaLabel="选择输入翻译默认目标语言"
+                value={settings.inputTranslateTargetLanguage}
+                options={translationLanguageOptions}
+                onChange={(value) =>
+                  updateSetting("inputTranslateTargetLanguage", value)
+                }
+              />
+            </SettingField>
           </SettingsSection>
           <SettingsSection id="appearance" title="外观">
             <SettingField label="主题">

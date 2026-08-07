@@ -44,9 +44,59 @@ pub enum ResultPopupEvent {
     },
 }
 
+pub enum InputPopupEvent {
+    TranslateRequested {
+        input_text: String,
+        source_language: String,
+        target_language: String,
+        direction: String,
+    },
+}
+
 pub struct ResultPopupHandle {
     sender: Sender<ResultPopupUpdate>,
     event_receiver: Mutex<Receiver<ResultPopupEvent>>,
+}
+
+struct InputPopupUpdate {
+    content: String,
+    detail: String,
+    status: String,
+    source_language: String,
+    target_language: String,
+    translation_direction: String,
+}
+
+pub struct InputPopupHandle {
+    sender: Sender<InputPopupUpdate>,
+    event_receiver: Mutex<Receiver<InputPopupEvent>>,
+}
+
+impl InputPopupHandle {
+    pub fn update(
+        &self,
+        content: String,
+        detail: String,
+        status: String,
+        source_language: String,
+        target_language: String,
+        translation_direction: String,
+    ) -> bool {
+        self.sender
+            .send(InputPopupUpdate {
+                content,
+                detail,
+                status,
+                source_language,
+                target_language,
+                translation_direction,
+            })
+            .is_ok()
+    }
+
+    pub fn recv_event(&self) -> Option<InputPopupEvent> {
+        self.event_receiver.lock().ok()?.recv().ok()
+    }
 }
 
 impl ResultPopupHandle {
@@ -159,6 +209,42 @@ pub fn show_result_popup(
         });
 }
 
+pub fn open_input_popup(
+    input_text: String,
+    source_language: String,
+    target_language: String,
+    translation_direction: String,
+    content: String,
+    detail: String,
+    status: String,
+    theme: NativeTheme,
+) -> Result<InputPopupHandle, String> {
+    let (sender, receiver) = mpsc::channel();
+    let (event_sender, event_receiver) = mpsc::channel();
+    thread::Builder::new()
+        .name("quickpick-input-popup".to_string())
+        .spawn(move || {
+            let _ = native_window::run_input_updatable(
+                input_text,
+                source_language,
+                target_language,
+                translation_direction,
+                content,
+                detail,
+                status,
+                theme,
+                receiver,
+                event_sender,
+            );
+        })
+        .map_err(|error| format!("创建输入翻译弹窗线程失败：{error}"))?;
+
+    Ok(InputPopupHandle {
+        sender,
+        event_receiver: Mutex::new(event_receiver),
+    })
+}
+
 fn clamp_window_position(width: i32, height: i32) -> (i32, i32) {
     let mut point = windows_sys::Win32::Foundation::POINT { x: 160, y: 160 };
     let _ = unsafe { windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut point) };
@@ -213,23 +299,26 @@ mod native_window {
             BeginPaint, BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, CreateFontW, CreatePen,
             CreateRoundRectRgn, CreateSolidBrush, DeleteDC, DeleteObject, DrawTextW, EndPaint,
             FillRect, FrameRect, IntersectClipRect, InvalidateRect, LineTo, MoveToEx, RestoreDC,
-            RoundRect, SaveDC, SelectObject, SetBkMode, SetTextColor, SetWindowRgn, UpdateWindow,
-            DT_CENTER, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK, HDC,
-            PAINTSTRUCT, PS_SOLID, SRCCOPY, TRANSPARENT,
+            RoundRect, SaveDC, SelectObject, SetBkColor, SetBkMode, SetTextColor, SetWindowRgn,
+            UpdateWindow, DT_CENTER, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER,
+            DT_WORDBREAK, HDC, PAINTSTRUCT, PS_SOLID, SRCCOPY, TRANSPARENT,
         },
         System::LibraryLoader::GetModuleHandleW,
         UI::{
             Input::KeyboardAndMouse::{ReleaseCapture, SetCapture},
             WindowsAndMessaging::{
                 CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect,
-                GetForegroundWindow, GetMessageW, GetWindowLongPtrW, IsWindow, LoadCursorW,
-                PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageW, SetForegroundWindow,
-                SetWindowLongPtrW, SetWindowPos, ShowWindow, TranslateMessage, CS_HREDRAW,
-                CS_VREDRAW, GWLP_USERDATA, HTCAPTION, HWND_NOTOPMOST, HWND_TOPMOST, IDC_ARROW, MSG,
-                PM_REMOVE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SW_SHOW,
-                SW_SHOWNOACTIVATE, WM_DESTROY, WM_ERASEBKGND, WM_KEYDOWN, WM_KILLFOCUS,
+                GetForegroundWindow, GetMessageW, GetWindowLongPtrW, GetWindowTextLengthW,
+                GetWindowTextW, IsWindow, LoadCursorW,
+                MoveWindow, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageW,
+                SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+                TranslateMessage, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, HTCAPTION, HWND_NOTOPMOST,
+                HWND_TOPMOST, IDC_ARROW, MSG, PM_REMOVE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                SWP_SHOWWINDOW, SW_SHOW, SW_SHOWNOACTIVATE, WM_COMMAND, WM_CREATE,
+                WM_CTLCOLOREDIT, WM_DESTROY, WM_ERASEBKGND, WM_KEYDOWN, WM_KILLFOCUS,
                 WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY,
-                WM_NCLBUTTONDOWN, WM_PAINT, WM_QUIT, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+                WM_NCLBUTTONDOWN, WM_PAINT, WM_QUIT, WM_SIZE, WNDCLASSW, WS_CHILD, WS_EX_TOOLWINDOW,
+                WS_POPUP, WS_VISIBLE, WS_VSCROLL,
             },
         },
     };
@@ -237,9 +326,11 @@ mod native_window {
     const RESULT_CLASS_NAME: &str = "QuickPickNativeResultPopup";
     const SELECTION_CLASS_NAME: &str = "QuickPickNativeSelectionPopup";
     const TRAY_MENU_CLASS_NAME: &str = "QuickPickNativeTrayMenu";
+    const INPUT_CLASS_NAME: &str = "QuickPickNativeInputPopup";
     const RESULT_WINDOW_TITLE: &str = "QuickPick 结果";
     const SELECTION_WINDOW_TITLE: &str = "QuickPick 划词";
     const TRAY_MENU_WINDOW_TITLE: &str = "QuickPick 托盘菜单";
+    const INPUT_WINDOW_TITLE: &str = "QuickPick 输入翻译";
     const ESC_KEY: WPARAM = 0x1b;
     const REVEAL_FRAMES: u32 = 8;
     const UI_FONT_FACE: &str = "Segoe UI";
@@ -258,9 +349,39 @@ mod native_window {
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum InputButtonKind {
+        SourceLanguage,
+        Direction,
+        TargetLanguage,
+        Translate,
+        Copy,
+        Pin,
+        Close,
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     enum LanguageMenuKind {
         Source,
         Target,
+    }
+
+    trait LanguageMenuState {
+        fn open_language_menu(&self) -> Option<LanguageMenuKind>;
+        fn set_open_language_menu(&mut self, kind: Option<LanguageMenuKind>);
+        fn hovered_language_option(&self) -> Option<usize>;
+        fn set_hovered_language_option(&mut self, option: Option<usize>);
+        fn source_language(&self) -> &str;
+        fn set_source_language(&mut self, value: String);
+        fn target_language(&self) -> &str;
+        fn set_target_language(&mut self, value: String);
+        fn translation_direction(&self) -> &str;
+        fn set_translation_direction(&mut self, value: String);
+        fn language_menu_allows_auto(&self, kind: LanguageMenuKind) -> bool {
+            match kind {
+                LanguageMenuKind::Source => self.translation_direction() != "left",
+                LanguageMenuKind::Target => self.translation_direction() == "left",
+            }
+        }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -336,6 +457,100 @@ mod native_window {
         hovered_language_option: Option<usize>,
         language_menu_options: Vec<Button<usize>>,
         content_rect: RECT,
+    }
+
+    impl LanguageMenuState for ResultPopupState {
+        fn open_language_menu(&self) -> Option<LanguageMenuKind> {
+            self.open_language_menu
+        }
+        fn set_open_language_menu(&mut self, kind: Option<LanguageMenuKind>) {
+            self.open_language_menu = kind;
+        }
+        fn hovered_language_option(&self) -> Option<usize> {
+            self.hovered_language_option
+        }
+        fn set_hovered_language_option(&mut self, option: Option<usize>) {
+            self.hovered_language_option = option;
+        }
+        fn source_language(&self) -> &str {
+            &self.source_language
+        }
+        fn set_source_language(&mut self, value: String) {
+            self.source_language = value;
+        }
+        fn target_language(&self) -> &str {
+            &self.target_language
+        }
+        fn set_target_language(&mut self, value: String) {
+            self.target_language = value;
+        }
+        fn translation_direction(&self) -> &str {
+            &self.translation_direction
+        }
+        fn set_translation_direction(&mut self, value: String) {
+            self.translation_direction = value;
+        }
+    }
+
+    struct InputPopupState {
+        input_text: String,
+        content: String,
+        detail: String,
+        status: String,
+        source_language: String,
+        target_language: String,
+        translation_direction: String,
+        theme: NativeTheme,
+        event_sender: Option<Sender<InputPopupEvent>>,
+        edit_hwnd: HWND,
+        edit_font: isize,
+        edit_brush: isize,
+        pinned: bool,
+        scroll: i32,
+        animation_tick: u32,
+        reveal_frame: Option<u32>,
+        hovered_button: Option<InputButtonKind>,
+        pressed_button: Option<InputButtonKind>,
+        buttons: Vec<Button<InputButtonKind>>,
+        open_language_menu: Option<LanguageMenuKind>,
+        hovered_language_option: Option<usize>,
+        language_menu_options: Vec<Button<usize>>,
+        edit_rect: RECT,
+        content_rect: RECT,
+        result_rect: RECT,
+    }
+
+    impl LanguageMenuState for InputPopupState {
+        fn open_language_menu(&self) -> Option<LanguageMenuKind> {
+            self.open_language_menu
+        }
+        fn set_open_language_menu(&mut self, kind: Option<LanguageMenuKind>) {
+            self.open_language_menu = kind;
+        }
+        fn hovered_language_option(&self) -> Option<usize> {
+            self.hovered_language_option
+        }
+        fn set_hovered_language_option(&mut self, option: Option<usize>) {
+            self.hovered_language_option = option;
+        }
+        fn source_language(&self) -> &str {
+            &self.source_language
+        }
+        fn set_source_language(&mut self, value: String) {
+            self.source_language = value;
+        }
+        fn target_language(&self) -> &str {
+            &self.target_language
+        }
+        fn set_target_language(&mut self, value: String) {
+            self.target_language = value;
+        }
+        fn translation_direction(&self) -> &str {
+            &self.translation_direction
+        }
+        fn set_translation_direction(&mut self, value: String) {
+            self.translation_direction = value;
+        }
     }
 
     struct SelectionPopupState {
@@ -1305,7 +1520,17 @@ mod native_window {
             }
         }
 
-        paint_language_menu(hdc, state, client, palette);
+        let buttons_snapshot = state.buttons.clone();
+        let mut menu_options = Vec::new();
+        paint_language_menu::<ResultButtonKind>(
+            hdc,
+            state,
+            &buttons_snapshot,
+            &mut menu_options,
+            client,
+            palette,
+        );
+        state.language_menu_options = menu_options;
     }
 
     fn paint_selection(hwnd: HWND, state: &mut SelectionPopupState) {
@@ -1525,75 +1750,100 @@ mod native_window {
         }
     }
 
-    fn toggle_language_menu(hwnd: HWND, state: &mut ResultPopupState, kind: LanguageMenuKind) {
-        state.hovered_language_option = None;
-        state.open_language_menu = if state.open_language_menu == Some(kind) {
+    trait LanguageMenuAnchor: Copy + PartialEq {
+        fn from_language_menu(kind: LanguageMenuKind) -> Self;
+    }
+
+    impl LanguageMenuAnchor for ResultButtonKind {
+        fn from_language_menu(kind: LanguageMenuKind) -> Self {
+            match kind {
+                LanguageMenuKind::Source => ResultButtonKind::SourceLanguage,
+                LanguageMenuKind::Target => ResultButtonKind::TargetLanguage,
+            }
+        }
+    }
+
+    impl LanguageMenuAnchor for InputButtonKind {
+        fn from_language_menu(kind: LanguageMenuKind) -> Self {
+            match kind {
+                LanguageMenuKind::Source => InputButtonKind::SourceLanguage,
+                LanguageMenuKind::Target => InputButtonKind::TargetLanguage,
+            }
+        }
+    }
+
+    fn toggle_language_menu(
+        hwnd: HWND,
+        state: &mut impl LanguageMenuState,
+        kind: LanguageMenuKind,
+    ) {
+        state.set_hovered_language_option(None);
+        state.set_open_language_menu(if state.open_language_menu() == Some(kind) {
             None
         } else {
             Some(kind)
-        };
+        });
         unsafe {
             InvalidateRect(hwnd, null_mut(), 0);
         }
     }
 
-    fn select_language_option(state: &mut ResultPopupState, index: usize) -> bool {
-        let Some(kind) = state.open_language_menu else {
+    fn select_language_option(state: &mut impl LanguageMenuState, index: usize) -> bool {
+        let Some(kind) = state.open_language_menu() else {
             return false;
         };
-        let options = language_menu_options(language_menu_allows_auto(state, kind));
+        let options = language_menu_options(state.language_menu_allows_auto(kind));
         let Some((code, _)) = options.get(index) else {
             return false;
         };
 
         let changed = match kind {
-            LanguageMenuKind::Source if state.source_language != *code => {
-                state.source_language = (*code).to_string();
+            LanguageMenuKind::Source if state.source_language() != *code => {
+                state.set_source_language((*code).to_string());
                 true
             }
-            LanguageMenuKind::Target if state.target_language != *code => {
-                state.target_language = (*code).to_string();
+            LanguageMenuKind::Target if state.target_language() != *code => {
+                state.set_target_language((*code).to_string());
                 true
             }
             _ => false,
         };
 
         if actual_target_language(state) == "auto" {
-            state.translation_direction = match kind {
+            state.set_translation_direction(match kind {
                 LanguageMenuKind::Source => "right".to_string(),
                 LanguageMenuKind::Target => "left".to_string(),
-            };
+            });
         }
 
-        state.open_language_menu = None;
-        state.hovered_language_option = None;
+        state.set_open_language_menu(None);
+        state.set_hovered_language_option(None);
         changed
     }
 
-    fn language_menu_allows_auto(state: &ResultPopupState, kind: LanguageMenuKind) -> bool {
-        match kind {
-            LanguageMenuKind::Source => state.translation_direction != "left",
-            LanguageMenuKind::Target => state.translation_direction == "left",
+    fn actual_target_language(state: &impl LanguageMenuState) -> String {
+        if state.translation_direction() == "left" {
+            state.source_language().to_string()
+        } else {
+            state.target_language().to_string()
         }
     }
 
-    fn paint_language_menu(
+    fn paint_language_menu<K: LanguageMenuAnchor>(
         hdc: HDC,
-        state: &mut ResultPopupState,
+        state: &mut impl LanguageMenuState,
+        buttons: &[Button<K>],
+        options_out: &mut Vec<Button<usize>>,
         client: RECT,
         palette: PopupPalette,
     ) {
-        state.language_menu_options.clear();
-        let Some(kind) = state.open_language_menu else {
+        options_out.clear();
+        let Some(kind) = state.open_language_menu() else {
             return;
         };
 
-        let anchor_kind = match kind {
-            LanguageMenuKind::Source => ResultButtonKind::SourceLanguage,
-            LanguageMenuKind::Target => ResultButtonKind::TargetLanguage,
-        };
-        let Some(anchor) = state
-            .buttons
+        let anchor_kind = K::from_language_menu(kind);
+        let Some(anchor) = buttons
             .iter()
             .find(|button| button.kind == anchor_kind)
             .map(|button| button.rect)
@@ -1601,7 +1851,7 @@ mod native_window {
             return;
         };
 
-        let options = language_menu_options(language_menu_allows_auto(state, kind));
+        let options = language_menu_options(state.language_menu_allows_auto(kind));
         let row_height = 30;
         let width = 132;
         let height = row_height * options.len() as i32 + 8;
@@ -1620,8 +1870,8 @@ mod native_window {
         paint_soft_rect(hdc, menu_rect, 12, palette.panel_bg, palette.panel_border);
 
         let current = match kind {
-            LanguageMenuKind::Source => state.source_language.as_str(),
-            LanguageMenuKind::Target => state.target_language.as_str(),
+            LanguageMenuKind::Source => state.source_language(),
+            LanguageMenuKind::Target => state.target_language(),
         };
         for (index, (code, label)) in options.iter().enumerate() {
             let option_rect = RECT {
@@ -1630,13 +1880,13 @@ mod native_window {
                 right: menu_rect.right - 5,
                 bottom: menu_rect.top + 4 + (index as i32 + 1) * row_height,
             };
-            state.language_menu_options.push(Button {
+            options_out.push(Button {
                 kind: index,
                 rect: option_rect,
             });
 
             let selected = *code == current;
-            let hovered = state.hovered_language_option == Some(index);
+            let hovered = state.hovered_language_option() == Some(index);
             if selected || hovered {
                 paint_soft_rect(
                     hdc,
@@ -1713,14 +1963,6 @@ mod native_window {
             _ => "zh-Hans",
         }
         .to_string()
-    }
-
-    fn actual_target_language(state: &ResultPopupState) -> String {
-        if state.translation_direction == "left" {
-            state.source_language.clone()
-        } else {
-            state.target_language.clone()
-        }
     }
 
     fn trigger_translation_refresh(hwnd: HWND, state: &mut ResultPopupState) {
@@ -2211,6 +2453,745 @@ mod native_window {
     fn to_wide(value: &str) -> Vec<u16> {
         value.encode_utf16().chain(std::iter::once(0)).collect()
     }
+
+    impl InputPopupState {
+        fn new(
+            input_text: String,
+            source_language: String,
+            target_language: String,
+            translation_direction: String,
+            content: String,
+            detail: String,
+            status: String,
+            theme: NativeTheme,
+            event_sender: Option<Sender<InputPopupEvent>>,
+        ) -> Self {
+            Self {
+                input_text,
+                content,
+                detail,
+                status,
+                source_language,
+                target_language,
+                translation_direction,
+                theme,
+                event_sender,
+                edit_hwnd: null_mut(),
+                edit_font: 0,
+                edit_brush: 0,
+                pinned: false,
+                scroll: 0,
+                animation_tick: 0,
+                reveal_frame: None,
+                hovered_button: None,
+                pressed_button: None,
+                buttons: Vec::new(),
+                open_language_menu: None,
+                hovered_language_option: None,
+                language_menu_options: Vec::new(),
+                edit_rect: empty_rect(),
+                content_rect: empty_rect(),
+                result_rect: empty_rect(),
+            }
+        }
+
+        fn loading(&self) -> bool {
+            self.status == "loading"
+        }
+    }
+
+    pub fn run_input_updatable(
+        input_text: String,
+        source_language: String,
+        target_language: String,
+        translation_direction: String,
+        content: String,
+        detail: String,
+        status: String,
+        theme: NativeTheme,
+        receiver: Receiver<InputPopupUpdate>,
+        event_sender: Sender<InputPopupEvent>,
+    ) -> Result<(), String> {
+        let width = 640;
+        let height = 520;
+        let (x, y) = clamp_window_position(width, height);
+        let previous_foreground = unsafe { GetForegroundWindow() };
+        let mut state = InputPopupState::new(
+            input_text,
+            source_language,
+            target_language,
+            translation_direction,
+            content,
+            detail,
+            status,
+            theme,
+            Some(event_sender),
+        );
+        let hwnd = create_popup_window(
+            INPUT_CLASS_NAME,
+            INPUT_WINDOW_TITLE,
+            input_window_proc,
+            x,
+            y,
+            width,
+            height,
+            &mut state as *mut InputPopupState as isize,
+            true,
+        )?;
+
+        input_message_loop(hwnd, &mut state, receiver);
+        restore_previous_foreground(previous_foreground);
+        Ok(())
+    }
+
+    unsafe extern "system" fn input_window_proc(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        if message == WM_NCDESTROY {
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+            return DefWindowProcW(hwnd, message, wparam, lparam);
+        }
+
+        let state_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut InputPopupState;
+        if state_ptr.is_null() {
+            return DefWindowProcW(hwnd, message, wparam, lparam);
+        }
+        let state = &mut *state_ptr;
+
+        match message {
+            WM_CREATE => {
+                if let Err(error) = create_input_edit(hwnd, state) {
+                    eprintln!("创建输入翻译输入框失败：{error}");
+                    return -1;
+                }
+                0
+            }
+            WM_ERASEBKGND => 1,
+            WM_PAINT => {
+                paint_input(hwnd, state);
+                0
+            }
+            WM_SIZE => {
+                layout_input_state(hwnd, state);
+                if !state.edit_hwnd.is_null() {
+                    unsafe {
+                        MoveWindow(
+                            state.edit_hwnd,
+                            state.edit_rect.left,
+                            state.edit_rect.top,
+                            state.edit_rect.right - state.edit_rect.left,
+                            state.edit_rect.bottom - state.edit_rect.top,
+                            1,
+                        );
+                    }
+                }
+                0
+            }
+            WM_CTLCOLOREDIT => {
+                let palette = popup_palette(state.theme);
+                if state.edit_brush == 0 {
+                    state.edit_brush = CreateSolidBrush(palette.window_bg) as isize;
+                }
+                let hdc = wparam as HDC;
+                SetBkColor(hdc, palette.window_bg);
+                SetTextColor(hdc, palette.text);
+                state.edit_brush as LRESULT
+            }
+            WM_COMMAND => {
+                if wparam as u32 == 0x0305 {
+                    trigger_input_translation(hwnd, state);
+                    return 0;
+                }
+                DefWindowProcW(hwnd, message, wparam, lparam)
+            }
+            WM_MOUSEMOVE => {
+                let point = point_from_lparam(lparam);
+                let previous_language_hover = state.hovered_language_option;
+                if state.open_language_menu.is_some() {
+                    state.hovered_language_option = hit_button(&state.language_menu_options, point);
+                    if state.hovered_language_option != previous_language_hover {
+                        unsafe {
+                            InvalidateRect(hwnd, null_mut(), 0);
+                        }
+                    }
+                }
+                let previous_hover = state.hovered_button;
+                let next_hover = hit_button(&state.buttons, point);
+                if next_hover != previous_hover {
+                    state.hovered_button = next_hover;
+                    invalidate_input_buttons(hwnd, state, previous_hover, next_hover);
+                }
+                0
+            }
+            WM_LBUTTONDOWN => {
+                let point = point_from_lparam(lparam);
+                if state.open_language_menu.is_some() {
+                    if let Some(index) = hit_button(&state.language_menu_options, point) {
+                        let changed = select_language_option(state, index);
+                        if changed {
+                            trigger_input_translation(hwnd, state);
+                        } else {
+                            state.open_language_menu = None;
+                            state.hovered_language_option = None;
+                            unsafe {
+                                InvalidateRect(hwnd, null_mut(), 0);
+                            }
+                        }
+                        return 0;
+                    }
+
+                    if hit_button(&state.buttons, point).is_none() {
+                        state.open_language_menu = None;
+                        state.hovered_language_option = None;
+                        unsafe {
+                            InvalidateRect(hwnd, null_mut(), 0);
+                        }
+                        return 0;
+                    }
+                }
+
+                if let Some(kind) = hit_button(&state.buttons, point) {
+                    state.hovered_button = Some(kind);
+                    state.pressed_button = Some(kind);
+                    SetCapture(hwnd);
+                    invalidate_input_buttons(hwnd, state, Some(kind), Some(kind));
+                    return 0;
+                }
+
+                if !point_in_rect(state.edit_rect, point)
+                    && !point_in_rect(state.result_rect, point)
+                {
+                    if point.1 <= 46 {
+                        ReleaseCapture();
+                        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION as WPARAM, 0);
+                    } else if !state.pinned && !state.loading() {
+                        DestroyWindow(hwnd);
+                    }
+                }
+                0
+            }
+            WM_LBUTTONUP => {
+                if let Some(pressed) = state.pressed_button.take() {
+                    ReleaseCapture();
+                    let point = point_from_lparam(lparam);
+                    let released = hit_button(&state.buttons, point);
+                    state.hovered_button = released;
+                    if released == Some(pressed) {
+                        match pressed {
+                            InputButtonKind::SourceLanguage => {
+                                toggle_language_menu(hwnd, state, LanguageMenuKind::Source);
+                            }
+                            InputButtonKind::TargetLanguage => {
+                                toggle_language_menu(hwnd, state, LanguageMenuKind::Target);
+                            }
+                            InputButtonKind::Direction => {
+                                state.open_language_menu = None;
+                                state.hovered_language_option = None;
+                                state.translation_direction =
+                                    if state.translation_direction == "left" {
+                                        "right".to_string()
+                                    } else {
+                                        if state.source_language == "auto" {
+                                            state.source_language =
+                                                opposite_language(&state.target_language);
+                                        }
+                                        "left".to_string()
+                                    };
+                                if actual_target_language(state) == "auto" {
+                                    state.translation_direction = "right".to_string();
+                                }
+                                trigger_input_translation(hwnd, state);
+                            }
+                            InputButtonKind::Translate => {
+                                trigger_input_translation(hwnd, state);
+                            }
+                            InputButtonKind::Copy => {
+                                let _ = clipboard_win::set_clipboard_string(&state.content);
+                                invalidate_input_buttons(hwnd, state, Some(pressed), released);
+                            }
+                            InputButtonKind::Pin => {
+                                state.pinned = !state.pinned;
+                                if state.pinned {
+                                    unsafe {
+                                        SetWindowPos(
+                                            hwnd,
+                                            HWND_TOPMOST,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                                        );
+                                    }
+                                } else {
+                                    unsafe {
+                                        SetWindowPos(
+                                            hwnd,
+                                            HWND_NOTOPMOST,
+                                            0,
+                                            0,
+                                            0,
+                                            0,
+                                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                                        );
+                                    }
+                                }
+                                invalidate_input_buttons(hwnd, state, Some(pressed), released);
+                            }
+                            InputButtonKind::Close => {
+                                DestroyWindow(hwnd);
+                            }
+                        }
+                    } else {
+                        invalidate_input_buttons(hwnd, state, Some(pressed), released);
+                    }
+                    return 0;
+                }
+                0
+            }
+            WM_MOUSEWHEEL => {
+                let delta = wheel_delta(wparam);
+                if rect_has_area(state.result_rect)
+                    && point_in_rect(state.result_rect, point_from_lparam(lparam))
+                {
+                    state.scroll = (state.scroll - delta / 8).clamp(0, 1200);
+                    unsafe {
+                        InvalidateRect(hwnd, &state.result_rect, 0);
+                    }
+                }
+                0
+            }
+            WM_KEYDOWN => {
+                if wparam == ESC_KEY {
+                    DestroyWindow(hwnd);
+                    0
+                } else {
+                    DefWindowProcW(hwnd, message, wparam, lparam)
+                }
+            }
+            WM_KILLFOCUS => {
+                state.pressed_button = None;
+                ReleaseCapture();
+                0
+            }
+            WM_DESTROY => {
+                state.pressed_button = None;
+                ReleaseCapture();
+                if state.edit_font != 0 {
+                    unsafe {
+                        DeleteObject(state.edit_font as _);
+                    }
+                }
+                if state.edit_brush != 0 {
+                    unsafe {
+                        DeleteObject(state.edit_brush as _);
+                    }
+                }
+                PostQuitMessage(0);
+                0
+            }
+            _ => DefWindowProcW(hwnd, message, wparam, lparam),
+        }
+    }
+
+    fn input_message_loop(
+        hwnd: HWND,
+        state: &mut InputPopupState,
+        receiver: Receiver<InputPopupUpdate>,
+    ) {
+        let mut message: MSG = unsafe { zeroed() };
+        loop {
+            while unsafe { PeekMessageW(&mut message, null_mut(), 0, 0, PM_REMOVE) } != 0 {
+                if message.message == WM_QUIT {
+                    return;
+                }
+                unsafe {
+                    TranslateMessage(&message);
+                    DispatchMessageW(&message);
+                }
+            }
+
+            let mut changed = false;
+            while let Ok(update) = receiver.try_recv() {
+                let was_loading = state.loading();
+                state.content = update.content;
+                state.detail = update.detail;
+                state.status = update.status;
+                state.source_language = update.source_language;
+                state.target_language = update.target_language;
+                state.translation_direction = update.translation_direction;
+                state.open_language_menu = None;
+                state.hovered_language_option = None;
+                state.language_menu_options.clear();
+                state.scroll = 0;
+                if was_loading && !state.loading() {
+                    state.reveal_frame = Some(0);
+                }
+                changed = true;
+            }
+
+            let mut animated = false;
+            if state.loading() {
+                state.animation_tick = state.animation_tick.wrapping_add(1);
+                animated = true;
+            }
+            if let Some(frame) = state.reveal_frame {
+                if frame < REVEAL_FRAMES {
+                    state.reveal_frame = Some(frame + 1);
+                    animated = true;
+                } else {
+                    state.reveal_frame = None;
+                }
+            }
+
+            if changed {
+                unsafe {
+                    InvalidateRect(hwnd, null_mut(), 0);
+                    UpdateWindow(hwnd);
+                }
+            } else if animated {
+                if rect_has_area(state.result_rect) {
+                    let rect = state.result_rect;
+                    unsafe {
+                        InvalidateRect(hwnd, &rect, 0);
+                        UpdateWindow(hwnd);
+                    }
+                }
+            }
+
+            if unsafe { IsWindow(hwnd) } == 0 {
+                return;
+            }
+
+            thread::sleep(Duration::from_millis(30));
+        }
+    }
+
+    unsafe fn create_input_edit(hwnd: HWND, state: &mut InputPopupState) -> Result<(), String> {
+        layout_input_state(hwnd, state);
+        let edit_class = to_wide("EDIT");
+        let edit_title = to_wide("");
+        let instance = GetModuleHandleW(null_mut());
+        let edit_hwnd = CreateWindowExW(
+            0,
+            edit_class.as_ptr(),
+            edit_title.as_ptr(),
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL | 0x0004 | 0x0001 | 0x0040 | 0x0100,
+            state.edit_rect.left,
+            state.edit_rect.top,
+            state.edit_rect.right - state.edit_rect.left,
+            state.edit_rect.bottom - state.edit_rect.top,
+            hwnd,
+            null_mut(),
+            instance,
+            null_mut(),
+        );
+        if edit_hwnd.is_null() {
+            return Err("创建输入框失败".to_string());
+        }
+        state.edit_hwnd = edit_hwnd;
+
+        let face = to_wide(UI_FONT_FACE);
+        let font = CreateFontW(
+            -UI_FONT_SIZE,
+            0,
+            0,
+            0,
+            UI_FONT_WEIGHT_NORMAL,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            face.as_ptr(),
+        );
+        state.edit_font = font as isize;
+        SendMessageW(edit_hwnd, 0x0030, state.edit_font as WPARAM, 1); // WM_SETFONT
+        SendMessageW(edit_hwnd, 0x014d, 2, 10 | (10 << 16)); // EM_SETMARGINS
+        let wide_input = to_wide(&state.input_text);
+        SendMessageW(edit_hwnd, 0x000c, 0, wide_input.as_ptr() as LPARAM); // WM_SETTEXT
+        SendMessageW(edit_hwnd, 0x0007, 0, 0); // WM_SETFOCUS
+        Ok(())
+    }
+
+    fn layout_input_state(hwnd: HWND, state: &mut InputPopupState) {
+        let mut client = empty_rect();
+        unsafe {
+            GetClientRect(hwnd, &mut client);
+        }
+        let right = client.right.max(client.left + 1);
+        let bottom = client.bottom.max(client.top + 1);
+
+        state.edit_rect = RECT {
+            left: 14,
+            top: 58,
+            right: right - 14,
+            bottom: 190,
+        };
+        state.result_rect = RECT {
+            left: 14,
+            top: 232,
+            right: right - 14,
+            bottom: bottom - 50,
+        };
+        state.buttons = input_buttons(client);
+    }
+
+    fn input_buttons(client: RECT) -> Vec<Button<InputButtonKind>> {
+        let mut buttons = Vec::new();
+        let right = client.right.max(client.left + 1);
+        let bottom = client.bottom.max(client.top + 1);
+
+        let icon_size = 30;
+        let icon_top = 12;
+        let mut icon_right = right - 14;
+        for kind in [InputButtonKind::Close, InputButtonKind::Pin] {
+            buttons.push(Button {
+                kind,
+                rect: RECT {
+                    left: icon_right - icon_size,
+                    top: icon_top,
+                    right: icon_right,
+                    bottom: icon_top + icon_size,
+                },
+            });
+            icon_right -= icon_size + 8;
+        }
+
+        let source_width = 92;
+        let direction_width = 38;
+        let target_width = 92;
+        let top = 12;
+        let height = 30;
+        let total_width = source_width + direction_width + target_width + 8 * 2;
+        let left = ((right - total_width) / 2).max(14);
+        buttons.push(Button {
+            kind: InputButtonKind::SourceLanguage,
+            rect: RECT {
+                left,
+                top,
+                right: left + source_width,
+                bottom: top + height,
+            },
+        });
+        buttons.push(Button {
+            kind: InputButtonKind::Direction,
+            rect: RECT {
+                left: left + source_width + 8,
+                top,
+                right: left + source_width + 8 + direction_width,
+                bottom: top + height,
+            },
+        });
+        buttons.push(Button {
+            kind: InputButtonKind::TargetLanguage,
+            rect: RECT {
+                left: left + source_width + 8 + direction_width + 8,
+                top,
+                right: left + source_width + 8 + direction_width + 8 + target_width,
+                bottom: top + height,
+            },
+        });
+
+        buttons.push(Button {
+            kind: InputButtonKind::Translate,
+            rect: RECT {
+                left: right - 14 - 112,
+                top: 198,
+                right: right - 14,
+                bottom: 228,
+            },
+        });
+        buttons.push(Button {
+            kind: InputButtonKind::Copy,
+            rect: RECT {
+                left: right - 14 - 112,
+                top: bottom - 40,
+                right: right - 14,
+                bottom: bottom - 8,
+            },
+        });
+
+        buttons
+    }
+
+    fn paint_input(hwnd: HWND, state: &mut InputPopupState) {
+        let mut paint: PAINTSTRUCT = unsafe { zeroed() };
+        let hdc = unsafe { BeginPaint(hwnd, &mut paint) };
+        let mut client = empty_rect();
+        unsafe {
+            GetClientRect(hwnd, &mut client);
+        }
+        let palette = popup_palette(state.theme);
+        fill_rect(hdc, client, palette.window_bg);
+        frame_rect(hdc, client, palette.window_border);
+
+        layout_input_state(hwnd, state);
+        paint_input_edit_panel(hdc, state.edit_rect, palette);
+        paint_soft_rect(hdc, state.result_rect, 14, palette.panel_bg, palette.panel_border);
+        if state.loading() {
+            paint_skeleton(hdc, inset_rect(state.result_rect, 8, 8), state.animation_tick, palette);
+        } else {
+            let saved = unsafe { SaveDC(hdc) };
+            let clip = inset_rect(state.result_rect, 12, 10);
+            unsafe {
+                IntersectClipRect(hdc, clip.left, clip.top, clip.right, clip.bottom);
+            }
+            let mut content_rect = clip;
+            content_rect.top = clip.top - state.scroll;
+            content_rect.bottom = content_rect.top + 2400;
+            draw_text(
+                hdc,
+                &state.content,
+                content_rect,
+                palette.text,
+                DT_WORDBREAK | DT_NOPREFIX,
+            );
+            if saved != 0 {
+                unsafe {
+                    RestoreDC(hdc, saved);
+                }
+            }
+        }
+
+        for button in &state.buttons {
+            let visual_state = if state.pressed_button == Some(button.kind) {
+                ButtonVisualState::Pressed
+            } else if state.hovered_button == Some(button.kind) {
+                ButtonVisualState::Hovered
+            } else {
+                ButtonVisualState::Default
+            };
+            match button.kind {
+                InputButtonKind::Pin | InputButtonKind::Close => {
+                    paint_result_icon_button(
+                        hdc,
+                        button.rect,
+                        if button.kind == InputButtonKind::Pin {
+                            ResultButtonKind::Pin
+                        } else {
+                            ResultButtonKind::Close
+                        },
+                        button.kind == InputButtonKind::Pin && state.pinned,
+                        visual_state,
+                        palette,
+                    );
+                }
+                InputButtonKind::SourceLanguage
+                | InputButtonKind::Direction
+                | InputButtonKind::TargetLanguage
+                | InputButtonKind::Translate
+                | InputButtonKind::Copy => {
+                    let label: String = match button.kind {
+                        InputButtonKind::SourceLanguage => {
+                            language_selector_label(&state.source_language)
+                        }
+                        InputButtonKind::Direction => {
+                            direction_button_label(&state.translation_direction)
+                        }
+                        InputButtonKind::TargetLanguage => {
+                            language_selector_label(&state.target_language)
+                        }
+                        InputButtonKind::Translate => "翻译".to_string(),
+                        InputButtonKind::Copy => "复制".to_string(),
+                        _ => String::new(),
+                    };
+                    paint_button(
+                        hdc,
+                        button.rect,
+                        &label,
+                        button.kind == InputButtonKind::Translate,
+                        visual_state,
+                        palette,
+                    );
+                }
+            }
+        }
+
+        let buttons_snapshot = state.buttons.clone();
+        let mut menu_options = Vec::new();
+        paint_language_menu::<InputButtonKind>(
+            hdc,
+            state,
+            &buttons_snapshot,
+            &mut menu_options,
+            client,
+            palette,
+        );
+        state.language_menu_options = menu_options;
+        unsafe {
+            EndPaint(hwnd, &paint);
+        }
+    }
+
+    fn paint_input_edit_panel(hdc: HDC, rect: RECT, palette: PopupPalette) {
+        let label_rect = RECT {
+            left: rect.left + 2,
+            top: rect.top - 22,
+            right: rect.right - 2,
+            bottom: rect.top - 6,
+        };
+        draw_text_strong(
+            hdc,
+            "输入文本",
+            label_rect,
+            palette.text_secondary,
+            DT_SINGLELINE | DT_VCENTER,
+        );
+    }
+
+    fn invalidate_input_buttons(
+        hwnd: HWND,
+        _state: &mut InputPopupState,
+        _first: Option<InputButtonKind>,
+        _second: Option<InputButtonKind>,
+    ) {
+        unsafe {
+            InvalidateRect(hwnd, null_mut(), 0);
+        }
+    }
+
+    fn trigger_input_translation(hwnd: HWND, state: &mut InputPopupState) {
+        let input_text = read_edit_text(state.edit_hwnd);
+        state.input_text = input_text.clone();
+        if let Some(sender) = &state.event_sender {
+            let _ = sender.send(InputPopupEvent::TranslateRequested {
+                input_text,
+                source_language: state.source_language.clone(),
+                target_language: state.target_language.clone(),
+                direction: state.translation_direction.clone(),
+            });
+        }
+        state.status = "loading".to_string();
+        state.content.clear();
+        state.detail.clear();
+        state.scroll = 0;
+        state.reveal_frame = None;
+        unsafe {
+            InvalidateRect(hwnd, null_mut(), 0);
+        }
+    }
+
+    fn read_edit_text(edit_hwnd: HWND) -> String {
+        if edit_hwnd.is_null() {
+            return String::new();
+        }
+        let length = unsafe { GetWindowTextLengthW(edit_hwnd) };
+        if length <= 0 {
+            return String::new();
+        }
+        let mut buffer = vec![0u16; (length as usize) + 1];
+        let written = unsafe { GetWindowTextW(edit_hwnd, buffer.as_mut_ptr(), buffer.len() as i32) };
+        buffer.truncate(written.max(0) as usize);
+        String::from_utf16_lossy(&buffer)
+    }
+
 }
 
 #[cfg(not(windows))]
@@ -2241,6 +3222,21 @@ mod native_window {
         _status: String,
         _theme: NativeTheme,
         _receiver: Receiver<ResultPopupUpdate>,
+    ) -> Result<(), String> {
+        Ok(())
+    }
+
+    pub fn run_input_updatable(
+        _input_text: String,
+        _source_language: String,
+        _target_language: String,
+        _translation_direction: String,
+        _content: String,
+        _detail: String,
+        _status: String,
+        _theme: NativeTheme,
+        _receiver: Receiver<InputPopupUpdate>,
+        _event_sender: Sender<InputPopupEvent>,
     ) -> Result<(), String> {
         Ok(())
     }
