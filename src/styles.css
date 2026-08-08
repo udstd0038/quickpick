@@ -3963,16 +3963,12 @@ h3,
   gap: 9px;
   padding-right: 0;
   padding-bottom: 9px;
-  justify-items: center;
 }
 
 :root[data-theme] .settings-section,
 :root:not([data-theme]) .settings-section {
   padding: 14px;
   border-radius: 8px;
-  width: var(--qp-settings-card-width, 100%);
-  max-width: 100%;
-  justify-self: center;
 }
 
 :root[data-theme] .settings-section h2,
@@ -4020,16 +4016,11 @@ h3,
   justify-content: center;
   gap: 8px;
   min-height: 0;
-  margin: 9px auto 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  width: var(--qp-settings-card-width, 100%);
-  max-width: 100%;
+  margin-top: 9px;
+  margin-bottom: 0;
+  padding: 14px;
+  border-radius: 8px;
+  width: auto;
 }
 
 :root[data-theme] .settings-savebar .settings-feedback,
