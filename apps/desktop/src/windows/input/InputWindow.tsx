@@ -1,11 +1,67 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useInputStore } from "../../stores/inputStore";
+
+type InputReadyPayload = {
+  status: "waiting" | "loading" | "success" | "error";
+  content: string;
+  detail: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  direction: "left" | "right";
+};
 
 export function InputWindow() {
   const text = useInputStore((state) => state.text);
   const result = useInputStore((state) => state.result);
   const status = useInputStore((state) => state.status);
+  const sourceLanguage = useInputStore((state) => state.sourceLanguage);
+  const targetLanguage = useInputStore((state) => state.targetLanguage);
+  const direction = useInputStore((state) => state.direction);
   const setText = useInputStore((state) => state.setText);
+  const setResult = useInputStore((state) => state.setResult);
   const setStatus = useInputStore((state) => state.setStatus);
+  const setLanguages = useInputStore((state) => state.setLanguages);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<InputReadyPayload>("input-ready", (event) => {
+      const payload = event.payload;
+      setResult(payload.content || payload.detail);
+      setStatus(payload.status);
+      setLanguages(
+        payload.sourceLanguage,
+        payload.targetLanguage,
+        payload.direction,
+      );
+    }).then((cleanup) => {
+      unlisten = cleanup;
+    });
+
+    return () => {
+      unlisten?.();
+    };
+  }, [setLanguages, setResult, setStatus]);
+
+  const translate = async () => {
+    if (!text.trim() || busy) {
+      return;
+    }
+    setBusy(true);
+    setStatus("loading");
+    try {
+      await invoke("request_input_translation", {
+        inputText: text,
+        sourceLanguage,
+        targetLanguage,
+        direction,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <main
@@ -38,8 +94,8 @@ export function InputWindow() {
       />
       <button
         type="button"
-        onClick={() => setStatus("loading")}
-        disabled={!text.trim()}
+        onClick={translate}
+        disabled={!text.trim() || busy}
       >
         翻译
       </button>

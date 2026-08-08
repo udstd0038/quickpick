@@ -190,6 +190,17 @@ struct ResultSnapshot {
     can_switch_language: bool,
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InputReadyPayload {
+    status: String,
+    content: String,
+    detail: String,
+    source_language: String,
+    target_language: String,
+    direction: String,
+}
+
 impl Default for ResultSnapshot {
     fn default() -> Self {
         Self {
@@ -2076,10 +2087,22 @@ pub fn run() {
             clear_result_snapshot,
             capture_current_monitor_to_clipboard,
             capture_region_to_clipboard,
-            set_hotkey_capture_mode
+            set_hotkey_capture_mode,
+            request_input_translation
         ])
         .setup(|app| {
             let settings = app_settings::load_app_settings(app.handle()).unwrap_or_default();
+            for label in [
+                "selection",
+                "result",
+                "input",
+                "screenshot_overlay",
+                "screenshot_preview",
+            ] {
+                if let Some(window) = app.get_webview_window(label) {
+                    let _ = window.hide();
+                }
+            }
             if let Err(error) = apply_autostart_setting(settings.autostart_enabled) {
                 eprintln!("QuickPick autostart sync skipped: {error}");
             }
@@ -2108,6 +2131,15 @@ pub fn run() {
                         *current = ResultSnapshot::default();
                     }
                 }
+                let _ = window.hide();
+            }
+            WindowEvent::CloseRequested { api, .. }
+                if matches!(
+                    window.label(),
+                    "input" | "selection" | "screenshot_preview"
+                ) =>
+            {
+                api.prevent_close();
                 let _ = window.hide();
             }
             WindowEvent::Focused(false) if window.label() == "selection_bar" => {
@@ -2836,6 +2868,34 @@ fn activate_input_translate(app: &tauri::AppHandle) {
     });
 }
 
+fn show_input_webview(
+    app: &tauri::AppHandle,
+    source_language: String,
+    target_language: String,
+    direction: String,
+) -> bool {
+    let Some(window) = app.get_webview_window("input") else {
+        return false;
+    };
+
+    let _ = window.set_always_on_top(true);
+    let _ = window.show();
+    let _ = window.set_focus();
+    let _ = app.emit_to(
+        "input",
+        "input-ready",
+        InputReadyPayload {
+            status: "waiting".to_string(),
+            content: String::new(),
+            detail: String::new(),
+            source_language,
+            target_language,
+            direction,
+        },
+    );
+    true
+}
+
 async fn run_input_translate_flow(app: tauri::AppHandle) -> Result<SelectionActionResult, String> {
     let settings = match app_settings::load_app_settings(&app) {
         Ok(settings) => settings,
@@ -2881,6 +2941,17 @@ async fn run_input_translate_flow(app: tauri::AppHandle) -> Result<SelectionActi
     let source_language = settings.input_translate_source_language.clone();
     let target_language = settings.input_translate_target_language.clone();
     let translation_direction = default_translation_direction();
+    if show_input_webview(
+        &app,
+        source_language.clone(),
+        target_language.clone(),
+        translation_direction.clone(),
+    ) {
+        return Ok(SelectionActionResult {
+            message: "输入翻译窗口已打开".to_string(),
+        });
+    }
+
     let result_popup = match native_popup::open_input_popup(
         String::new(),
         source_language.clone(),
@@ -3004,6 +3075,80 @@ async fn process_input_translation_events(
             }
         }
     }
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn request_input_translation(
+    app: tauri::AppHandle,
+    input_text: String,
+    source_language: String,
+    target_language: String,
+    direction: String,
+) -> Result<SelectionActionResult, String> {
+    let settings = app_settings::load_app_settings(&app)?;
+    let api_key_configured = security::api_key_status(&app, "input")?.configured;
+    let input_provider = settings.input_ai_provider.trim();
+    let needs_explicit_base_url =
+        input_provider == "openai_compatible" && settings.input_ai_base_url.trim().is_empty();
+    let needs_explicit_model =
+        input_provider == "openai_compatible" && settings.input_ai_model.trim().is_empty();
+    let trimmed = input_text.trim().to_string();
+
+    let (status, content, detail) = if !api_key_configured || needs_explicit_base_url || needs_explicit_model {
+        (
+            "error".to_string(),
+            String::new(),
+            "请先到设置页完成输入模型配置。".to_string(),
+        )
+    } else if trimmed.is_empty() {
+        (
+            "error".to_string(),
+            String::new(),
+            "请输入要翻译的文本。".to_string(),
+        )
+    } else {
+        let (request_source_language, request_target_language) =
+            translation_request_languages(&source_language, &target_language, &direction);
+        let ai_result = match security::load_api_key(&app, "input") {
+            Ok(Some(mut api_key)) => {
+                let result = ai::run_input_text_action(
+                    &settings,
+                    &api_key,
+                    "translate",
+                    &trimmed,
+                    &request_source_language,
+                    &request_target_language,
+                )
+                .await;
+                api_key.clear();
+                result
+            }
+            Ok(None) => Err("输入模型 API Key 未配置，请先到设置中保存".to_string()),
+            Err(error) => Err(error),
+        };
+
+        match ai_result {
+            Ok(content) => ("success".to_string(), content, String::new()),
+            Err(error) => ("error".to_string(), String::new(), error),
+        }
+    };
+
+    let _ = app.emit_to(
+        "input",
+        "input-ready",
+        InputReadyPayload {
+            status,
+            content,
+            detail,
+            source_language,
+            target_language,
+            direction,
+        },
+    );
+
+    Ok(SelectionActionResult {
+        message: "输入翻译已请求".to_string(),
+    })
 }
 
 fn refresh_selection_snapshot(
