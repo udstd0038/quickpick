@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const actions = [
   { label: "复制", command: "copy_selection_text" },
@@ -15,6 +16,7 @@ export function SelectionWindow() {
     setBusy(true);
     try {
       await invoke(command, args ?? {});
+      await getCurrentWindow().hide();
     } finally {
       setBusy(false);
     }

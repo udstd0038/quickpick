@@ -2145,6 +2145,9 @@ pub fn run() {
             WindowEvent::Focused(false) if window.label() == "selection_bar" => {
                 let _ = window.hide();
             }
+            WindowEvent::Focused(false) if window.label() == "selection" => {
+                let _ = window.hide();
+            }
             _ => {}
         })
         .run(tauri::generate_context!())
@@ -2811,54 +2814,21 @@ fn activate_selection_bar(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
     let app = app.clone();
     std::thread::spawn(move || {
         refresh_selection_snapshot(&app, foreground_window, hotkey_keys);
-        let snapshot = current_selection_snapshot(&app);
-
-        match native_popup::select_text_action(snapshot, native_theme_for_app(&app)) {
-            Ok(Some(native_popup::SelectionPopupAction::Copy)) => {
-                let state = app.state::<AppState>();
-                if let Err(error) = copy_selection_text_from_state(&state) {
-                    show_native_message_popup(
-                        &app,
-                        "划词复制失败".to_string(),
-                        error,
-                        "未覆盖剪贴板。".to_string(),
-                    );
-                }
-            }
-            Ok(Some(native_popup::SelectionPopupAction::Search)) => {
-                let state = app.state::<AppState>();
-                if let Err(error) = search_selection_text_from_state(&state) {
-                    show_native_message_popup(
-                        &app,
-                        "划词搜索失败".to_string(),
-                        error,
-                        "未打开浏览器。".to_string(),
-                    );
-                }
-            }
-            Ok(Some(native_popup::SelectionPopupAction::Translate)) => {
-                let _ = tauri::async_runtime::block_on(run_text_ai_action_inner(
-                    app.clone(),
-                    "translate".to_string(),
-                ));
-            }
-            Ok(Some(native_popup::SelectionPopupAction::Summarize)) => {
-                let _ = tauri::async_runtime::block_on(run_text_ai_action_inner(
-                    app.clone(),
-                    "summarize".to_string(),
-                ));
-            }
-            Ok(None) => {}
-            Err(error) => {
-                show_native_message_popup(
-                    &app,
-                    "划词弹窗失败".to_string(),
-                    error,
-                    "本次没有读取或上传选中文本。".to_string(),
-                );
-            }
+        if !show_selection_webview(&app) {
+            let snapshot = current_selection_snapshot(&app);
+            let _ = native_popup::select_text_action(snapshot, native_theme_for_app(&app));
         }
     });
+}
+
+fn show_selection_webview(app: &tauri::AppHandle) -> bool {
+    let Some(window) = app.get_webview_window("selection") else {
+        return false;
+    };
+    let _ = window.set_always_on_top(true);
+    let _ = window.show();
+    let _ = window.set_focus();
+    true
 }
 
 fn activate_input_translate(app: &tauri::AppHandle) {
