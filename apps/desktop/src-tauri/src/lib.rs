@@ -3054,39 +3054,37 @@ fn show_native_message_popup(
 }
 
 fn show_native_result_popup(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
-    native_popup::show_result_popup(
-        snapshot.title.clone(),
-        snapshot.content.clone(),
-        snapshot.detail.clone(),
-        snapshot.source_language.clone(),
-        snapshot.target_language.clone(),
-        snapshot.translation_direction.clone(),
-        snapshot.can_switch_language,
-        native_theme_for_app(app),
-    );
+    show_webview_result_snapshot(app, snapshot);
+}
+
+fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
+    let Some(window) = app.get_webview_window("result") else {
+        native_popup::show_result_popup(
+            snapshot.title.clone(),
+            snapshot.content.clone(),
+            snapshot.detail.clone(),
+            snapshot.source_language.clone(),
+            snapshot.target_language.clone(),
+            snapshot.translation_direction.clone(),
+            snapshot.can_switch_language,
+            native_theme_for_app(app),
+        );
+        return;
+    };
+
+    let _ = window.set_title(&snapshot.title);
+    let _ = window.set_always_on_top(true);
+    let _ = window.show();
+    let _ = window.set_focus();
+    let _ = app.emit_to("result", "result-ready", snapshot.clone());
 }
 
 fn open_native_result_popup(
     app: &tauri::AppHandle,
     snapshot: &ResultSnapshot,
 ) -> Option<native_popup::ResultPopupHandle> {
-    match native_popup::open_result_popup(
-        snapshot.title.clone(),
-        snapshot.content.clone(),
-        snapshot.detail.clone(),
-        snapshot.status.clone(),
-        snapshot.source_language.clone(),
-        snapshot.target_language.clone(),
-        snapshot.translation_direction.clone(),
-        snapshot.can_switch_language,
-        native_theme_for_app(app),
-    ) {
-        Ok(handle) => Some(handle),
-        Err(_) => {
-            show_native_result_popup(app, snapshot);
-            None
-        }
-    }
+    show_webview_result_snapshot(app, snapshot);
+    None
 }
 
 fn update_native_result_popup(

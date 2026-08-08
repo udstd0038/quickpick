@@ -1,12 +1,43 @@
+import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useResultStore } from "../../stores/resultStore";
+
+type ResultSnapshotPayload = {
+  status: "empty" | "placeholder" | "loading" | "success" | "error";
+  title: string;
+  content: string;
+  detail: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  translationDirection: string;
+  canSwitchLanguage: boolean;
+};
 
 export function ResultWindow() {
   const content = useResultStore((state) => state.content);
   const status = useResultStore((state) => state.status);
   const pinned = useResultStore((state) => state.pinned);
+  const setContent = useResultStore((state) => state.setContent);
+  const setStatus = useResultStore((state) => state.setStatus);
   const setPinned = useResultStore((state) => state.setPinned);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<ResultSnapshotPayload>("result-ready", (event) => {
+      const payload = event.payload;
+      setContent(payload.content, payload.detail);
+      setStatus(payload.status);
+      setPinned(false);
+    }).then((cleanup) => {
+      unlisten = cleanup;
+    });
+
+    return () => {
+      unlisten?.();
+    };
+  }, [setContent, setPinned, setStatus]);
 
   const copy = async () => {
     await invoke("copy_result_content");

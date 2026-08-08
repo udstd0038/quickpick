@@ -3,7 +3,7 @@ import { create } from "zustand";
 interface ResultState {
   content: string;
   detail: string;
-  status: "empty" | "loading" | "success" | "error";
+  status: "empty" | "placeholder" | "loading" | "success" | "error";
   sourceLanguage: string;
   targetLanguage: string;
   direction: "left" | "right";
