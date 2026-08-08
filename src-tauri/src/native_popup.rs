@@ -313,12 +313,14 @@ mod native_window {
         UI::{
             Input::KeyboardAndMouse::{ReleaseCapture, SetCapture, SetFocus},
             WindowsAndMessaging::{
-                BringWindowToTop, CreateWindowExW, DefWindowProcW, DestroyWindow,
-                DispatchMessageW, GetClientRect, GetCursorPos, GetForegroundWindow, GetMessageW,
-                GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsWindow, LoadCursorW,
-                PeekMessageW, PostQuitMessage, RegisterClassW,
-                SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-                TranslateMessage, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, HWND_NOTOPMOST,
+                AppendMenuW, BringWindowToTop, CreatePopupMenu, CreateWindowExW, DefWindowProcW,
+                DestroyMenu, DestroyWindow, DispatchMessageW, GetClientRect, GetCursorPos,
+                GetForegroundWindow, GetMessageW, GetWindowLongPtrW, GetWindowRect,
+                GetWindowThreadProcessId, IsWindow, LoadCursorW, MF_STRING, PeekMessageW,
+                PostQuitMessage, RegisterClassW, SetForegroundWindow, SetWindowLongPtrW,
+                SetWindowPos, ShowWindow, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_TOPALIGN,
+                TrackPopupMenu, TranslateMessage,
+                CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, HWND_NOTOPMOST,
                 HWND_TOPMOST, IDC_ARROW, MSG, PM_REMOVE, SWP_NOACTIVATE, SWP_NOCOPYBITS,
                 SWP_NOMOVE, SWP_NOREDRAW, SWP_NOSIZE, SWP_NOZORDER,
                 SWP_SHOWWINDOW, SW_SHOW, SW_SHOWNOACTIVATE, WM_CHAR, WM_DESTROY, WM_ERASEBKGND,
@@ -780,31 +782,74 @@ mod native_window {
     }
 
     pub fn run_selection(
-        snapshot: SelectionSnapshot,
-        theme: NativeTheme,
+        _snapshot: SelectionSnapshot,
+        _theme: NativeTheme,
     ) -> Result<Option<SelectionPopupAction>, String> {
-        let width = 404;
-        let height = 58;
-        let (x, y) = clamp_window_position(width, height);
-        let previous_foreground = unsafe { GetForegroundWindow() };
-        let mut state = SelectionPopupState::new(snapshot, theme);
-        let hwnd = create_popup_window(
-            SELECTION_CLASS_NAME,
-            SELECTION_WINDOW_TITLE,
-            selection_window_proc,
-            x,
-            y,
-            width,
-            height,
-            &mut state as *mut SelectionPopupState as isize,
-            true,
-        )?;
-
-        message_loop(hwnd);
-        if state.restore_focus {
-            restore_previous_foreground(previous_foreground);
+        let menu = unsafe { CreatePopupMenu() };
+        if menu.is_null() {
+            return Err("创建划词菜单失败".to_string());
         }
-        Ok(state.result)
+
+        for (id, label) in [
+            (1usize, "复制"),
+            (2usize, "翻译"),
+            (3usize, "总结"),
+            (4usize, "搜索"),
+        ] {
+            let wide = to_wide(label);
+            unsafe {
+                AppendMenuW(menu, MF_STRING, id, wide.as_ptr());
+            }
+        }
+
+        let mut point = windows_sys::Win32::Foundation::POINT { x: 0, y: 0 };
+        unsafe {
+            GetCursorPos(&mut point);
+        }
+        let instance = unsafe { GetModuleHandleW(null_mut()) };
+        let owner_class = to_wide("static");
+        let owner_title = to_wide("");
+        let owner = unsafe {
+            CreateWindowExW(
+                0,
+                owner_class.as_ptr(),
+                owner_title.as_ptr(),
+                WS_POPUP,
+                0,
+                0,
+                1,
+                1,
+                null_mut(),
+                null_mut(),
+                instance,
+                null_mut(),
+            )
+        };
+        let selected = unsafe {
+            TrackPopupMenu(
+                menu,
+                TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN,
+                point.x,
+                point.y,
+                0,
+                owner,
+                null_mut(),
+            )
+        };
+        unsafe {
+            DestroyMenu(menu);
+            if !owner.is_null() {
+                DestroyWindow(owner);
+            }
+        }
+
+        Ok(match selected {
+            1 => Some(SelectionPopupAction::Copy),
+            2 => Some(SelectionPopupAction::Translate),
+            3 => Some(SelectionPopupAction::Summarize),
+            4 => Some(SelectionPopupAction::Search),
+            _ => None,
+        })
     }
 
     pub fn run_tray_menu(
