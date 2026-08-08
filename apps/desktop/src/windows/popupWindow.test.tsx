@@ -25,6 +25,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 import { InputWindow } from "./input/InputWindow";
 import { ResultWindow } from "./result/ResultWindow";
+import { ScreenshotOverlay } from "./screenshot/ScreenshotOverlay";
 import { SelectionWindow } from "./selection/SelectionWindow";
 import { useInputStore } from "../stores/inputStore";
 import { useResultStore } from "../stores/resultStore";
@@ -123,5 +124,20 @@ describe("WebView popup behavior", () => {
         }),
       ),
     );
+  });
+
+  it("closes the screenshot overlay on Escape", () => {
+    render(<ScreenshotOverlay />);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(mocks.hide).toHaveBeenCalled();
+  });
+
+  it("cancels the screenshot overlay on right-click", () => {
+    const { container } = render(<ScreenshotOverlay />);
+    const overlay = container.firstChild as HTMLElement;
+
+    fireEvent.contextMenu(overlay);
+    expect(mocks.hide).toHaveBeenCalled();
   });
 });
