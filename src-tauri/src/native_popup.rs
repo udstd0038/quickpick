@@ -337,7 +337,7 @@ mod native_window {
     const INPUT_WINDOW_TITLE: &str = "QuickPick 输入翻译";
     const ESC_KEY: WPARAM = 0x1b;
     const REVEAL_FRAMES: u32 = 8;
-    const NATIVE_POPUP_WIDTH: i32 = 450;
+    const NATIVE_POPUP_WIDTH: i32 = 480;
     const UI_FONT_FACE: &str = "Segoe UI";
     const UI_FONT_SIZE: i32 = 15;
     const UI_FONT_WEIGHT_NORMAL: i32 = 400;
@@ -348,7 +348,7 @@ mod native_window {
     }
 
     fn compact_popup(width: i32) -> bool {
-        width <= 470
+        width <= 500
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
