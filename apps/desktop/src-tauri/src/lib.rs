@@ -201,6 +201,16 @@ struct InputReadyPayload {
     direction: String,
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScreenshotPreviewPayload {
+    screen_x: i32,
+    screen_y: i32,
+    width: u32,
+    height: u32,
+    status: String,
+}
+
 impl Default for ResultSnapshot {
     fn default() -> Self {
         Self {
@@ -2555,6 +2565,30 @@ fn show_screenshot_overlay(app: &tauri::AppHandle) -> bool {
     true
 }
 
+fn show_screenshot_preview(
+    app: &tauri::AppHandle,
+    selection: &screenshot::RegionMenuSelection,
+    status: &str,
+) -> bool {
+    let Some(window) = app.get_webview_window("screenshot_preview") else {
+        return false;
+    };
+    let _ = window.set_always_on_top(true);
+    let _ = window.show();
+    let _ = app.emit_to(
+        "screenshot_preview",
+        "screenshot-preview",
+        ScreenshotPreviewPayload {
+            screen_x: selection.screen_x,
+            screen_y: selection.screen_y,
+            width: selection.width,
+            height: selection.height,
+            status: status.to_string(),
+        },
+    );
+    true
+}
+
 #[tauri::command(rename_all = "camelCase")]
 async fn capture_region_rect(
     app: tauri::AppHandle,
@@ -2576,6 +2610,7 @@ async fn capture_region_rect(
         width,
         height,
     };
+    show_screenshot_preview(&app, &selection, "已选择区域");
     handle_region_menu_selection(app, selection).await
 }
 
