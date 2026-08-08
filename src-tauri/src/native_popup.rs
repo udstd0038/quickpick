@@ -1090,7 +1090,6 @@ mod native_window {
             }
             WM_KILLFOCUS => {
                 state.restore_focus = false;
-                DestroyWindow(hwnd);
                 0
             }
             WM_DESTROY => {
@@ -1491,15 +1490,11 @@ mod native_window {
             );
         }
 
-        let buttons_top = client.bottom - 48;
+        let buttons_top = client.bottom - 46;
         state.buttons = result_buttons(client, buttons_top, state.can_switch_language);
         state.content_rect = RECT {
             left: margin,
-            top: if compact_popup(client.right - client.left) && state.can_switch_language {
-                92
-            } else {
-                58
-            },
+            top: 58,
             right: client.right - margin,
             bottom: buttons_top - 12,
         };
@@ -1665,7 +1660,6 @@ mod native_window {
         can_switch_language: bool,
     ) -> Vec<Button<ResultButtonKind>> {
         let width = client.right - client.left;
-        let compact = compact_popup(width);
         let margin = popup_margin(width);
         let copy_width = 64;
         let copy_height = 38;
@@ -1683,11 +1677,7 @@ mod native_window {
         });
 
         let icon_size = 30;
-        let icon_top = if can_switch_language {
-            if compact { 48 } else { 12 }
-        } else {
-            12
-        };
+        let icon_top = 8;
         let mut icon_right = client.right - margin;
         for kind in [ResultButtonKind::Close, ResultButtonKind::Pin] {
             buttons.push(Button {
@@ -1706,7 +1696,7 @@ mod native_window {
             let source_width = 72;
             let direction_width = 48;
             let target_width = 72;
-            let top = icon_top;
+            let top = 8;
             let height = 38;
             let total_width = source_width + direction_width + target_width + gap * 2;
             let left = ((client.right - client.left - total_width) / 2).max(margin);
@@ -2732,9 +2722,12 @@ mod native_window {
                 if state.open_language_menu.is_some() {
                     state.hovered_language_option = hit_button(&state.language_menu_options, point);
                     if state.hovered_language_option != previous_language_hover {
-                        unsafe {
-                            InvalidateRect(hwnd, null_mut(), 0);
-                        }
+                        invalidate_input_language_options(
+                            hwnd,
+                            state,
+                            previous_language_hover,
+                            state.hovered_language_option,
+                        );
                     }
                 }
                 let previous_hover = state.hovered_button;
@@ -3022,17 +3015,16 @@ mod native_window {
         let right = client.right.max(client.left + 1);
         let bottom = client.bottom.max(client.top + 1);
         let margin = popup_margin(right - client.left);
-        let compact = compact_popup(right - client.left);
 
         state.edit_rect = RECT {
             left: margin,
-            top: if compact { 96 } else { 56 },
+            top: 56,
             right: right - margin,
-            bottom: if compact { 160 } else { 128 },
+            bottom: 128,
         };
         state.result_rect = RECT {
             left: margin,
-            top: if compact { 178 } else { 148 },
+            top: 148,
             right: right - margin,
             bottom: bottom - 50,
         };
@@ -3041,16 +3033,15 @@ mod native_window {
 
     fn preset_input_layout(state: &mut InputPopupState, width: i32, height: i32) {
         let margin = popup_margin(width);
-        let compact = compact_popup(width);
         state.edit_rect = RECT {
             left: margin,
-            top: if compact { 96 } else { 56 },
+            top: 56,
             right: width - margin,
-            bottom: if compact { 160 } else { 128 },
+            bottom: 128,
         };
         state.result_rect = RECT {
             left: margin,
-            top: if compact { 178 } else { 148 },
+            top: 148,
             right: width - margin,
             bottom: height - 50,
         };
@@ -3061,14 +3052,13 @@ mod native_window {
         let right = client.right.max(client.left + 1);
         let bottom = client.bottom.max(client.top + 1);
         let width = right - client.left;
-        let compact = compact_popup(width);
         let margin = popup_margin(width);
         let action_width = 64;
         let action_height = 38;
         let action_gap = 8;
 
         let icon_size = 30;
-        let icon_top = if compact { 48 } else { 12 };
+        let icon_top = 8;
         let mut icon_right = right - margin;
         for kind in [InputButtonKind::Close, InputButtonKind::Pin] {
             buttons.push(Button {
@@ -3086,7 +3076,7 @@ mod native_window {
         let source_width = 72;
         let direction_width = 48;
         let target_width = 72;
-        let top = icon_top;
+        let top = 8;
         let height = 38;
         let gap = 4;
         let total_width = source_width + direction_width + target_width + gap * 2;
@@ -3331,12 +3321,33 @@ mod native_window {
 
     fn invalidate_input_buttons(
         hwnd: HWND,
-        _state: &mut InputPopupState,
-        _first: Option<InputButtonKind>,
-        _second: Option<InputButtonKind>,
+        state: &InputPopupState,
+        first: Option<InputButtonKind>,
+        second: Option<InputButtonKind>,
     ) {
-        unsafe {
-            InvalidateRect(hwnd, null_mut(), 0);
+        for kind in [first, second].into_iter().flatten() {
+            if let Some(button) = state.buttons.iter().find(|button| button.kind == kind) {
+                let rect = button.rect;
+                unsafe {
+                    InvalidateRect(hwnd, &rect, 0);
+                }
+            }
+        }
+    }
+
+    fn invalidate_input_language_options(
+        hwnd: HWND,
+        state: &InputPopupState,
+        first: Option<usize>,
+        second: Option<usize>,
+    ) {
+        for index in [first, second].into_iter().flatten() {
+            if let Some(option) = state.language_menu_options.get(index) {
+                let rect = option.rect;
+                unsafe {
+                    InvalidateRect(hwnd, &rect, 0);
+                }
+            }
         }
     }
 
