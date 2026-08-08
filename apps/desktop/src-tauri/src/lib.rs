@@ -2088,7 +2088,8 @@ pub fn run() {
             capture_current_monitor_to_clipboard,
             capture_region_to_clipboard,
             set_hotkey_capture_mode,
-            request_input_translation
+            request_input_translation,
+            capture_region_rect
         ])
         .setup(|app| {
             let settings = app_settings::load_app_settings(app.handle()).unwrap_or_default();
@@ -2521,6 +2522,10 @@ fn toggle_autostart_from_tray(app: &tauri::AppHandle) {
 }
 
 fn capture_region_from_entry(app: &tauri::AppHandle) {
+    if show_screenshot_overlay(app) {
+        return;
+    }
+
     let app = app.clone();
     std::thread::spawn(move || {
         let (kind, message) = match screenshot::select_region_action(native_theme_for_app(&app)) {
@@ -2538,6 +2543,40 @@ fn capture_region_from_entry(app: &tauri::AppHandle) {
         };
         emit_screenshot_status(&app, kind, message);
     });
+}
+
+fn show_screenshot_overlay(app: &tauri::AppHandle) -> bool {
+    let Some(window) = app.get_webview_window("screenshot_overlay") else {
+        return false;
+    };
+    let _ = window.set_always_on_top(true);
+    let _ = window.show();
+    let _ = window.set_focus();
+    true
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn capture_region_rect(
+    app: tauri::AppHandle,
+    screen_x: i32,
+    screen_y: i32,
+    width: u32,
+    height: u32,
+    action: String,
+) -> Result<SelectionActionResult, String> {
+    let action = match action.as_str() {
+        "extract" => screenshot::RegionMenuAction::Extract,
+        "translate" => screenshot::RegionMenuAction::Translate,
+        _ => screenshot::RegionMenuAction::Copy,
+    };
+    let selection = screenshot::RegionMenuSelection {
+        action,
+        screen_x,
+        screen_y,
+        width,
+        height,
+    };
+    handle_region_menu_selection(app, selection).await
 }
 
 async fn handle_region_menu_selection(
