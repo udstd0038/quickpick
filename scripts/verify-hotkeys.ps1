@@ -13,6 +13,7 @@ public static class QuickPickHotkeyVerifier {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
 }
 '@
 
@@ -74,6 +75,41 @@ function Hide-QuickPickPopups {
   }, [IntPtr]::Zero) | Out-Null
 }
 
+# Alt+2 selection needs the app itself to be foreground so the WebView window can keep focus.
+$selectionTitle = "QuickPick " + [char]0x5212 + [char]0x8BCD
+$settingsTitle = "QuickPick " + [char]0x8BBE + [char]0x7F6E
+$settingsHwnd = [IntPtr]::Zero
+
+[QuickPickHotkeyVerifier]::EnumWindows({
+  param($h, $l)
+  [uint32]$wpid = 0
+  [QuickPickHotkeyVerifier]::GetWindowThreadProcessId($h, [ref]$wpid) | Out-Null
+  if ($wpid -eq $script:pidValue) {
+    $title = [Text.StringBuilder]::new(512)
+    [QuickPickHotkeyVerifier]::GetWindowText($h, $title, 512) | Out-Null
+    if ($title.ToString() -eq $settingsTitle) {
+      $script:settingsHwnd = $h
+    }
+  }
+  return $true
+}, [IntPtr]::Zero) | Out-Null
+
+if ($settingsHwnd -ne [IntPtr]::Zero) {
+  [QuickPickHotkeyVerifier]::ShowWindow($settingsHwnd, 5) | Out-Null
+  [QuickPickHotkeyVerifier]::SetForegroundWindow($settingsHwnd) | Out-Null
+  Start-Sleep -Milliseconds 300
+}
+
+# Alt+2 selection id: (Modifiers::ALT = 1) << 16 | Code::Digit2 = 7
+[QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65543, [IntPtr]0x00320000) | Out-Null
+Start-Sleep -Milliseconds 900
+$titles = Get-VisibleQuickPickTitles
+Write-Output ("Alt+2 visible titles: " + ($titles -join ", "))
+if ($titles -notcontains $selectionTitle) {
+  throw "Alt+2 event did not open the selection window"
+}
+Hide-QuickPickPopups
+
 # Alt+4 input translate id: (Modifiers::ALT = 1) << 16 | Code::Digit4 = 9
 [QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65545, [IntPtr]0x00340000) | Out-Null
 Start-Sleep -Milliseconds 900
@@ -94,4 +130,4 @@ if (@($titles | Where-Object { $_ -like "QuickPick *" }).Count -eq 0) {
 }
 Hide-QuickPickPopups
 
-Write-Output "hotkey event chain verified: Alt+4 input, Alt+3 screenshot"
+Write-Output "hotkey event chain verified: Alt+2 selection, Alt+4 input, Alt+3 screenshot"

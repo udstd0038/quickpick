@@ -2746,6 +2746,15 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
     };
     let _ = window.set_always_on_top(true);
     let _ = window.show();
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
+        if let Ok(hwnd) = window.hwnd() {
+            unsafe {
+                SetForegroundWindow(hwnd.0);
+            }
+        }
+    }
     let _ = window.set_focus();
     true
 }
