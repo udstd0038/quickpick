@@ -1683,7 +1683,11 @@ mod native_window {
         });
 
         let icon_size = 30;
-        let icon_top = 12;
+        let icon_top = if can_switch_language {
+            if compact { 48 } else { 12 }
+        } else {
+            12
+        };
         let mut icon_right = client.right - margin;
         for kind in [ResultButtonKind::Close, ResultButtonKind::Pin] {
             buttons.push(Button {
@@ -1702,7 +1706,7 @@ mod native_window {
             let source_width = 72;
             let direction_width = 48;
             let target_width = 72;
-            let top = if compact { 48 } else { 12 };
+            let top = icon_top;
             let height = 38;
             let total_width = source_width + direction_width + target_width + gap * 2;
             let left = ((client.right - client.left - total_width) / 2).max(margin);
@@ -2118,7 +2122,7 @@ mod native_window {
         } else {
             palette.button_border
         };
-        paint_soft_rect(hdc, rect, 8, background, border);
+        paint_soft_rect(hdc, rect, 12, background, border);
         draw_text_strong(
             hdc,
             label,
@@ -3064,7 +3068,7 @@ mod native_window {
         let action_gap = 8;
 
         let icon_size = 30;
-        let icon_top = 12;
+        let icon_top = if compact { 48 } else { 12 };
         let mut icon_right = right - margin;
         for kind in [InputButtonKind::Close, InputButtonKind::Pin] {
             buttons.push(Button {
@@ -3082,7 +3086,7 @@ mod native_window {
         let source_width = 72;
         let direction_width = 48;
         let target_width = 72;
-        let top = if compact { 48 } else { 12 };
+        let top = icon_top;
         let height = 38;
         let gap = 4;
         let total_width = source_width + direction_width + target_width + gap * 2;
