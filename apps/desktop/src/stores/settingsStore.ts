@@ -5,11 +5,17 @@ import {
   normalizeAppSettings,
   type AppSettings,
   type SettingsStatus,
-} from "../windows/settings/SettingsWindow";
+} from "../lib/settingsTypes";
 
 interface SettingsState {
   settings: AppSettings;
   status: SettingsStatus;
+  setSettings: (
+    settings: AppSettings | ((previous: AppSettings) => AppSettings),
+  ) => void;
+  setStatus: (
+    status: SettingsStatus | ((previous: SettingsStatus) => SettingsStatus),
+  ) => void;
   updateSetting: <K extends keyof AppSettings>(
     key: K,
     value: AppSettings[K],
@@ -21,6 +27,20 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   settings: defaultAppSettings,
   status: { kind: "idle", message: "设置已载入" },
+  setSettings: (settings) => {
+    set((state) => ({
+      settings:
+        typeof settings === "function"
+          ? settings(state.settings)
+          : settings,
+    }));
+  },
+  setStatus: (status) => {
+    set((state) => ({
+      status:
+        typeof status === "function" ? status(state.status) : status,
+    }));
+  },
   updateSetting: (key, value) => {
     set((state) => ({
       settings: { ...state.settings, [key]: value },

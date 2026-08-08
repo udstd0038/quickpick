@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 type WindowKind =
   | "main"
@@ -2083,7 +2084,10 @@ function GlassSelect<T extends string>({
 }
 
 function SettingsWindow({ coreStatus }: { coreStatus: string }) {
-  const [settings, setSettings] = useState<AppSettings>(defaultAppSettings);
+  const settings = useSettingsStore((state) => state.settings);
+  const settingsStatus = useSettingsStore((state) => state.status);
+  const setSettings = useSettingsStore((state) => state.setSettings);
+  const setSettingsStatus = useSettingsStore((state) => state.setStatus);
   const sectionsRef = useRef<HTMLDivElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
   const navIndicatorRef = useRef<HTMLSpanElement | null>(null);
@@ -2095,10 +2099,6 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     useState<HotkeySettingKey | null>(null);
   const [activeSettingsSection, setActiveSettingsSection] =
     useState<SettingsSectionId>("general");
-  const [settingsStatus, setSettingsStatus] = useState<SettingsStatus>({
-    kind: "loading",
-    message: "正在读取设置",
-  });
   const [textApiKeyInput, setTextApiKeyInput] = useState("");
   const [visionApiKeyInput, setVisionApiKeyInput] = useState("");
   const [textApiKeyConfigured, setTextApiKeyConfigured] = useState(false);
