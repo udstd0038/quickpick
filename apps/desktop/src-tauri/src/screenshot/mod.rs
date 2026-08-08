@@ -324,6 +324,7 @@ impl NativeOverlayState {
     }
 }
 
+#[allow(dead_code)]
 pub fn select_region_action(theme: NativeTheme) -> Result<Option<RegionMenuSelection>, String> {
     let monitor = current_cursor_monitor()?;
     let monitor_x = monitor
@@ -480,6 +481,7 @@ fn menu_buttons_for(selection: RectI, monitor_width: i32, monitor_height: i32) -
 }
 
 #[cfg(windows)]
+#[allow(dead_code)]
 mod native_overlay {
     use super::*;
     use std::mem::zeroed;
@@ -1090,6 +1092,7 @@ mod native_overlay {
 }
 
 #[cfg(not(windows))]
+#[allow(dead_code)]
 mod native_overlay {
     use super::*;
 

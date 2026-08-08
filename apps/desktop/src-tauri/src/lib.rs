@@ -1986,15 +1986,13 @@ fn capture_current_monitor_to_clipboard(
 async fn capture_region_to_clipboard(
     app: tauri::AppHandle,
 ) -> Result<SelectionActionResult, String> {
-    if show_screenshot_overlay(&app) {
-        return Ok(SelectionActionResult {
-            message: "截图窗口已打开".to_string(),
-        });
+    if !show_screenshot_overlay(&app) {
+        return Err("截图 WebView 窗口不可用".to_string());
     }
 
-    let selection = screenshot::select_region_action(native_theme_for_app(&app))?
-        .ok_or_else(|| "已取消截图".to_string())?;
-    handle_region_menu_selection(app, selection).await
+    Ok(SelectionActionResult {
+        message: "截图窗口已打开".to_string(),
+    })
 }
 
 #[tauri::command]
@@ -2482,23 +2480,7 @@ fn capture_region_from_entry(app: &tauri::AppHandle) {
         return;
     }
 
-    let app = app.clone();
-    std::thread::spawn(move || {
-        let (kind, message) = match screenshot::select_region_action(native_theme_for_app(&app)) {
-            Ok(Some(selection)) => {
-                match tauri::async_runtime::block_on(handle_region_menu_selection(
-                    app.clone(),
-                    selection,
-                )) {
-                    Ok(result) => ("success", result.message),
-                    Err(error) => ("error", error),
-                }
-            }
-            Ok(None) => ("error", "已取消截图".to_string()),
-            Err(error) => ("error", error),
-        };
-        emit_screenshot_status(&app, kind, message);
-    });
+    eprintln!("QuickPick screenshot WebView window is unavailable");
 }
 
 fn show_screenshot_overlay(app: &tauri::AppHandle) -> bool {
@@ -3056,12 +3038,6 @@ fn refresh_selection_snapshot(
     if let Ok(mut current) = state.selection_snapshot.lock() {
         *current = snapshot;
     };
-}
-
-fn native_theme_for_app(app: &tauri::AppHandle) -> native_theme::NativeTheme {
-    app_settings::load_app_settings(app)
-        .map(|settings| native_theme::NativeTheme::from_theme_mode(&settings.theme_mode))
-        .unwrap_or_default()
 }
 
 fn show_native_message_popup(

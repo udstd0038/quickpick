@@ -5,6 +5,7 @@ pub enum NativeTheme {
 }
 
 impl NativeTheme {
+    #[allow(dead_code)]
     pub fn from_theme_mode(theme_mode: &str) -> Self {
         match theme_mode.trim() {
             "light" => Self::Light,
