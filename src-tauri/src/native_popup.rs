@@ -319,8 +319,8 @@ mod native_window {
                 PeekMessageW, PostQuitMessage, RegisterClassW,
                 SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
                 TranslateMessage, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, HWND_NOTOPMOST,
-                HWND_TOPMOST, IDC_ARROW, MSG, PM_REMOVE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-                SWP_NOZORDER,
+                HWND_TOPMOST, IDC_ARROW, MSG, PM_REMOVE, SWP_NOACTIVATE, SWP_NOCOPYBITS,
+                SWP_NOMOVE, SWP_NOREDRAW, SWP_NOSIZE, SWP_NOZORDER,
                 SWP_SHOWWINDOW, SW_SHOW, SW_SHOWNOACTIVATE, WM_CHAR, WM_DESTROY, WM_ERASEBKGND,
                 WM_KEYDOWN, WM_LBUTTONDOWN,
                 WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT,
@@ -925,6 +925,7 @@ mod native_window {
                 if state.dragging {
                     state.dragging = false;
                     ReleaseCapture();
+                    finish_drag_redraw(hwnd);
                 }
                 if let Some(pressed) = state.pressed_button.take() {
                     ReleaseCapture();
@@ -1043,12 +1044,6 @@ mod native_window {
             }
             WM_MOUSEMOVE => {
                 let point = point_from_lparam(lparam);
-                if unsafe { GetForegroundWindow() } != hwnd {
-                    unsafe {
-                        let _ = SetForegroundWindow(hwnd);
-                        SetFocus(hwnd);
-                    }
-                }
                 let next_hover = hit_button(&state.buttons, point);
                 if next_hover != state.hovered_button {
                     let previous = state.hovered_button;
@@ -2606,9 +2601,16 @@ mod native_window {
                     y,
                     0,
                     0,
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW | SWP_NOCOPYBITS,
                 );
             }
+        }
+    }
+
+    fn finish_drag_redraw(hwnd: HWND) {
+        unsafe {
+            InvalidateRect(hwnd, null_mut(), 0);
+            UpdateWindow(hwnd);
         }
     }
 
@@ -2864,6 +2866,7 @@ mod native_window {
                 if state.dragging {
                     state.dragging = false;
                     ReleaseCapture();
+                    finish_drag_redraw(hwnd);
                 }
                 if let Some(pressed) = state.pressed_button.take() {
                     ReleaseCapture();
