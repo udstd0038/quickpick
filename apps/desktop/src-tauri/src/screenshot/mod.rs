@@ -879,7 +879,7 @@ mod native_overlay {
             }
         } else {
             OverlayPalette {
-                selection: rgb(47, 111, 236),
+                selection: rgb(255, 255, 255),
                 selection_inner: rgb(255, 255, 255),
                 panel_bg: rgb(248, 251, 255),
                 panel_border: rgb(193, 214, 249),

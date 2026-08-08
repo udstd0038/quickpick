@@ -1,12 +1,39 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  defaultAppSettings,
+  normalizeAppSettings,
+  type AppSettings,
+} from "./lib/settingsTypes";
 import { SettingsWindow } from "./windows/settings/SettingsWindow";
 import { SelectionWindow } from "./windows/selection/SelectionWindow";
 import { ResultWindow } from "./windows/result/ResultWindow";
 import { InputWindow } from "./windows/input/InputWindow";
 import { ScreenshotOverlay } from "./windows/screenshot/ScreenshotOverlay";
 import { ScreenshotPreview } from "./windows/screenshot/ScreenshotPreview";
+
+function currentSystemTheme(): "light" | "dark" {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function applyGlobalAppearance(settings: AppSettings) {
+  const root = document.documentElement;
+  const resolvedThemeMode: string =
+    settings.themeMode === "system" ? currentSystemTheme() : settings.themeMode;
+  const effectiveTheme =
+    resolvedThemeMode === "dark" || resolvedThemeMode === "workbench"
+      ? "workbench"
+      : "light";
+
+  root.dataset.theme = effectiveTheme;
+  root.dataset.themePreference = settings.themeMode;
+  root.dataset.windowEffect = settings.windowEffect;
+  root.style.colorScheme = effectiveTheme === "light" ? "light" : "dark";
+}
 
 export default function App() {
   const [coreStatus, setCoreStatus] = useState("正在检查核心连接");
@@ -28,6 +55,28 @@ export default function App() {
 
     return () => {
       mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    invoke<AppSettings>("get_app_settings")
+      .then((settings) => {
+        applyGlobalAppearance(normalizeAppSettings(settings));
+      })
+      .catch(() => {
+        applyGlobalAppearance(defaultAppSettings);
+      });
+
+    listen<AppSettings>("app-settings-changed", (event) => {
+      applyGlobalAppearance(normalizeAppSettings(event.payload));
+    }).then((cleanup) => {
+      unlisten = cleanup;
+    });
+
+    return () => {
+      unlisten?.();
     };
   }, []);
 

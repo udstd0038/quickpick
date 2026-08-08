@@ -1685,6 +1685,7 @@ fn save_app_settings(
     }
     apply_autostart_setting(settings.autostart_enabled)?;
     sync_window_appearance(&app, &settings);
+    let _ = app.emit("app-settings-changed", settings.clone());
 
     Ok(SelectionActionResult {
         message: "设置已保存".to_string(),
@@ -2047,6 +2048,12 @@ fn capture_current_monitor_to_clipboard(
 async fn capture_region_to_clipboard(
     app: tauri::AppHandle,
 ) -> Result<SelectionActionResult, String> {
+    if show_screenshot_overlay(&app) {
+        return Ok(SelectionActionResult {
+            message: "截图窗口已打开".to_string(),
+        });
+    }
+
     let selection = screenshot::select_region_action(native_theme_for_app(&app))?
         .ok_or_else(|| "已取消截图".to_string())?;
     handle_region_menu_selection(app, selection).await

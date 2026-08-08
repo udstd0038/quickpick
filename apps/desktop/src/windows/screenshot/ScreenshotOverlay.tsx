@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -62,12 +62,35 @@ export function ScreenshotOverlay() {
     setCurrent(null);
   };
 
+  const closeOverlay = () => {
+    setStart(null);
+    setCurrent(null);
+    void getCurrentWindow().hide();
+  };
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeOverlay();
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
   return (
     <div
+      className="screenshot-overlay"
       ref={overlayRef}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        closeOverlay();
+      }}
       style={{
         position: "relative",
         width: "100vw",
@@ -81,16 +104,17 @@ export function ScreenshotOverlay() {
     >
       {activeRect && (
         <div
+          className={`screenshot-frame ${
+            activeRect.width >= 8 && activeRect.height >= 8
+              ? "screenshot-frame-ready"
+              : ""
+          }`}
           style={{
             position: "absolute",
             left: activeRect.left,
             top: activeRect.top,
             width: activeRect.width,
             height: activeRect.height,
-            border: "1px solid #ffffff",
-            background: "rgba(255, 255, 255, 0.12)",
-            boxShadow:
-              "0 0 0 9999px rgba(0, 0, 0, 0.18), 0 18px 55px rgba(0, 0, 0, 0.24)",
             pointerEvents: "none",
           }}
         />
