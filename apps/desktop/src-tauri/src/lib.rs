@@ -2256,13 +2256,17 @@ fn register_hotkey_bindings(
     app: &tauri::AppHandle,
     bindings: &HotkeyBindings,
 ) -> Result<(), String> {
-    app.global_shortcut()
-        .register_multiple([
-            bindings.selection_hotkey.as_str(),
-            bindings.screenshot_hotkey.as_str(),
-            bindings.input_translate_hotkey.as_str(),
-        ])
-        .map_err(|error| format!("快捷键注册失败，可能已被其他软件占用：{error}"))
+    for (name, shortcut) in [
+        ("划词菜单", bindings.selection_hotkey.as_str()),
+        ("区域截图", bindings.screenshot_hotkey.as_str()),
+        ("输入翻译", bindings.input_translate_hotkey.as_str()),
+    ] {
+        app.global_shortcut()
+            .register(shortcut)
+            .map_err(|error| format!("{name} 快捷键注册失败，可能已被其他软件占用：{error}"))?;
+    }
+
+    Ok(())
 }
 
 fn sync_window_appearance(app: &tauri::AppHandle, settings: &app_settings::AppSettings) {
