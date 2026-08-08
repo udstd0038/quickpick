@@ -1040,8 +1040,9 @@ mod native_window {
                 let point = point_from_lparam(lparam);
                 let next_hover = hit_button(&state.buttons, point);
                 if next_hover != state.hovered_button {
+                    let previous = state.hovered_button;
                     state.hovered_button = next_hover;
-                    InvalidateRect(hwnd, null_mut(), 0);
+                    invalidate_selection_buttons(hwnd, state, previous, next_hover);
                 }
                 0
             }
@@ -1583,11 +1584,34 @@ mod native_window {
 
     fn paint_selection(hwnd: HWND, state: &mut SelectionPopupState) {
         let mut paint: PAINTSTRUCT = unsafe { zeroed() };
-        let hdc = unsafe { BeginPaint(hwnd, &mut paint) };
+        let window_dc = unsafe { BeginPaint(hwnd, &mut paint) };
         let mut client = empty_rect();
         unsafe {
             GetClientRect(hwnd, &mut client);
         }
+        let width = client.right - client.left;
+        let height = client.bottom - client.top;
+        let buffer_dc = unsafe { CreateCompatibleDC(window_dc) };
+        let buffer_bitmap = unsafe { CreateCompatibleBitmap(window_dc, width, height) };
+        let buffered = !buffer_dc.is_null() && !buffer_bitmap.is_null();
+        if !buffered {
+            if !buffer_bitmap.is_null() {
+                unsafe {
+                    DeleteObject(buffer_bitmap as _);
+                }
+            }
+            if !buffer_dc.is_null() {
+                unsafe {
+                    DeleteDC(buffer_dc);
+                }
+            }
+        }
+        let old_bitmap = if buffered {
+            unsafe { SelectObject(buffer_dc, buffer_bitmap as _) }
+        } else {
+            null_mut()
+        };
+        let hdc = if buffered { buffer_dc } else { window_dc };
 
         let palette = popup_palette(state.theme);
         fill_rect(hdc, client, palette.window_bg);
@@ -1613,7 +1637,31 @@ mod native_window {
         }
 
         unsafe {
+            if buffered {
+                BitBlt(window_dc, 0, 0, width, height, buffer_dc, 0, 0, SRCCOPY);
+                if !old_bitmap.is_null() {
+                    SelectObject(buffer_dc, old_bitmap);
+                }
+                DeleteObject(buffer_bitmap as _);
+                DeleteDC(buffer_dc);
+            }
             EndPaint(hwnd, &paint);
+        }
+    }
+
+    fn invalidate_selection_buttons(
+        hwnd: HWND,
+        state: &SelectionPopupState,
+        first: Option<SelectionButtonKind>,
+        second: Option<SelectionButtonKind>,
+    ) {
+        for kind in [first, second].into_iter().flatten() {
+            if let Some(button) = state.buttons.iter().find(|button| button.kind == kind) {
+                let rect = button.rect;
+                unsafe {
+                    InvalidateRect(hwnd, &rect, 0);
+                }
+            }
         }
     }
 
@@ -1693,11 +1741,11 @@ mod native_window {
         }
 
         if can_switch_language {
-            let source_width = 72;
+            let source_width = 64;
             let direction_width = 48;
-            let target_width = 72;
+            let target_width = 64;
             let top = 8;
-            let height = 38;
+            let height = 34;
             let total_width = source_width + direction_width + target_width + gap * 2;
             let left = ((client.right - client.left - total_width) / 2).max(margin);
             buttons.push(Button {
@@ -3073,11 +3121,11 @@ mod native_window {
             icon_right -= icon_size + 8;
         }
 
-        let source_width = 72;
+        let source_width = 64;
         let direction_width = 48;
-        let target_width = 72;
+        let target_width = 64;
         let top = 8;
-        let height = 38;
+        let height = 34;
         let gap = 4;
         let total_width = source_width + direction_width + target_width + gap * 2;
         let left = ((right - total_width) / 2).max(margin);
@@ -3133,11 +3181,34 @@ mod native_window {
 
     fn paint_input(hwnd: HWND, state: &mut InputPopupState) {
         let mut paint: PAINTSTRUCT = unsafe { zeroed() };
-        let hdc = unsafe { BeginPaint(hwnd, &mut paint) };
+        let window_dc = unsafe { BeginPaint(hwnd, &mut paint) };
         let mut client = empty_rect();
         unsafe {
             GetClientRect(hwnd, &mut client);
         }
+        let width = client.right - client.left;
+        let height = client.bottom - client.top;
+        let buffer_dc = unsafe { CreateCompatibleDC(window_dc) };
+        let buffer_bitmap = unsafe { CreateCompatibleBitmap(window_dc, width, height) };
+        let buffered = !buffer_dc.is_null() && !buffer_bitmap.is_null();
+        if !buffered {
+            if !buffer_bitmap.is_null() {
+                unsafe {
+                    DeleteObject(buffer_bitmap as _);
+                }
+            }
+            if !buffer_dc.is_null() {
+                unsafe {
+                    DeleteDC(buffer_dc);
+                }
+            }
+        }
+        let old_bitmap = if buffered {
+            unsafe { SelectObject(buffer_dc, buffer_bitmap as _) }
+        } else {
+            null_mut()
+        };
+        let hdc = if buffered { buffer_dc } else { window_dc };
         let palette = popup_palette(state.theme);
         fill_rect(hdc, client, palette.window_bg);
         frame_rect(hdc, client, palette.window_border);
@@ -3255,6 +3326,14 @@ mod native_window {
         );
         state.language_menu_options = menu_options;
         unsafe {
+            if buffered {
+                BitBlt(window_dc, 0, 0, width, height, buffer_dc, 0, 0, SRCCOPY);
+                if !old_bitmap.is_null() {
+                    SelectObject(buffer_dc, old_bitmap);
+                }
+                DeleteObject(buffer_bitmap as _);
+                DeleteDC(buffer_dc);
+            }
             EndPaint(hwnd, &paint);
         }
     }
