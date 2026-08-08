@@ -1,9 +1,11 @@
 node_modules
 dist
 target
+target-*
 src-tauri/target
 src-tauri/target-ui-check
 src-tauri/gen/schemas
+**/gen/schemas
 .vite
 .DS_Store
 *.log
