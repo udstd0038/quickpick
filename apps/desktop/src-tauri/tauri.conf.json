@@ -23,6 +23,65 @@
         "transparent": true,
         "decorations": false,
         "visible": false
+      },
+      {
+        "label": "selection",
+        "title": "QuickPick 划词",
+        "width": 480,
+        "height": 58,
+        "resizable": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
+      },
+      {
+        "label": "result",
+        "title": "QuickPick 结果",
+        "width": 480,
+        "height": 460,
+        "resizable": true,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
+      },
+      {
+        "label": "input",
+        "title": "QuickPick 输入翻译",
+        "width": 480,
+        "height": 460,
+        "resizable": true,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
+      },
+      {
+        "label": "screenshot_overlay",
+        "title": "QuickPick 截图",
+        "fullscreen": true,
+        "resizable": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
+      },
+      {
+        "label": "screenshot_preview",
+        "title": "QuickPick 截图预览",
+        "width": 480,
+        "height": 320,
+        "resizable": true,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false
       }
     ],
     "security": {

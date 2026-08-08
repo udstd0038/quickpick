@@ -2,13 +2,25 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
   "description": "Capability for QuickPick desktop windows",
-  "windows": ["main"],
+  "windows": [
+    "main",
+    "selection",
+    "result",
+    "input",
+    "screenshot_overlay",
+    "screenshot_preview"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-hide",
+    "core:window:allow-show",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-set-decorations",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-close"
   ]
 }
