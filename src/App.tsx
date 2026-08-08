@@ -2605,12 +2605,26 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     indicator.style.transform = `translate3d(${button.offsetLeft}px, ${button.offsetTop}px, 0)`;
   };
 
+  const syncSettingsCardWidth = () => {
+    const width = navRef.current?.offsetWidth;
+    if (width && width > 0) {
+      document.documentElement.style.setProperty(
+        "--qp-settings-card-width",
+        `${width}px`,
+      );
+    }
+  };
+
   useEffect(() => {
+    syncSettingsCardWidth();
     moveSettingsNavIndicator(activeSettingsSection);
   }, [activeSettingsSection, settings.themeMode, settings.windowEffect]);
 
   useEffect(() => {
-    const onResize = () => moveSettingsNavIndicator(activeSettingsSection);
+    const onResize = () => {
+      syncSettingsCardWidth();
+      moveSettingsNavIndicator(activeSettingsSection);
+    };
     window.addEventListener("resize", onResize);
 
     return () => {
