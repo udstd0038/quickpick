@@ -3889,3 +3889,145 @@ h3,
   width: 100%;
   min-width: 0;
 }
+
+/* Shared settings geometry. Theme blocks above may keep their own colors and
+   surface treatments, but layout is owned here so every theme stays identical. */
+:root[data-theme] .app-shell.settings-window,
+:root:not([data-theme]) .app-shell.settings-window {
+  gap: 8px;
+}
+
+:root[data-theme] .settings-window,
+:root:not([data-theme]) .settings-window {
+  --qp-titlebar-height: 38px;
+}
+
+:root[data-theme] .settings-shell,
+:root:not([data-theme]) .settings-shell {
+  padding: 0 6px 0;
+}
+
+:root[data-theme] .settings-titlebar-button,
+:root:not([data-theme]) .settings-titlebar-button {
+  width: 46px;
+}
+
+:root[data-theme] .settings-header,
+:root:not([data-theme]) .settings-header,
+:root[data-theme] .settings-layout,
+:root:not([data-theme]) .settings-layout,
+:root[data-theme] .settings-savebar,
+:root:not([data-theme]) .settings-savebar {
+  margin-right: 4px;
+  margin-left: 4px;
+}
+
+:root[data-theme] .settings-layout,
+:root:not([data-theme]) .settings-layout {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  overflow: hidden;
+}
+
+:root[data-theme] .settings-nav,
+:root:not([data-theme]) .settings-nav {
+  flex-direction: row;
+  align-self: stretch;
+  justify-content: center;
+  gap: 4px;
+  min-height: 42px;
+  padding: 4px;
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+:root[data-theme] .settings-nav a,
+:root:not([data-theme]) .settings-nav a,
+:root[data-theme] .settings-nav button,
+:root:not([data-theme]) .settings-nav button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+:root[data-theme] .settings-sections,
+:root:not([data-theme]) .settings-sections {
+  gap: 9px;
+  padding-right: 0;
+  padding-bottom: 9px;
+}
+
+:root[data-theme] .settings-section,
+:root:not([data-theme]) .settings-section {
+  padding: 14px;
+  border-radius: 8px;
+}
+
+:root[data-theme] .settings-section h2,
+:root:not([data-theme]) .settings-section h2 {
+  margin-bottom: 8px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+:root[data-theme] .setting-list,
+:root:not([data-theme]) .setting-list {
+  gap: 0;
+}
+
+:root[data-theme] .setting-row,
+:root:not([data-theme]) .setting-row,
+:root[data-theme] .setting-field,
+:root:not([data-theme]) .setting-field {
+  grid-template-columns: 1fr;
+  gap: 6px;
+  min-height: 0;
+  padding: 9px 0;
+}
+
+:root[data-theme] .setting-input,
+:root:not([data-theme]) .setting-input,
+:root[data-theme] .glass-select-trigger,
+:root:not([data-theme]) .glass-select-trigger,
+:root[data-theme] .hotkey-capture,
+:root:not([data-theme]) .hotkey-capture {
+  min-height: 34px;
+  border-radius: 7px;
+}
+
+:root[data-theme] .secret-control,
+:root:not([data-theme]) .secret-control {
+  grid-template-columns: 1fr;
+}
+
+:root[data-theme] .settings-savebar,
+:root:not([data-theme]) .settings-savebar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+  min-height: 64px;
+  margin-top: 8px;
+  margin-bottom: 0;
+  padding: 12px;
+  border-radius: 8px;
+  width: auto;
+}
+
+:root[data-theme] .settings-savebar .settings-feedback,
+:root:not([data-theme]) .settings-savebar .settings-feedback {
+  margin-right: 0;
+}
+
+:root[data-theme] .settings-save-button,
+:root:not([data-theme]) .settings-save-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+}

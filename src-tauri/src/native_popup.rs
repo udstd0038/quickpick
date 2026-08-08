@@ -904,9 +904,6 @@ mod native_window {
                     return 0;
                 }
 
-                if !point_in_rect(state.content_rect, point) && !state.pinned {
-                    DestroyWindow(hwnd);
-                }
                 0
             }
             WM_LBUTTONUP => {
@@ -2736,13 +2733,6 @@ mod native_window {
                     return 0;
                 }
 
-                if !point_in_rect(state.edit_rect, point)
-                    && !point_in_rect(state.result_rect, point)
-                    && !state.pinned
-                    && !state.loading()
-                {
-                    DestroyWindow(hwnd);
-                }
                 0
             }
             WM_LBUTTONUP => {
