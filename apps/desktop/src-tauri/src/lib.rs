@@ -1,6 +1,5 @@
 mod ai;
 mod app_settings;
-mod native_popup;
 mod native_theme;
 mod screenshot;
 mod security;
@@ -1907,7 +1906,7 @@ async fn run_text_ai_action_inner(
             source_char_count,
         });
     }
-    let result_popup = open_native_result_popup(&app, &loading_snapshot);
+    show_webview_result_snapshot(&app, &loading_snapshot);
     set_result_snapshot(&state, loading_snapshot)?;
 
     let ai_result = match security::load_api_key(&app, "text") {
@@ -1948,100 +1947,12 @@ async fn run_text_ai_action_inner(
             translation_direction.clone(),
         )?,
     };
-    update_native_result_popup(&app, &result_popup, &final_snapshot);
+    show_webview_result_snapshot(&app, &final_snapshot);
     set_result_snapshot(&state, final_snapshot)?;
-
-    if action == "translate" {
-        process_text_language_switches(
-            &app,
-            &result_popup,
-            &settings,
-            &text,
-            source_preview,
-            source_char_count,
-        )
-        .await?;
-    }
 
     Ok(SelectionActionResult {
         message: "AI 请求已完成".to_string(),
     })
-}
-
-async fn process_text_language_switches(
-    app: &tauri::AppHandle,
-    result_popup: &Option<native_popup::ResultPopupHandle>,
-    settings: &app_settings::AppSettings,
-    text: &str,
-    source_preview: String,
-    source_char_count: usize,
-) -> Result<(), String> {
-    let Some(handle) = result_popup else {
-        return Ok(());
-    };
-
-    while let Some(event) = handle.recv_event() {
-        let native_popup::ResultPopupEvent::TranslationChanged {
-            source_language,
-            target_language,
-            direction,
-        } = event;
-        let (request_source_language, request_target_language) =
-            translation_request_languages(&source_language, &target_language, &direction);
-        let loading = ResultSnapshot::text_loading(
-            "translate",
-            source_preview.clone(),
-            source_char_count,
-            source_language.clone(),
-            target_language.clone(),
-            direction.clone(),
-        )?;
-        update_native_result_popup(app, result_popup, &loading);
-        set_app_result_snapshot(app, loading)?;
-
-        let ai_result = match security::load_api_key(app, "text") {
-            Ok(Some(mut api_key)) => {
-                let result = ai::run_text_action(
-                    settings,
-                    &api_key,
-                    "translate",
-                    text,
-                    &request_source_language,
-                    &request_target_language,
-                )
-                .await;
-                api_key.clear();
-                result
-            }
-            Ok(None) => Err("文本模型 API Key 未配置，请先到设置中保存".to_string()),
-            Err(error) => Err(error),
-        };
-
-        let snapshot = match ai_result {
-            Ok(content) => ResultSnapshot::text_success(
-                "translate",
-                source_preview.clone(),
-                source_char_count,
-                content,
-                source_language.clone(),
-                target_language,
-                direction.clone(),
-            )?,
-            Err(error) => ResultSnapshot::text_error(
-                "translate",
-                source_preview.clone(),
-                source_char_count,
-                error,
-                source_language.clone(),
-                target_language,
-                direction.clone(),
-            )?,
-        };
-        update_native_result_popup(app, result_popup, &snapshot);
-        set_app_result_snapshot(app, snapshot)?;
-    }
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -2731,7 +2642,7 @@ async fn run_screenshot_ai_action(
         target_language.clone(),
         translation_direction.clone(),
     )?;
-    let result_popup = open_native_result_popup(&app, &loading);
+    show_webview_result_snapshot(&app, &loading);
     set_app_result_snapshot(&app, loading)?;
     emit_screenshot_status(&app, "success", "正在读取截图区域".to_string());
 
@@ -2746,7 +2657,7 @@ async fn run_screenshot_ai_action(
                 target_language.clone(),
                 translation_direction.clone(),
             )?;
-            update_native_result_popup(&app, &result_popup, &snapshot);
+            show_webview_result_snapshot(&app, &snapshot);
             set_app_result_snapshot(&app, snapshot)?;
             emit_screenshot_status(&app, "error", error.clone());
             return Err(error);
@@ -2771,7 +2682,7 @@ async fn run_screenshot_ai_action(
         target_language.clone(),
         translation_direction.clone(),
     )?;
-    update_native_result_popup(&app, &result_popup, &loading);
+    show_webview_result_snapshot(&app, &loading);
     set_app_result_snapshot(&app, loading)?;
     emit_screenshot_status(&app, "success", "正在处理截图文字".to_string());
 
@@ -2819,102 +2730,11 @@ async fn run_screenshot_ai_action(
             )?,
         ),
     };
-    update_native_result_popup(&app, &result_popup, &final_snapshot);
+    show_webview_result_snapshot(&app, &final_snapshot);
     set_app_result_snapshot(&app, final_snapshot)?;
     emit_screenshot_status(&app, kind, message.clone());
 
-    if action == "translate" {
-        process_image_language_switches(
-            &app,
-            &result_popup,
-            &settings,
-            &image.png_bytes,
-            source_preview,
-        )
-        .await?;
-    }
-
     Ok(SelectionActionResult { message })
-}
-
-async fn process_image_language_switches(
-    app: &tauri::AppHandle,
-    result_popup: &Option<native_popup::ResultPopupHandle>,
-    settings: &app_settings::AppSettings,
-    png_bytes: &[u8],
-    source_preview: String,
-) -> Result<(), String> {
-    let Some(handle) = result_popup else {
-        return Ok(());
-    };
-
-    while let Some(event) = handle.recv_event() {
-        let native_popup::ResultPopupEvent::TranslationChanged {
-            source_language,
-            target_language,
-            direction,
-        } = event;
-        let (request_source_language, request_target_language) =
-            translation_request_languages(&source_language, &target_language, &direction);
-        let loading = ResultSnapshot::image_loading(
-            "translate",
-            source_preview.clone(),
-            source_language.clone(),
-            target_language.clone(),
-            direction.clone(),
-        )?;
-        update_native_result_popup(app, result_popup, &loading);
-        set_app_result_snapshot(app, loading)?;
-        emit_screenshot_status(app, "success", "正在重新翻译截图文字".to_string());
-
-        let ai_result = match security::load_api_key(app, "vision") {
-            Ok(Some(mut api_key)) => {
-                let result = ai::run_image_action(
-                    settings,
-                    &api_key,
-                    "translate",
-                    png_bytes,
-                    &request_source_language,
-                    &request_target_language,
-                )
-                .await;
-                api_key.clear();
-                result
-            }
-            Ok(None) => Err("视觉模型 API Key 未配置，请先保存".to_string()),
-            Err(error) => Err(error),
-        };
-
-        let (kind, snapshot) = match ai_result {
-            Ok(content) => (
-                "success",
-                ResultSnapshot::image_success(
-                    "translate",
-                    source_preview.clone(),
-                    content,
-                    source_language.clone(),
-                    target_language,
-                    direction.clone(),
-                )?,
-            ),
-            Err(error) => (
-                "error",
-                ResultSnapshot::image_error(
-                    "translate",
-                    source_preview.clone(),
-                    error,
-                    source_language.clone(),
-                    target_language,
-                    direction.clone(),
-                )?,
-            ),
-        };
-        update_native_result_popup(app, result_popup, &snapshot);
-        set_app_result_snapshot(app, snapshot)?;
-        emit_screenshot_status(app, kind, "图片翻译已更新".to_string());
-    }
-
-    Ok(())
 }
 
 fn emit_screenshot_status(app: &tauri::AppHandle, kind: &'static str, message: String) {
@@ -2930,10 +2750,7 @@ fn activate_selection_bar(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
     let app = app.clone();
     std::thread::spawn(move || {
         refresh_selection_snapshot(&app, foreground_window, hotkey_keys);
-        if !show_selection_webview(&app) {
-            let snapshot = current_selection_snapshot(&app);
-            let _ = native_popup::select_text_action(snapshot, native_theme_for_app(&app));
-        }
+        let _ = show_selection_webview(&app);
     });
 }
 
@@ -3038,129 +2855,7 @@ async fn run_input_translate_flow(app: tauri::AppHandle) -> Result<SelectionActi
         });
     }
 
-    let result_popup = match native_popup::open_input_popup(
-        String::new(),
-        source_language.clone(),
-        target_language.clone(),
-        translation_direction.clone(),
-        String::new(),
-        String::new(),
-        "waiting".to_string(),
-        native_theme_for_app(&app),
-    ) {
-        Ok(popup) => popup,
-        Err(error) => {
-            show_native_message_popup(
-                &app,
-                "输入翻译弹窗创建失败".to_string(),
-                error.clone(),
-                "请稍后重试。".to_string(),
-            );
-            return Err(error);
-        }
-    };
-
-    process_input_translation_events(
-        &app,
-        &result_popup,
-        &settings,
-        source_language,
-        target_language,
-        translation_direction,
-    )
-    .await?;
-
-    Ok(SelectionActionResult {
-        message: "输入翻译已关闭".to_string(),
-    })
-}
-
-async fn process_input_translation_events(
-    app: &tauri::AppHandle,
-    result_popup: &native_popup::InputPopupHandle,
-    settings: &app_settings::AppSettings,
-    _source_language: String,
-    _target_language: String,
-    _translation_direction: String,
-) -> Result<(), String> {
-    loop {
-        let (input_text, source_language, target_language, translation_direction);
-        if let Some(update) = result_popup.recv_event() {
-            let native_popup::InputPopupEvent::TranslateRequested {
-                input_text: event_input,
-                source_language: event_source,
-                target_language: event_target,
-                direction: event_direction,
-            } = update;
-            input_text = event_input;
-            source_language = event_source;
-            target_language = event_target;
-            translation_direction = event_direction;
-        } else {
-            return Ok(());
-        }
-
-        let trimmed = input_text.trim().to_string();
-        if trimmed.is_empty() {
-            result_popup.update(String::new(), "请输入要翻译的文本。".to_string(), "waiting".to_string(), source_language, target_language, translation_direction);
-            continue;
-        }
-
-        let (request_source_language, request_target_language) = translation_request_languages(
-            &source_language,
-            &target_language,
-            &translation_direction,
-        );
-        result_popup.update(
-            String::new(),
-            String::new(),
-            "loading".to_string(),
-            source_language.clone(),
-            target_language.clone(),
-            translation_direction.clone(),
-        );
-
-        let ai_result = match security::load_api_key(app, "input") {
-            Ok(Some(mut api_key)) => {
-                let result = ai::run_input_text_action(
-                    settings,
-                    &api_key,
-                    "translate",
-                    &trimmed,
-                    &request_source_language,
-                    &request_target_language,
-                )
-                .await;
-                api_key.clear();
-                result
-            }
-            Ok(None) => Err("输入模型 API Key 未配置，请先到设置中保存".to_string()),
-            Err(error) => Err(error),
-        };
-
-        match ai_result {
-            Ok(content) => {
-                result_popup.update(
-                    content,
-                    String::new(),
-                    "success".to_string(),
-                    source_language,
-                    target_language,
-                    translation_direction,
-                );
-            }
-            Err(error) => {
-                result_popup.update(
-                    String::new(),
-                    error,
-                    "error".to_string(),
-                    source_language,
-                    target_language,
-                    translation_direction,
-                );
-            }
-        }
-    }
+    Err("输入翻译 WebView 窗口不可用".to_string())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -3363,16 +3058,6 @@ fn refresh_selection_snapshot(
     };
 }
 
-fn current_selection_snapshot(app: &tauri::AppHandle) -> SelectionSnapshot {
-    let state = app.state::<AppState>();
-
-    state
-        .selection_snapshot
-        .lock()
-        .map(|snapshot| snapshot.clone())
-        .unwrap_or_else(|_| SelectionSnapshot::default())
-}
-
 fn native_theme_for_app(app: &tauri::AppHandle) -> native_theme::NativeTheme {
     app_settings::load_app_settings(app)
         .map(|settings| native_theme::NativeTheme::from_theme_mode(&settings.theme_mode))
@@ -3385,16 +3070,22 @@ fn show_native_message_popup(
     content: String,
     detail: String,
 ) {
-    native_popup::show_result_popup(
+    let snapshot = ResultSnapshot {
+        status: "error".to_string(),
+        kind: "message".to_string(),
         title,
         content,
         detail,
-        default_translation_source_language(),
-        "zh-Hans".to_string(),
-        default_translation_direction(),
-        false,
-        native_theme_for_app(app),
-    );
+        source_preview: String::new(),
+        source_char_count: 0,
+        can_copy: false,
+        can_retry: false,
+        source_language: default_translation_source_language(),
+        target_language: "zh-Hans".to_string(),
+        translation_direction: default_translation_direction(),
+        can_switch_language: false,
+    };
+    show_webview_result_snapshot(app, &snapshot);
 }
 
 fn show_native_result_popup(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
@@ -3403,16 +3094,6 @@ fn show_native_result_popup(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
 
 fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
     let Some(window) = app.get_webview_window("result") else {
-        native_popup::show_result_popup(
-            snapshot.title.clone(),
-            snapshot.content.clone(),
-            snapshot.detail.clone(),
-            snapshot.source_language.clone(),
-            snapshot.target_language.clone(),
-            snapshot.translation_direction.clone(),
-            snapshot.can_switch_language,
-            native_theme_for_app(app),
-        );
         return;
     };
 
@@ -3421,37 +3102,6 @@ fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapsho
     let _ = window.show();
     let _ = window.set_focus();
     let _ = app.emit_to("result", "result-ready", snapshot.clone());
-}
-
-fn open_native_result_popup(
-    app: &tauri::AppHandle,
-    snapshot: &ResultSnapshot,
-) -> Option<native_popup::ResultPopupHandle> {
-    show_webview_result_snapshot(app, snapshot);
-    None
-}
-
-fn update_native_result_popup(
-    app: &tauri::AppHandle,
-    handle: &Option<native_popup::ResultPopupHandle>,
-    snapshot: &ResultSnapshot,
-) {
-    if let Some(handle) = handle {
-        if handle.update(
-            snapshot.title.clone(),
-            snapshot.content.clone(),
-            snapshot.detail.clone(),
-            snapshot.status.clone(),
-            snapshot.source_language.clone(),
-            snapshot.target_language.clone(),
-            snapshot.translation_direction.clone(),
-            snapshot.can_switch_language,
-        ) {
-            return;
-        }
-    }
-
-    show_native_result_popup(app, snapshot);
 }
 
 fn apply_autostart_setting(enabled: bool) -> Result<(), String> {
