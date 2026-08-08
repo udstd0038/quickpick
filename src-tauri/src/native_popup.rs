@@ -6,7 +6,7 @@ use std::{
         Mutex,
     },
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 use xcap::Monitor;
 
@@ -324,7 +324,7 @@ mod native_window {
                 SWP_SHOWWINDOW, SW_SHOW, SW_SHOWNOACTIVATE, WM_CHAR, WM_DESTROY, WM_ERASEBKGND,
                 WM_KEYDOWN, WM_LBUTTONDOWN,
                 WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT,
-                WM_QUIT, WM_SETFOCUS, WM_SIZE, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+                WM_QUIT, WM_SIZE, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
             },
         },
     };
@@ -599,8 +599,6 @@ mod native_window {
         buttons: Vec<Button<SelectionButtonKind>>,
         result: Option<SelectionPopupAction>,
         restore_focus: bool,
-        received_focus: bool,
-        focus_lost_at: Option<Instant>,
         hovered_button: Option<SelectionButtonKind>,
         pressed_button: Option<SelectionButtonKind>,
     }
@@ -669,8 +667,6 @@ mod native_window {
                 buttons: Vec::new(),
                 result: None,
                 restore_focus: true,
-                received_focus: false,
-                focus_lost_at: None,
                 hovered_button: None,
                 pressed_button: None,
             }
@@ -804,7 +800,7 @@ mod native_window {
             true,
         )?;
 
-        selection_message_loop(hwnd, &mut state);
+        message_loop(hwnd);
         if state.restore_focus {
             restore_previous_foreground(previous_foreground);
         }
@@ -1047,6 +1043,12 @@ mod native_window {
             }
             WM_MOUSEMOVE => {
                 let point = point_from_lparam(lparam);
+                if unsafe { GetForegroundWindow() } != hwnd {
+                    unsafe {
+                        let _ = SetForegroundWindow(hwnd);
+                        SetFocus(hwnd);
+                    }
+                }
                 let next_hover = hit_button(&state.buttons, point);
                 if next_hover != state.hovered_button {
                     let previous = state.hovered_button;
@@ -1097,16 +1099,8 @@ mod native_window {
                     DefWindowProcW(hwnd, message, wparam, lparam)
                 }
             }
-            WM_SETFOCUS => {
-                state.received_focus = true;
-                state.focus_lost_at = None;
-                0
-            }
             WM_KILLFOCUS => {
                 state.restore_focus = false;
-                if state.received_focus {
-                    state.focus_lost_at = Some(Instant::now());
-                }
                 0
             }
             WM_DESTROY => {
@@ -1329,38 +1323,6 @@ mod native_window {
         }
     }
 
-    fn selection_message_loop(hwnd: HWND, state: &mut SelectionPopupState) {
-        let mut message: MSG = unsafe { zeroed() };
-        loop {
-            while unsafe { PeekMessageW(&mut message, null_mut(), 0, 0, PM_REMOVE) } != 0 {
-                if message.message == WM_QUIT {
-                    return;
-                }
-                unsafe {
-                    TranslateMessage(&message);
-                    DispatchMessageW(&message);
-                }
-            }
-
-            if state.received_focus {
-                if let Some(lost_at) = state.focus_lost_at {
-                    if lost_at.elapsed() >= Duration::from_millis(1200) {
-                        unsafe {
-                            DestroyWindow(hwnd);
-                        }
-                        return;
-                    }
-                }
-            }
-
-            if unsafe { IsWindow(hwnd) } == 0 {
-                return;
-            }
-
-            thread::sleep(Duration::from_millis(20));
-        }
-    }
-
     fn result_message_loop(
         hwnd: HWND,
         state: &mut ResultPopupState,
@@ -1553,7 +1515,7 @@ mod native_window {
             );
         }
 
-        let buttons_top = client.bottom - 46;
+        let buttons_top = client.bottom - 42;
         state.buttons = result_buttons(client, buttons_top, state.can_switch_language);
         state.content_rect = RECT {
             left: margin,
@@ -1771,7 +1733,7 @@ mod native_window {
         let width = client.right - client.left;
         let margin = popup_margin(width);
         let copy_width = 64;
-        let copy_height = 38;
+        let copy_height = 34;
         let gap = 4;
         let mut buttons = Vec::new();
 
@@ -3159,7 +3121,7 @@ mod native_window {
         let width = right - client.left;
         let margin = popup_margin(width);
         let action_width = 64;
-        let action_height = 38;
+        let action_height = 34;
         let action_gap = 8;
 
         let icon_size = 34;
@@ -3362,8 +3324,7 @@ mod native_window {
                         hdc,
                         button.rect,
                         &label,
-                        button.kind == InputButtonKind::Translate
-                            || button.kind == InputButtonKind::Copy,
+                        false,
                         visual_state,
                         palette,
                     );
