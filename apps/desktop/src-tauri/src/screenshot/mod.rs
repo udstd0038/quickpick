@@ -63,6 +63,8 @@ pub struct CaptureClipboardResult {
 pub struct MonitorScreenshotPayload {
     pub width: u32,
     pub height: u32,
+    pub monitor_x: i32,
+    pub monitor_y: i32,
     pub monitor_name: String,
     pub png_data_url: String,
 }
@@ -175,6 +177,12 @@ pub fn capture_current_monitor_screenshot() -> Result<MonitorScreenshotPayload, 
         .friendly_name()
         .or_else(|_| monitor.name())
         .unwrap_or_else(|_| "当前显示器".to_string());
+    let monitor_x = monitor
+        .x()
+        .map_err(|error| format!("读取显示器位置失败：{error}"))?;
+    let monitor_y = monitor
+        .y()
+        .map_err(|error| format!("读取显示器位置失败：{error}"))?;
 
     let image = monitor
         .capture_image()
@@ -192,6 +200,8 @@ pub fn capture_current_monitor_screenshot() -> Result<MonitorScreenshotPayload, 
     Ok(MonitorScreenshotPayload {
         width,
         height,
+        monitor_x,
+        monitor_y,
         monitor_name,
         png_data_url,
     })

@@ -68,8 +68,8 @@ export function ScreenshotOverlay() {
     setBusy(true);
     try {
       await captureRegionRect({
-        screenX: Math.round(pixelCrop.x * scaleX),
-        screenY: Math.round(pixelCrop.y * scaleY),
+        screenX: screenshot.monitorX + Math.round(pixelCrop.x * scaleX),
+        screenY: screenshot.monitorY + Math.round(pixelCrop.y * scaleY),
         width: Math.round(pixelCrop.width * scaleX),
         height: Math.round(pixelCrop.height * scaleY),
         action,

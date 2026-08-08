@@ -78,6 +78,8 @@ export function captureRegionRect(input: {
 export type MonitorScreenshotPayload = {
   width: number;
   height: number;
+  monitorX: number;
+  monitorY: number;
   monitorName: string;
   pngDataUrl: string;
 };
