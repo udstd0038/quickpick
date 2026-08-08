@@ -2421,6 +2421,10 @@ fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     tray.set_menu(Some(tray_menu))?;
     tray.on_menu_event(|app, event| match event.id().as_ref() {
         "settings" => show_settings_window(app),
+        "selection" => activate_selection_bar(app, Vec::new()),
+        "screenshot" => capture_region_from_entry(app),
+        "input" => activate_input_translate(app),
+        "reset-hotkeys" => reset_global_hotkeys_from_tray(app),
         "autostart" => toggle_autostart_from_tray(app),
         "quit" => app.exit(0),
         _ => {}
@@ -2436,6 +2440,9 @@ fn build_tray_menu(
     use tauri::menu::PredefinedMenuItem;
 
     let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
+    let selection = MenuItem::with_id(app, "selection", "划词菜单", true, None::<&str>)?;
+    let screenshot = MenuItem::with_id(app, "screenshot", "区域截图", true, None::<&str>)?;
+    let input = MenuItem::with_id(app, "input", "输入翻译", true, None::<&str>)?;
     let autostart = CheckMenuItem::with_id(
         app,
         "autostart",
@@ -2444,13 +2451,42 @@ fn build_tray_menu(
         autostart_enabled,
         None::<&str>,
     )?;
+    let reset_hotkeys = MenuItem::with_id(
+        app,
+        "reset-hotkeys",
+        "重置快捷键",
+        true,
+        None::<&str>,
+    )?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(
         app,
-        &[&settings, &separator, &autostart, &separator, &quit],
+        &[
+            &settings,
+            &separator,
+            &selection,
+            &screenshot,
+            &input,
+            &separator,
+            &autostart,
+            &reset_hotkeys,
+            &separator,
+            &quit,
+        ],
     )?;
     Ok(menu)
+}
+
+fn reset_global_hotkeys_from_tray(app: &tauri::AppHandle) {
+    if let Ok(mut capture_mode) = app.state::<AppState>().hotkey_capture_mode.lock() {
+        *capture_mode = false;
+    }
+
+    let settings = app_settings::load_app_settings(app).unwrap_or_default();
+    if let Err(error) = replace_global_shortcuts(app, &settings) {
+        eprintln!("QuickPick hotkey reset failed: {error}");
+    }
 }
 
 fn toggle_autostart_from_tray(app: &tauri::AppHandle) {

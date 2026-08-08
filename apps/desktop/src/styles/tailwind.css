@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--qp-shell-bg);
+  --color-foreground: var(--qp-text-primary);
+  --color-card: var(--qp-panel-bg);
+  --color-card-foreground: var(--qp-text-primary);
+  --color-primary: var(--qp-accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--qp-panel-bg-soft);
+  --color-secondary-foreground: var(--qp-text-secondary);
+  --color-muted: var(--qp-panel-bg-soft);
+  --color-muted-foreground: var(--qp-text-muted);
+  --color-accent: rgba(var(--qp-accent-rgb), 0.12);
+  --color-accent-foreground: var(--qp-text-primary);
+  --color-border: var(--qp-border);
+  --color-input: var(--qp-input-bg);
+  --color-ring: var(--qp-accent);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+}
