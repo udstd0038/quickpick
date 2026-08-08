@@ -6,7 +6,7 @@ use std::{
         Mutex,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 use xcap::Monitor;
 
@@ -309,12 +309,14 @@ mod native_window {
             DT_WORDBREAK, HDC, PAINTSTRUCT, PS_SOLID, SRCCOPY, TRANSPARENT,
         },
         System::LibraryLoader::GetModuleHandleW,
+        System::Threading::{AttachThreadInput, GetCurrentThreadId},
         UI::{
             Input::KeyboardAndMouse::{ReleaseCapture, SetCapture, SetFocus},
             WindowsAndMessaging::{
-                CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect,
-                GetCursorPos, GetForegroundWindow, GetMessageW, GetWindowLongPtrW, GetWindowRect,
-                IsWindow, LoadCursorW, PeekMessageW, PostQuitMessage, RegisterClassW,
+                BringWindowToTop, CreateWindowExW, DefWindowProcW, DestroyWindow,
+                DispatchMessageW, GetClientRect, GetCursorPos, GetForegroundWindow, GetMessageW,
+                GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsWindow, LoadCursorW,
+                PeekMessageW, PostQuitMessage, RegisterClassW,
                 SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
                 TranslateMessage, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, HWND_NOTOPMOST,
                 HWND_TOPMOST, IDC_ARROW, MSG, PM_REMOVE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
@@ -322,7 +324,7 @@ mod native_window {
                 SWP_SHOWWINDOW, SW_SHOW, SW_SHOWNOACTIVATE, WM_CHAR, WM_DESTROY, WM_ERASEBKGND,
                 WM_KEYDOWN, WM_LBUTTONDOWN,
                 WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT,
-                WM_QUIT, WM_SIZE, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+                WM_QUIT, WM_SETFOCUS, WM_SIZE, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
             },
         },
     };
@@ -349,6 +351,10 @@ mod native_window {
 
     fn compact_popup(width: i32) -> bool {
         width <= 500
+    }
+
+    fn language_menu_width(width: i32) -> i32 {
+        if compact_popup(width) { 96 } else { 132 }
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -403,7 +409,6 @@ mod native_window {
         Translate,
         Summarize,
         Search,
-        Close,
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -594,6 +599,8 @@ mod native_window {
         buttons: Vec<Button<SelectionButtonKind>>,
         result: Option<SelectionPopupAction>,
         restore_focus: bool,
+        received_focus: bool,
+        focus_lost_at: Option<Instant>,
         hovered_button: Option<SelectionButtonKind>,
         pressed_button: Option<SelectionButtonKind>,
     }
@@ -662,6 +669,8 @@ mod native_window {
                 buttons: Vec::new(),
                 result: None,
                 restore_focus: true,
+                received_focus: false,
+                focus_lost_at: None,
                 hovered_button: None,
                 pressed_button: None,
             }
@@ -795,7 +804,7 @@ mod native_window {
             true,
         )?;
 
-        message_loop(hwnd);
+        selection_message_loop(hwnd, &mut state);
         if state.restore_focus {
             restore_previous_foreground(previous_foreground);
         }
@@ -1071,7 +1080,6 @@ mod native_window {
                             SelectionButtonKind::Translate => Some(SelectionPopupAction::Translate),
                             SelectionButtonKind::Summarize => Some(SelectionPopupAction::Summarize),
                             SelectionButtonKind::Search => Some(SelectionPopupAction::Search),
-                            SelectionButtonKind::Close => None,
                         };
                         DestroyWindow(hwnd);
                     } else {
@@ -1089,8 +1097,16 @@ mod native_window {
                     DefWindowProcW(hwnd, message, wparam, lparam)
                 }
             }
+            WM_SETFOCUS => {
+                state.received_focus = true;
+                state.focus_lost_at = None;
+                0
+            }
             WM_KILLFOCUS => {
                 state.restore_focus = false;
+                if state.received_focus {
+                    state.focus_lost_at = Some(Instant::now());
+                }
                 0
             }
             WM_DESTROY => {
@@ -1259,8 +1275,22 @@ mod native_window {
                 SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
             );
             UpdateWindow(hwnd);
+            let foreground = GetForegroundWindow();
+            let foreground_thread = if foreground.is_null() {
+                0
+            } else {
+                GetWindowThreadProcessId(foreground, null_mut())
+            };
+            let current_thread = GetCurrentThreadId();
+            if foreground_thread != 0 && foreground_thread != current_thread {
+                AttachThreadInput(current_thread, foreground_thread, 1);
+            }
+            BringWindowToTop(hwnd);
             let _ = SetForegroundWindow(hwnd);
             SetFocus(hwnd);
+            if foreground_thread != 0 && foreground_thread != current_thread {
+                AttachThreadInput(current_thread, foreground_thread, 0);
+            }
         } else {
             ShowWindow(hwnd, SW_SHOWNOACTIVATE);
             SetWindowPos(
@@ -1296,6 +1326,38 @@ mod native_window {
                 TranslateMessage(&message);
                 DispatchMessageW(&message);
             }
+        }
+    }
+
+    fn selection_message_loop(hwnd: HWND, state: &mut SelectionPopupState) {
+        let mut message: MSG = unsafe { zeroed() };
+        loop {
+            while unsafe { PeekMessageW(&mut message, null_mut(), 0, 0, PM_REMOVE) } != 0 {
+                if message.message == WM_QUIT {
+                    return;
+                }
+                unsafe {
+                    TranslateMessage(&message);
+                    DispatchMessageW(&message);
+                }
+            }
+
+            if state.received_focus {
+                if let Some(lost_at) = state.focus_lost_at {
+                    if lost_at.elapsed() >= Duration::from_millis(1200) {
+                        unsafe {
+                            DestroyWindow(hwnd);
+                        }
+                        return;
+                    }
+                }
+            }
+
+            if unsafe { IsWindow(hwnd) } == 0 {
+                return;
+            }
+
+            thread::sleep(Duration::from_millis(20));
         }
     }
 
@@ -1624,7 +1686,6 @@ mod native_window {
                 SelectionButtonKind::Translate => "翻译",
                 SelectionButtonKind::Summarize => "总结",
                 SelectionButtonKind::Search => "搜索",
-                SelectionButtonKind::Close => "关闭",
             };
             let visual_state = if state.pressed_button == Some(button.kind) {
                 ButtonVisualState::Pressed
@@ -1724,7 +1785,7 @@ mod native_window {
             },
         });
 
-        let icon_size = 30;
+        let icon_size = 34;
         let icon_top = 8;
         let mut icon_right = client.right - margin;
         for kind in [ResultButtonKind::Close, ResultButtonKind::Pin] {
@@ -1741,9 +1802,9 @@ mod native_window {
         }
 
         if can_switch_language {
-            let source_width = 64;
+            let source_width = language_menu_width(width);
             let direction_width = 48;
-            let target_width = 64;
+            let target_width = language_menu_width(width);
             let top = 8;
             let height = 34;
             let total_width = source_width + direction_width + target_width + gap * 2;
@@ -1781,19 +1842,19 @@ mod native_window {
     }
 
     fn selection_buttons(client: RECT, _can_use: bool) -> Vec<Button<SelectionButtonKind>> {
-        let width = 68;
-        let height = 34;
+        let padding = 8;
         let gap = 8;
-        let top = (client.bottom - height) / 2;
-        let total_width = width * 5 + gap * 4;
-        let mut left = client.right - total_width - 12;
+        let count = 4;
+        let width = (client.right - client.left - padding * 2 - gap * (count - 1)) / count;
+        let height = client.bottom - client.top - padding * 2;
+        let mut left = client.left + padding;
+        let top = client.top + padding;
         let mut buttons = Vec::new();
         for kind in [
             SelectionButtonKind::Copy,
             SelectionButtonKind::Translate,
             SelectionButtonKind::Summarize,
             SelectionButtonKind::Search,
-            SelectionButtonKind::Close,
         ] {
             buttons.push(Button {
                 kind,
@@ -1951,11 +2012,7 @@ mod native_window {
 
         let options = language_menu_options(state.language_menu_allows_auto(kind));
         let row_height = 30;
-        let width = if compact_popup(client.right - client.left) {
-            96
-        } else {
-            132
-        };
+        let width = language_menu_width(client.right - client.left);
         let height = row_height * options.len() as i32 + 8;
         let margin = popup_margin(client.right - client.left);
         let mut left = ((anchor.left + anchor.right - width) / 2).max(margin);
@@ -3105,7 +3162,7 @@ mod native_window {
         let action_height = 38;
         let action_gap = 8;
 
-        let icon_size = 30;
+        let icon_size = 34;
         let icon_top = 8;
         let mut icon_right = right - margin;
         for kind in [InputButtonKind::Close, InputButtonKind::Pin] {
@@ -3121,9 +3178,9 @@ mod native_window {
             icon_right -= icon_size + 8;
         }
 
-        let source_width = 64;
+        let source_width = language_menu_width(width);
         let direction_width = 48;
-        let target_width = 64;
+        let target_width = language_menu_width(width);
         let top = 8;
         let height = 34;
         let gap = 4;
