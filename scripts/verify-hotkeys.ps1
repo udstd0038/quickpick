@@ -14,6 +14,7 @@ public static class QuickPickHotkeyVerifier {
   [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
 }
 '@
 
@@ -107,6 +108,15 @@ $titles = Get-VisibleQuickPickTitles
 Write-Output ("Alt+2 visible titles: " + ($titles -join ", "))
 if ($titles -notcontains $selectionTitle) {
   throw "Alt+2 event did not open the selection window"
+}
+$consoleWindow = [QuickPickHotkeyVerifier]::GetConsoleWindow()
+if ($consoleWindow -ne [IntPtr]::Zero) {
+  [QuickPickHotkeyVerifier]::SetForegroundWindow($consoleWindow) | Out-Null
+  Start-Sleep -Milliseconds 500
+  $titles = Get-VisibleQuickPickTitles
+  if ($titles -contains $selectionTitle) {
+    throw "Alt+2 selection window did not hide after focus loss"
+  }
 }
 Hide-QuickPickPopups
 
