@@ -3933,8 +3933,11 @@ h3,
 :root[data-theme] .settings-nav,
 :root:not([data-theme]) .settings-nav {
   flex-direction: row;
-  align-self: stretch;
+  align-self: center;
+  justify-self: center;
   justify-content: center;
+  width: max-content;
+  max-width: 100%;
   gap: 4px;
   min-height: 42px;
   padding: 4px;
@@ -4012,10 +4015,10 @@ h3,
   align-items: stretch;
   justify-content: center;
   gap: 8px;
-  min-height: 64px;
-  margin-top: 8px;
+  min-height: 0;
+  margin-top: 9px;
   margin-bottom: 0;
-  padding: 12px;
+  padding: 14px;
   border-radius: 8px;
   width: auto;
 }
