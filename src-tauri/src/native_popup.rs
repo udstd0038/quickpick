@@ -304,7 +304,8 @@ mod native_window {
             CreateRoundRectRgn, CreateSolidBrush, DeleteDC, DeleteObject, DrawTextW, EndPaint,
             FillRect, FrameRect, IntersectClipRect, InvalidateRect, LineTo, MoveToEx, RestoreDC,
             RoundRect, SaveDC, SelectObject, SetBkMode, SetTextColor, SetWindowRgn,
-            UpdateWindow, DT_CENTER, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER,
+            UpdateWindow, DT_CALCRECT, DT_CENTER, DT_END_ELLIPSIS, DT_NOPREFIX, DT_SINGLELINE,
+            DT_VCENTER,
             DT_WORDBREAK, HDC, PAINTSTRUCT, PS_SOLID, SRCCOPY, TRANSPARENT,
         },
         System::LibraryLoader::GetModuleHandleW,
@@ -336,10 +337,19 @@ mod native_window {
     const INPUT_WINDOW_TITLE: &str = "QuickPick 输入翻译";
     const ESC_KEY: WPARAM = 0x1b;
     const REVEAL_FRAMES: u32 = 8;
+    const NATIVE_POPUP_WIDTH: i32 = 112;
     const UI_FONT_FACE: &str = "Segoe UI";
     const UI_FONT_SIZE: i32 = 15;
     const UI_FONT_WEIGHT_NORMAL: i32 = 400;
     const UI_FONT_WEIGHT_STRONG: i32 = 600;
+
+    fn popup_margin(width: i32) -> i32 {
+        if width <= 160 { 6 } else { 14 }
+    }
+
+    fn compact_popup(width: i32) -> bool {
+        width <= 160
+    }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     enum ResultButtonKind {
@@ -682,7 +692,7 @@ mod native_window {
         can_switch_language: bool,
         theme: NativeTheme,
     ) -> Result<(), String> {
-        let width = 560;
+        let width = NATIVE_POPUP_WIDTH;
         let height = 460;
         let (x, y) = clamp_window_position(width, height);
         let previous_foreground = unsafe { GetForegroundWindow() };
@@ -729,7 +739,7 @@ mod native_window {
         receiver: Receiver<ResultPopupUpdate>,
         event_sender: Sender<ResultPopupEvent>,
     ) -> Result<(), String> {
-        let width = 560;
+        let width = NATIVE_POPUP_WIDTH;
         let height = 420;
         let (x, y) = clamp_window_position(width, height);
         let previous_foreground = unsafe { GetForegroundWindow() };
@@ -1461,14 +1471,15 @@ mod native_window {
 
     fn paint_result_body(hdc: HDC, state: &mut ResultPopupState, client: RECT) {
         let palette = popup_palette(state.theme);
+        let margin = popup_margin(client.right - client.left);
         fill_rect(hdc, client, palette.window_bg);
         frame_rect(hdc, client, palette.window_border);
 
         if !state.can_switch_language {
             let header = RECT {
-                left: 14,
+                left: margin,
                 top: 10,
-                right: client.right - 14,
+                right: client.right - margin,
                 bottom: 48,
             };
             draw_text_strong(
@@ -1483,9 +1494,13 @@ mod native_window {
         let buttons_top = client.bottom - 48;
         state.buttons = result_buttons(client, buttons_top, state.can_switch_language);
         state.content_rect = RECT {
-            left: 14,
-            top: 58,
-            right: client.right - 14,
+            left: margin,
+            top: if compact_popup(client.right - client.left) && state.can_switch_language {
+                92
+            } else {
+                58
+            },
+            right: client.right - margin,
             bottom: buttons_top - 12,
         };
 
@@ -1504,9 +1519,9 @@ mod native_window {
 
         if !state.detail.trim().is_empty() {
             let detail_rect = RECT {
-                left: 14,
+                left: margin,
                 top: buttons_top - 26,
-                right: client.right - 14,
+                right: client.right - margin,
                 bottom: buttons_top - 6,
             };
             draw_text(
@@ -1649,24 +1664,27 @@ mod native_window {
         top: i32,
         can_switch_language: bool,
     ) -> Vec<Button<ResultButtonKind>> {
-        let copy_width = 78;
+        let width = client.right - client.left;
+        let compact = compact_popup(width);
+        let margin = popup_margin(width);
+        let copy_width = if compact { 56 } else { 78 };
         let copy_height = 32;
-        let gap = 8;
+        let gap = if compact { 2 } else { 8 };
         let mut buttons = Vec::new();
 
         buttons.push(Button {
             kind: ResultButtonKind::Copy,
             rect: RECT {
-                left: client.right - 14 - copy_width,
+                left: client.right - margin - copy_width,
                 top,
-                right: client.right - 14,
+                right: client.right - margin,
                 bottom: top + copy_height,
             },
         });
 
         let icon_size = 30;
         let icon_top = 12;
-        let mut icon_right = client.right - 14;
+        let mut icon_right = client.right - margin;
         for kind in [ResultButtonKind::Close, ResultButtonKind::Pin] {
             buttons.push(Button {
                 kind,
@@ -1681,13 +1699,13 @@ mod native_window {
         }
 
         if can_switch_language {
-            let source_width = 92;
-            let direction_width = 38;
-            let target_width = 92;
-            let top = 12;
+            let source_width = if compact { 40 } else { 92 };
+            let direction_width = if compact { 16 } else { 38 };
+            let target_width = if compact { 40 } else { 92 };
+            let top = if compact { 48 } else { 12 };
             let height = 30;
             let total_width = source_width + direction_width + target_width + gap * 2;
-            let left = ((client.right - client.left - total_width) / 2).max(14);
+            let left = ((client.right - client.left - total_width) / 2).max(margin);
             buttons.push(Button {
                 kind: ResultButtonKind::SourceLanguage,
                 rect: RECT {
@@ -1891,11 +1909,16 @@ mod native_window {
 
         let options = language_menu_options(state.language_menu_allows_auto(kind));
         let row_height = 30;
-        let width = 132;
+        let width = if compact_popup(client.right - client.left) {
+            96
+        } else {
+            132
+        };
         let height = row_height * options.len() as i32 + 8;
-        let mut left = ((anchor.left + anchor.right - width) / 2).max(14);
-        if left + width > client.right - 14 {
-            left = client.right - 14 - width;
+        let margin = popup_margin(client.right - client.left);
+        let mut left = ((anchor.left + anchor.right - width) / 2).max(margin);
+        if left + width > client.right - margin {
+            left = client.right - margin - width;
         }
         let top = anchor.bottom + 7;
         let menu_rect = RECT {
@@ -2374,6 +2397,44 @@ mod native_window {
         }
     }
 
+    fn measure_text_extent(hdc: HDC, text: &str, rect: RECT, format: u32) -> RECT {
+        let mut measured = rect;
+        let wide = to_wide(text);
+        let face = to_wide(UI_FONT_FACE);
+        unsafe {
+            let font = CreateFontW(
+                -UI_FONT_SIZE,
+                0,
+                0,
+                0,
+                UI_FONT_WEIGHT_NORMAL,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                face.as_ptr(),
+            );
+            let old_font = if font.is_null() {
+                null_mut()
+            } else {
+                SelectObject(hdc, font as _)
+            };
+            SetBkMode(hdc, TRANSPARENT as i32);
+            DrawTextW(hdc, wide.as_ptr(), -1, &mut measured, DT_CALCRECT | format);
+            if !old_font.is_null() {
+                SelectObject(hdc, old_font);
+            }
+            if !font.is_null() {
+                DeleteObject(font as _);
+            }
+        }
+        measured
+    }
+
     fn fill_rect(hdc: windows_sys::Win32::Graphics::Gdi::HDC, rect: RECT, color: COLORREF) {
         unsafe {
             let brush = CreateSolidBrush(color);
@@ -2591,7 +2652,7 @@ mod native_window {
         receiver: Receiver<InputPopupUpdate>,
         event_sender: Sender<InputPopupEvent>,
     ) -> Result<(), String> {
-        let width = 560;
+        let width = NATIVE_POPUP_WIDTH;
         let height = 460;
         let (x, y) = clamp_window_position(width, height);
         let mut state = InputPopupState::new(
@@ -2909,6 +2970,10 @@ mod native_window {
                 state.animation_tick = state.animation_tick.wrapping_add(1);
                 animated = true;
             }
+            if state.input_focused && !state.loading() {
+                state.animation_tick = state.animation_tick.wrapping_add(1);
+                animated = true;
+            }
             if let Some(frame) = state.reveal_frame {
                 if frame < REVEAL_FRAMES {
                     state.reveal_frame = Some(frame + 1);
@@ -2924,8 +2989,12 @@ mod native_window {
                     UpdateWindow(hwnd);
                 }
             } else if animated {
-                if rect_has_area(state.result_rect) {
-                    let rect = state.result_rect;
+                let rect = if state.input_focused && !state.loading() {
+                    state.edit_rect
+                } else {
+                    state.result_rect
+                };
+                if rect_has_area(rect) {
                     unsafe {
                         InvalidateRect(hwnd, &rect, 0);
                         UpdateWindow(hwnd);
@@ -2948,33 +3017,37 @@ mod native_window {
         }
         let right = client.right.max(client.left + 1);
         let bottom = client.bottom.max(client.top + 1);
+        let margin = popup_margin(right - client.left);
+        let compact = compact_popup(right - client.left);
 
         state.edit_rect = RECT {
-            left: 14,
-            top: 56,
-            right: right - 14,
-            bottom: 128,
+            left: margin,
+            top: if compact { 96 } else { 56 },
+            right: right - margin,
+            bottom: if compact { 160 } else { 128 },
         };
         state.result_rect = RECT {
-            left: 14,
-            top: 148,
-            right: right - 14,
+            left: margin,
+            top: if compact { 178 } else { 148 },
+            right: right - margin,
             bottom: bottom - 50,
         };
         state.buttons = input_buttons(client);
     }
 
     fn preset_input_layout(state: &mut InputPopupState, width: i32, height: i32) {
+        let margin = popup_margin(width);
+        let compact = compact_popup(width);
         state.edit_rect = RECT {
-            left: 14,
-            top: 56,
-            right: width - 14,
-            bottom: 128,
+            left: margin,
+            top: if compact { 96 } else { 56 },
+            right: width - margin,
+            bottom: if compact { 160 } else { 128 },
         };
         state.result_rect = RECT {
-            left: 14,
-            top: 148,
-            right: width - 14,
+            left: margin,
+            top: if compact { 178 } else { 148 },
+            right: width - margin,
             bottom: height - 50,
         };
     }
@@ -2983,10 +3056,15 @@ mod native_window {
         let mut buttons = Vec::new();
         let right = client.right.max(client.left + 1);
         let bottom = client.bottom.max(client.top + 1);
+        let width = right - client.left;
+        let compact = compact_popup(width);
+        let margin = popup_margin(width);
+        let action_width = if compact { 40 } else { 112 };
+        let action_gap = if compact { 4 } else { 8 };
 
         let icon_size = 30;
         let icon_top = 12;
-        let mut icon_right = right - 14;
+        let mut icon_right = right - margin;
         for kind in [InputButtonKind::Close, InputButtonKind::Pin] {
             buttons.push(Button {
                 kind,
@@ -3000,13 +3078,14 @@ mod native_window {
             icon_right -= icon_size + 8;
         }
 
-        let source_width = 92;
-        let direction_width = 38;
-        let target_width = 92;
-        let top = 12;
+        let source_width = if compact { 40 } else { 92 };
+        let direction_width = if compact { 16 } else { 38 };
+        let target_width = if compact { 40 } else { 92 };
+        let top = if compact { 48 } else { 12 };
         let height = 30;
-        let total_width = source_width + direction_width + target_width + 8 * 2;
-        let left = ((right - total_width) / 2).max(14);
+        let gap = if compact { 2 } else { 8 };
+        let total_width = source_width + direction_width + target_width + gap * 2;
+        let left = ((right - total_width) / 2).max(margin);
         buttons.push(Button {
             kind: InputButtonKind::SourceLanguage,
             rect: RECT {
@@ -3019,18 +3098,18 @@ mod native_window {
         buttons.push(Button {
             kind: InputButtonKind::Direction,
             rect: RECT {
-                left: left + source_width + 8,
+                left: left + source_width + gap,
                 top,
-                right: left + source_width + 8 + direction_width,
+                right: left + source_width + gap + direction_width,
                 bottom: top + height,
             },
         });
         buttons.push(Button {
             kind: InputButtonKind::TargetLanguage,
             rect: RECT {
-                left: left + source_width + 8 + direction_width + 8,
+                left: left + source_width + gap + direction_width + gap,
                 top,
-                right: left + source_width + 8 + direction_width + 8 + target_width,
+                right: left + source_width + gap + direction_width + gap + target_width,
                 bottom: top + height,
             },
         });
@@ -3038,18 +3117,18 @@ mod native_window {
         buttons.push(Button {
             kind: InputButtonKind::Copy,
             rect: RECT {
-                left: right - 14 - 112,
+                left: right - margin - action_width,
                 top: bottom - 40,
-                right: right - 14,
+                right: right - margin,
                 bottom: bottom - 8,
             },
         });
         buttons.push(Button {
             kind: InputButtonKind::Translate,
             rect: RECT {
-                left: right - 14 - 112 - 8 - 112,
+                left: right - margin - action_width - action_gap - action_width,
                 top: bottom - 40,
-                right: right - 14 - 112 - 8,
+                right: right - margin - action_width - action_gap,
                 bottom: bottom - 8,
             },
         });
@@ -3069,11 +3148,13 @@ mod native_window {
         frame_rect(hdc, client, palette.window_border);
 
         layout_input_state(hwnd, state);
+        let caret_visible = state.input_focused && (state.animation_tick / 20) % 2 == 0;
         paint_input_edit_panel(
             hdc,
             state.edit_rect,
             &state.input_text,
             state.input_focused,
+            caret_visible,
             palette,
         );
         paint_soft_rect(hdc, state.result_rect, 14, palette.panel_bg, palette.panel_border);
@@ -3188,6 +3269,7 @@ mod native_window {
         rect: RECT,
         text: &str,
         focused: bool,
+        caret_visible: bool,
         palette: PopupPalette,
     ) {
         let label_rect = RECT {
@@ -3209,16 +3291,16 @@ mod native_window {
             right: rect.right,
             bottom: rect.bottom,
         };
-        let border = if focused {
-            palette.primary_border
+        paint_soft_rect(hdc, panel, 14, palette.panel_bg, palette.panel_border);
+        let text_rect = inset_rect(panel, 12, 10);
+        let display_text = if text.is_empty() {
+            "请输入要翻译的文本"
         } else {
-            palette.panel_border
+            text
         };
-        paint_soft_rect(hdc, panel, 10, palette.panel_bg, border);
-        let text_rect = inset_rect(panel, 12, 8);
         draw_text(
             hdc,
-            if text.is_empty() { "请输入要翻译的文本" } else { text },
+            display_text,
             text_rect,
             if text.is_empty() {
                 palette.text_secondary
@@ -3227,6 +3309,32 @@ mod native_window {
             },
             DT_WORDBREAK | DT_NOPREFIX | DT_END_ELLIPSIS,
         );
+        if focused && caret_visible {
+            let caret = if text.is_empty() {
+                RECT {
+                    left: text_rect.left,
+                    top: text_rect.top + 2,
+                    right: text_rect.left + 2,
+                    bottom: text_rect.top + UI_FONT_SIZE + 5,
+                }
+            } else {
+                let measured = measure_text_extent(
+                    hdc,
+                    text,
+                    text_rect,
+                    DT_WORDBREAK | DT_NOPREFIX | DT_END_ELLIPSIS,
+                );
+                let x = measured.right.clamp(text_rect.left, text_rect.right - 2);
+                let top = (measured.bottom - UI_FONT_SIZE - 2).max(text_rect.top);
+                RECT {
+                    left: x,
+                    top,
+                    right: x + 2,
+                    bottom: top + UI_FONT_SIZE + 5,
+                }
+            };
+            fill_rect(hdc, caret, palette.text);
+        }
     }
 
     fn invalidate_input_buttons(

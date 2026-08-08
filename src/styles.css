@@ -3905,6 +3905,7 @@ h3,
 :root[data-theme] .settings-shell,
 :root:not([data-theme]) .settings-shell {
   padding: 0 6px 0;
+  max-width: none;
 }
 
 :root[data-theme] .settings-titlebar-button,
@@ -3934,11 +3935,11 @@ h3,
 :root:not([data-theme]) .settings-nav {
   flex-direction: row;
   align-self: stretch;
-  justify-content: space-between;
+  justify-content: space-evenly;
   width: auto;
-  gap: 4px;
+  gap: 0;
   min-height: 42px;
-  padding: 4px;
+  padding: 4px 0;
   overflow-x: auto;
   border-radius: 8px;
 }
