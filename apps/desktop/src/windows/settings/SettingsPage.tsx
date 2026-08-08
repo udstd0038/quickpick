@@ -28,6 +28,7 @@ import {
   saveSettings,
   setHotkeyCaptureMode,
 } from "../../services/invoke";
+import { useApiKeyStore } from "../../stores/apiKeyStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 
 type SectionId =
@@ -360,13 +361,31 @@ export function SettingsPage({ coreStatus }: { coreStatus: string }) {
   const setSettings = useSettingsStore((state) => state.setSettings);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const setStatus = useSettingsStore((state) => state.setStatus);
+  const apiKeyConfigured = useApiKeyStore((state) => state.configured);
+  const apiKeyInput = useApiKeyStore((state) => state.input);
+  const apiKeyStatus = useApiKeyStore((state) => state.status);
+  const setApiKeyConfigured = useApiKeyStore((state) => state.setConfigured);
+  const setApiKeyInput = useApiKeyStore((state) => state.setInput);
+  const setApiKeyStatus = useApiKeyStore((state) => state.setStatus);
   const [activeSection, setActiveSection] = useState<SectionId>("general");
   const [capturing, setCapturing] = useState<HotkeyKey | null>(null);
-  const [apiKeys, setApiKeys] = useState<Record<AiScope, ApiKeyState>>({
-    text: { configured: false, input: "", status: "正在检查文本模型 Key" },
-    vision: { configured: false, input: "", status: "正在检查截图模型 Key" },
-    input: { configured: false, input: "", status: "正在检查输入模型 Key" },
-  });
+  const apiKeys: Record<AiScope, ApiKeyState> = {
+    text: {
+      configured: apiKeyConfigured.text,
+      input: apiKeyInput.text,
+      status: apiKeyStatus.text,
+    },
+    vision: {
+      configured: apiKeyConfigured.vision,
+      input: apiKeyInput.vision,
+      status: apiKeyStatus.vision,
+    },
+    input: {
+      configured: apiKeyConfigured.input,
+      input: apiKeyInput.input,
+      status: apiKeyStatus.input,
+    },
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -392,20 +411,27 @@ export function SettingsPage({ coreStatus }: { coreStatus: string }) {
         if (!mounted) {
           return;
         }
-        setApiKeys({
-          text: { ...apiKeys.text, configured: text.configured, status: text.configured ? "文本模型 Key 已加密保存" : "文本模型 Key 未配置" },
-          vision: { ...apiKeys.vision, configured: vision.configured, status: vision.configured ? "截图模型 Key 已加密保存" : "截图模型 Key 未配置" },
-          input: { ...apiKeys.input, configured: input.configured, status: input.configured ? "输入模型 Key 已加密保存" : "输入模型 Key 未配置" },
-        });
+        setApiKeyConfigured("text", text.configured);
+        setApiKeyConfigured("vision", vision.configured);
+        setApiKeyConfigured("input", input.configured);
+        setApiKeyStatus(
+          "text",
+          text.configured ? "文本模型 Key 已加密保存" : "文本模型 Key 未配置",
+        );
+        setApiKeyStatus(
+          "vision",
+          vision.configured ? "截图模型 Key 已加密保存" : "截图模型 Key 未配置",
+        );
+        setApiKeyStatus(
+          "input",
+          input.configured ? "输入模型 Key 已加密保存" : "输入模型 Key 未配置",
+        );
       })
       .catch(() => {
         if (mounted) {
-          setApiKeys((current) => ({
-            ...current,
-            text: { ...current.text, status: "检查 API Key 状态失败" },
-            vision: { ...current.vision, status: "检查 API Key 状态失败" },
-            input: { ...current.input, status: "检查 API Key 状态失败" },
-          }));
+          setApiKeyStatus("text", "检查 API Key 状态失败");
+          setApiKeyStatus("vision", "检查 API Key 状态失败");
+          setApiKeyStatus("input", "检查 API Key 状态失败");
         }
       });
 
@@ -440,39 +466,25 @@ export function SettingsPage({ coreStatus }: { coreStatus: string }) {
   const saveApiKey = async (scope: AiScope) => {
     const value = apiKeys[scope].input.trim();
     if (!value) {
-      setApiKeys((current) => ({
-        ...current,
-        [scope]: { ...current[scope], status: "API Key 不能为空" },
-      }));
+      setApiKeyStatus(scope, "API Key 不能为空");
       return;
     }
 
     const next = normalizeAppSettings(settings);
     setStatus({ kind: "saving", message: "正在同步 AI 设置" });
-    setApiKeys((current) => ({
-      ...current,
-      [scope]: { ...current[scope], status: "正在加密保存" },
-    }));
+    setApiKeyStatus(scope, "正在加密保存");
 
     try {
       await saveSettings(next);
       await invokeSaveApiKey(scope, value);
       setSettings(next);
-      setApiKeys((current) => ({
-        ...current,
-        [scope]: {
-          configured: true,
-          input: "",
-          status: "API Key 已加密保存",
-        },
-      }));
+      setApiKeyConfigured(scope, true);
+      setApiKeyInput(scope, "");
+      setApiKeyStatus(scope, "API Key 已加密保存");
       setStatus({ kind: "success", message: "设置与 API Key 已保存" });
     } catch (error) {
       const message = typeof error === "string" ? error : "保存 API Key 失败";
-      setApiKeys((current) => ({
-        ...current,
-        [scope]: { ...current[scope], status: message },
-      }));
+      setApiKeyStatus(scope, message);
       setStatus({ kind: "error", message });
     }
   };
@@ -480,20 +492,12 @@ export function SettingsPage({ coreStatus }: { coreStatus: string }) {
   const clearApiKey = async (scope: AiScope) => {
     try {
       await invokeClearApiKey(scope);
-      setApiKeys((current) => ({
-        ...current,
-        [scope]: {
-          configured: false,
-          input: "",
-          status: "API Key 已清除",
-        },
-      }));
+      setApiKeyConfigured(scope, false);
+      setApiKeyInput(scope, "");
+      setApiKeyStatus(scope, "API Key 已清除");
     } catch (error) {
       const message = typeof error === "string" ? error : "清除 API Key 失败";
-      setApiKeys((current) => ({
-        ...current,
-        [scope]: { ...current[scope], status: message },
-      }));
+      setApiKeyStatus(scope, message);
     }
   };
 
@@ -624,10 +628,7 @@ export function SettingsPage({ coreStatus }: { coreStatus: string }) {
             onBaseUrlChange={(value) => updateSetting("textAiBaseUrl", value)}
             onModelChange={(value) => updateSetting("textAiModel", value)}
             onApiKeyInputChange={(value) =>
-              setApiKeys((current) => ({
-                ...current,
-                text: { ...current.text, input: value },
-              }))
+              setApiKeyInput("text", value)
             }
             onSaveApiKey={() => saveApiKey("text")}
             onClearApiKey={() => clearApiKey("text")}
@@ -646,10 +647,7 @@ export function SettingsPage({ coreStatus }: { coreStatus: string }) {
             onBaseUrlChange={(value) => updateSetting("visionAiBaseUrl", value)}
             onModelChange={(value) => updateSetting("visionAiModel", value)}
             onApiKeyInputChange={(value) =>
-              setApiKeys((current) => ({
-                ...current,
-                vision: { ...current.vision, input: value },
-              }))
+              setApiKeyInput("vision", value)
             }
             onSaveApiKey={() => saveApiKey("vision")}
             onClearApiKey={() => clearApiKey("vision")}
@@ -669,10 +667,7 @@ export function SettingsPage({ coreStatus }: { coreStatus: string }) {
               onBaseUrlChange={(value) => updateSetting("inputAiBaseUrl", value)}
               onModelChange={(value) => updateSetting("inputAiModel", value)}
               onApiKeyInputChange={(value) =>
-                setApiKeys((current) => ({
-                  ...current,
-                  input: { ...current.input, input: value },
-                }))
+                setApiKeyInput("input", value)
               }
               onSaveApiKey={() => saveApiKey("input")}
               onClearApiKey={() => clearApiKey("input")}
