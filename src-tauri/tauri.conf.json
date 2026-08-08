@@ -16,7 +16,7 @@
         "title": "QuickPick 设置",
         "width": 620,
         "height": 680,
-        "minWidth": 112,
+        "minWidth": 336,
         "minHeight": 600,
         "center": true,
         "resizable": true,
