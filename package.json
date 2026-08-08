@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter quickpick-desktop dev",
     "build": "pnpm --filter quickpick-desktop build",
+    "test": "pnpm --filter quickpick-desktop test",
     "desktop:dev": "pnpm --filter quickpick-desktop tauri:dev",
     "desktop:build": "pnpm --filter quickpick-desktop tauri:build"
   }
