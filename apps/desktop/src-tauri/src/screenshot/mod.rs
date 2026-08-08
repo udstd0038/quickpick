@@ -1,4 +1,5 @@
 use crate::native_theme::NativeTheme;
+use base64::{engine::general_purpose, Engine as _};
 use serde::Serialize;
 use std::ptr::{null, null_mut};
 use xcap::Monitor;
@@ -55,6 +56,15 @@ pub struct CaptureClipboardResult {
     pub monitor_name: String,
     pub clipboard_format: &'static str,
     pub message: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorScreenshotPayload {
+    pub width: u32,
+    pub height: u32,
+    pub monitor_name: String,
+    pub png_data_url: String,
 }
 
 pub struct CapturedRegionImage {
@@ -144,6 +154,46 @@ pub fn capture_current_monitor_to_clipboard() -> Result<CaptureClipboardResult, 
             "已复制当前显示器截图：{}x{}（{}）",
             width, height, monitor_name
         ),
+    })
+}
+
+pub fn capture_current_monitor_screenshot() -> Result<MonitorScreenshotPayload, String> {
+    let monitors = Monitor::all().map_err(|error| format!("读取显示器列表失败：{error}"))?;
+    if monitors.is_empty() {
+        return Err("未发现可截图的显示器".to_string());
+    }
+
+    let monitor_index = monitors
+        .iter()
+        .position(|monitor| monitor.is_primary().unwrap_or(false))
+        .unwrap_or(0);
+    let monitor = monitors
+        .into_iter()
+        .nth(monitor_index)
+        .ok_or_else(|| "选择显示器失败，请稍后重试".to_string())?;
+    let monitor_name = monitor
+        .friendly_name()
+        .or_else(|_| monitor.name())
+        .unwrap_or_else(|_| "当前显示器".to_string());
+
+    let image = monitor
+        .capture_image()
+        .map_err(|error| format!("读取屏幕失败：{error}"))?;
+    let width = image.width();
+    let height = image.height();
+    if width == 0 || height == 0 {
+        return Err("截图结果为空，请稍后重试".to_string());
+    }
+
+    let png_bytes = rgba_image_to_png_bytes(&image)?;
+    let encoded_image = general_purpose::STANDARD.encode(png_bytes);
+    let png_data_url = format!("data:image/png;base64,{encoded_image}");
+
+    Ok(MonitorScreenshotPayload {
+        width,
+        height,
+        monitor_name,
+        png_data_url,
     })
 }
 

@@ -75,6 +75,17 @@ export function captureRegionRect(input: {
   return invoke<SelectionActionResult>("capture_region_rect", input);
 }
 
+export type MonitorScreenshotPayload = {
+  width: number;
+  height: number;
+  monitorName: string;
+  pngDataUrl: string;
+};
+
+export function captureMonitorScreenshot() {
+  return invoke<MonitorScreenshotPayload>("capture_monitor_screenshot");
+}
+
 export function copyResultContent() {
   return invoke<SelectionActionResult>("copy_result_content");
 }

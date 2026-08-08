@@ -7,7 +7,7 @@ import {
   normalizeAppSettings,
   type AppSettings,
 } from "./lib/settingsTypes";
-import { SettingsPage } from "./windows/settings/SettingsPage";
+import { SettingsWindow } from "./windows/settings/SettingsWindow";
 import { SelectionWindow } from "./windows/selection/SelectionWindow";
 import { ResultWindow } from "./windows/result/ResultWindow";
 import { InputWindow } from "./windows/input/InputWindow";
@@ -104,6 +104,6 @@ export default function App() {
     case "screenshot_preview":
       return <ScreenshotPreview />;
     default:
-      return <SettingsPage coreStatus={coreStatus} />;
+      return <SettingsWindow coreStatus={coreStatus} />;
   }
 }

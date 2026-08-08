@@ -1,72 +1,44 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useState } from "react";
+import ReactCrop, {
+  type PercentCrop,
+  type PixelCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { captureRegionRect } from "../../services/invoke";
-
-type Point = { x: number; y: number };
-type Rect = { left: number; top: number; width: number; height: number };
-
-function normalizeRect(start: Point, end: Point): Rect {
-  const left = Math.min(start.x, end.x);
-  const top = Math.min(start.y, end.y);
-  return {
-    left,
-    top,
-    width: Math.abs(end.x - start.x),
-    height: Math.abs(end.y - start.y),
-  };
-}
+import {
+  captureMonitorScreenshot,
+  captureRegionRect,
+  type MonitorScreenshotPayload,
+} from "../../services/invoke";
 
 export function ScreenshotOverlay() {
-  const [start, setStart] = useState<Point | null>(null);
-  const [current, setCurrent] = useState<Point | null>(null);
+  const [screenshot, setScreenshot] = useState<MonitorScreenshotPayload | null>(
+    null,
+  );
+  const [crop, setCrop] = useState<PercentCrop | undefined>(undefined);
+  const [pixelCrop, setPixelCrop] = useState<PixelCrop | null>(null);
   const [busy, setBusy] = useState(false);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const activeRect =
-    start && current ? normalizeRect(start, current) : null;
+  const [error, setError] = useState("");
 
-  const capture = async (action: string) => {
-    if (!activeRect || activeRect.width < 8 || activeRect.height < 8 || busy) {
-      return;
-    }
-    setBusy(true);
-    try {
-      await captureRegionRect({
-        screenX: Math.round(activeRect.left),
-        screenY: Math.round(activeRect.top),
-        width: Math.round(activeRect.width),
-        height: Math.round(activeRect.height),
-        action,
+  useEffect(() => {
+    let disposed = false;
+
+    captureMonitorScreenshot()
+      .then((value) => {
+        if (!disposed) {
+          setScreenshot(value);
+        }
+      })
+      .catch((reason) => {
+        if (!disposed) {
+          setError(typeof reason === "string" ? reason : "截图读取失败");
+        }
       });
-      await getCurrentWindow().hide();
-    } finally {
-      setBusy(false);
-    }
-  };
 
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    const point = { x: event.clientX, y: event.clientY };
-    setStart(point);
-    setCurrent(point);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!start) {
-      return;
-    }
-    setCurrent({ x: event.clientX, y: event.clientY });
-  };
-
-  const onPointerUp = () => {
-    setStart(null);
-    setCurrent(null);
-  };
-
-  const closeOverlay = () => {
-    setStart(null);
-    setCurrent(null);
-    void getCurrentWindow().hide();
-  };
+    return () => {
+      disposed = true;
+    };
+  }, []);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -80,13 +52,37 @@ export function ScreenshotOverlay() {
     };
   }, []);
 
+  const closeOverlay = () => {
+    setCrop(undefined);
+    setPixelCrop(null);
+    void getCurrentWindow().hide();
+  };
+
+  const capture = async (action: string) => {
+    if (!screenshot || !pixelCrop || pixelCrop.width < 8 || pixelCrop.height < 8 || busy) {
+      return;
+    }
+
+    const scaleX = screenshot.width / window.innerWidth;
+    const scaleY = screenshot.height / window.innerHeight;
+    setBusy(true);
+    try {
+      await captureRegionRect({
+        screenX: Math.round(pixelCrop.x * scaleX),
+        screenY: Math.round(pixelCrop.y * scaleY),
+        width: Math.round(pixelCrop.width * scaleX),
+        height: Math.round(pixelCrop.height * scaleY),
+        action,
+      });
+      await getCurrentWindow().hide();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div
       className="screenshot-overlay"
-      ref={overlayRef}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
       onContextMenu={(event) => {
         event.preventDefault();
         closeOverlay();
@@ -97,39 +93,80 @@ export function ScreenshotOverlay() {
         height: "100vh",
         overflow: "hidden",
         cursor: "crosshair",
-        background: "rgba(0, 0, 0, 0.28)",
+        background: "#0a1122",
         userSelect: "none",
         touchAction: "none",
       }}
     >
-      {activeRect && (
+      {error ? (
         <div
-          className={`screenshot-frame ${
-            activeRect.width >= 8 && activeRect.height >= 8
-              ? "screenshot-frame-ready"
-              : ""
-          }`}
           style={{
-            position: "absolute",
-            left: activeRect.left,
-            top: activeRect.top,
-            width: activeRect.width,
-            height: activeRect.height,
-            pointerEvents: "none",
+            display: "grid",
+            minHeight: "100vh",
+            placeItems: "center",
+            color: "#fff",
           }}
-        />
+        >
+          {error}
+        </div>
+      ) : screenshot ? (
+        <ReactCrop
+          crop={crop}
+          onChange={(pixel, percent) => {
+            setCrop(percent);
+            setPixelCrop(pixel);
+          }}
+          keepSelection
+          minWidth={8}
+          minHeight={8}
+          ruleOfThirds
+          className="screenshot-crop"
+          style={{
+            width: "100vw",
+            height: "100vh",
+            display: "block",
+          }}
+        >
+          <img
+            src={screenshot.pngDataUrl}
+            alt="当前屏幕"
+            draggable={false}
+            style={{
+              display: "block",
+              width: "100vw",
+              height: "100vh",
+              objectFit: "fill",
+              userSelect: "none",
+            }}
+          />
+        </ReactCrop>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            minHeight: "100vh",
+            placeItems: "center",
+            color: "#fff",
+          }}
+        >
+          正在读取屏幕截图...
+        </div>
       )}
-      {activeRect && activeRect.width >= 8 && activeRect.height >= 8 && (
+
+      {pixelCrop && pixelCrop.width >= 8 && pixelCrop.height >= 8 && (
         <div
           style={{
             position: "absolute",
-            left: Math.min(activeRect.left, window.innerWidth - 300),
-            top: Math.min(activeRect.top + activeRect.height + 8, window.innerHeight - 48),
+            left: Math.min(pixelCrop.x, window.innerWidth - 300),
+            top: Math.min(pixelCrop.y + pixelCrop.height + 10, window.innerHeight - 52),
             display: "flex",
             gap: 8,
-            padding: 6,
-            background: "rgba(20, 25, 32, 0.96)",
+            padding: 8,
+            border: "1px solid rgba(255, 255, 255, 0.3)",
             borderRadius: 8,
+            background: "rgba(12, 20, 38, 0.92)",
+            boxShadow: "0 18px 50px rgba(0, 0, 0, 0.35)",
+            zIndex: 20,
           }}
         >
           {["复制", "提取", "翻译"].map((label, index) => (
@@ -137,12 +174,14 @@ export function ScreenshotOverlay() {
               key={label}
               type="button"
               disabled={busy}
-              onClick={() => capture(index === 0 ? "copy" : index === 1 ? "extract" : "translate")}
+              onClick={() =>
+                void capture(index === 0 ? "copy" : index === 1 ? "extract" : "translate")
+              }
               style={{
                 minHeight: 32,
-                padding: "0 12px",
-                border: "1px solid rgba(164, 180, 202, 0.24)",
-                borderRadius: 6,
+                padding: "0 14px",
+                border: "1px solid rgba(164, 180, 202, 0.28)",
+                borderRadius: 7,
                 color: "#e7ecf3",
                 background: "rgba(38, 47, 58, 0.96)",
                 cursor: "pointer",

@@ -1983,6 +1983,11 @@ fn capture_current_monitor_to_clipboard(
 }
 
 #[tauri::command]
+fn capture_monitor_screenshot() -> Result<screenshot::MonitorScreenshotPayload, String> {
+    screenshot::capture_current_monitor_screenshot()
+}
+
+#[tauri::command]
 async fn capture_region_to_clipboard(
     app: tauri::AppHandle,
 ) -> Result<SelectionActionResult, String> {
@@ -2039,6 +2044,7 @@ pub fn run() {
             run_text_ai_action,
             clear_result_snapshot,
             capture_current_monitor_to_clipboard,
+            capture_monitor_screenshot,
             capture_region_to_clipboard,
             set_hotkey_capture_mode,
             request_input_translation,
