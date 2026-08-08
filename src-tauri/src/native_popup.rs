@@ -1667,9 +1667,9 @@ mod native_window {
         let width = client.right - client.left;
         let compact = compact_popup(width);
         let margin = popup_margin(width);
-        let copy_width = if compact { 56 } else { 78 };
-        let copy_height = 32;
-        let gap = if compact { 2 } else { 8 };
+        let copy_width = 64;
+        let copy_height = 38;
+        let gap = 4;
         let mut buttons = Vec::new();
 
         buttons.push(Button {
@@ -1699,11 +1699,11 @@ mod native_window {
         }
 
         if can_switch_language {
-            let source_width = if compact { 40 } else { 92 };
-            let direction_width = if compact { 16 } else { 38 };
-            let target_width = if compact { 40 } else { 92 };
+            let source_width = 72;
+            let direction_width = 48;
+            let target_width = 72;
             let top = if compact { 48 } else { 12 };
-            let height = 30;
+            let height = 38;
             let total_width = source_width + direction_width + target_width + gap * 2;
             let left = ((client.right - client.left - total_width) / 2).max(margin);
             buttons.push(Button {
@@ -2118,7 +2118,7 @@ mod native_window {
         } else {
             palette.button_border
         };
-        paint_soft_rect(hdc, rect, 12, background, border);
+        paint_soft_rect(hdc, rect, 8, background, border);
         draw_text_strong(
             hdc,
             label,
@@ -3059,8 +3059,9 @@ mod native_window {
         let width = right - client.left;
         let compact = compact_popup(width);
         let margin = popup_margin(width);
-        let action_width = if compact { 40 } else { 112 };
-        let action_gap = if compact { 4 } else { 8 };
+        let action_width = 64;
+        let action_height = 38;
+        let action_gap = 8;
 
         let icon_size = 30;
         let icon_top = 12;
@@ -3078,12 +3079,12 @@ mod native_window {
             icon_right -= icon_size + 8;
         }
 
-        let source_width = if compact { 40 } else { 92 };
-        let direction_width = if compact { 16 } else { 38 };
-        let target_width = if compact { 40 } else { 92 };
+        let source_width = 72;
+        let direction_width = 48;
+        let target_width = 72;
         let top = if compact { 48 } else { 12 };
-        let height = 30;
-        let gap = if compact { 2 } else { 8 };
+        let height = 38;
+        let gap = 4;
         let total_width = source_width + direction_width + target_width + gap * 2;
         let left = ((right - total_width) / 2).max(margin);
         buttons.push(Button {
@@ -3118,7 +3119,7 @@ mod native_window {
             kind: InputButtonKind::Copy,
             rect: RECT {
                 left: right - margin - action_width,
-                top: bottom - 40,
+                top: bottom - 8 - action_height,
                 right: right - margin,
                 bottom: bottom - 8,
             },
@@ -3127,7 +3128,7 @@ mod native_window {
             kind: InputButtonKind::Translate,
             rect: RECT {
                 left: right - margin - action_width - action_gap - action_width,
-                top: bottom - 40,
+                top: bottom - 8 - action_height,
                 right: right - margin - action_width - action_gap,
                 bottom: bottom - 8,
             },
@@ -3272,19 +3273,6 @@ mod native_window {
         caret_visible: bool,
         palette: PopupPalette,
     ) {
-        let label_rect = RECT {
-            left: rect.left + 2,
-            top: rect.top - 16,
-            right: rect.right - 2,
-            bottom: rect.top - 2,
-        };
-        draw_text_strong(
-            hdc,
-            "输入文本",
-            label_rect,
-            palette.text_secondary,
-            DT_SINGLELINE | DT_VCENTER,
-        );
         let panel = RECT {
             left: rect.left,
             top: rect.top,
@@ -3293,7 +3281,7 @@ mod native_window {
         };
         paint_soft_rect(hdc, panel, 14, palette.panel_bg, palette.panel_border);
         let text_rect = inset_rect(panel, 12, 10);
-        let display_text = if text.is_empty() {
+        let display_text = if text.is_empty() && !focused {
             "请输入要翻译的文本"
         } else {
             text
