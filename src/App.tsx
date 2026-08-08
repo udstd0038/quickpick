@@ -3002,37 +3002,6 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 {inputApiKeyStatus.message}
               </span>
             </div>
-            <div className="settings-key-feedback">
-              <span
-                className="settings-feedback settings-feedback-idle"
-                aria-label="输入翻译行为设置"
-              >
-                输入翻译行为
-              </span>
-            </div>
-            <SettingField label="默认源语言">
-              <GlassSelect
-                ariaLabel="选择输入翻译默认源语言"
-                value={settings.inputTranslateSourceLanguage}
-                options={[
-                  { id: "auto", label: "自动检测" },
-                  ...translationLanguageOptions,
-                ]}
-                onChange={(value) =>
-                  updateSetting("inputTranslateSourceLanguage", value)
-                }
-              />
-            </SettingField>
-            <SettingField label="默认目标语言">
-              <GlassSelect
-                ariaLabel="选择输入翻译默认目标语言"
-                value={settings.inputTranslateTargetLanguage}
-                options={translationLanguageOptions}
-                onChange={(value) =>
-                  updateSetting("inputTranslateTargetLanguage", value)
-                }
-              />
-            </SettingField>
           </SettingsSection>
           <SettingsSection id="appearance" title="外观">
             <SettingField label="主题">

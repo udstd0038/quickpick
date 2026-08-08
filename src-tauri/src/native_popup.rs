@@ -311,15 +311,16 @@ mod native_window {
         UI::{
             Input::KeyboardAndMouse::{ReleaseCapture, SetCapture, SetFocus},
             WindowsAndMessaging::{
-                CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
-                GetClientRect, GetForegroundWindow, GetMessageW, GetWindowLongPtrW, IsWindow,
-                LoadCursorW, PeekMessageW, PostQuitMessage, RegisterClassW, SendMessageW,
+                CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect,
+                GetCursorPos, GetForegroundWindow, GetMessageW, GetWindowLongPtrW, GetWindowRect,
+                IsWindow, LoadCursorW, PeekMessageW, PostQuitMessage, RegisterClassW,
                 SetForegroundWindow, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-                TranslateMessage, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, HTCAPTION, HWND_NOTOPMOST,
+                TranslateMessage, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, HWND_NOTOPMOST,
                 HWND_TOPMOST, IDC_ARROW, MSG, PM_REMOVE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                SWP_NOZORDER,
                 SWP_SHOWWINDOW, SW_SHOW, SW_SHOWNOACTIVATE, WM_CHAR, WM_DESTROY, WM_ERASEBKGND,
                 WM_KEYDOWN, WM_LBUTTONDOWN,
-                WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_NCLBUTTONDOWN, WM_PAINT,
+                WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_PAINT,
                 WM_QUIT, WM_SIZE, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
             },
         },
@@ -455,6 +456,9 @@ mod native_window {
         hovered_button: Option<ResultButtonKind>,
         pressed_button: Option<ResultButtonKind>,
         buttons: Vec<Button<ResultButtonKind>>,
+        dragging: bool,
+        drag_origin: (i32, i32),
+        drag_window_rect: RECT,
         open_language_menu: Option<LanguageMenuKind>,
         hovered_language_option: Option<usize>,
         language_menu_options: Vec<Button<usize>>,
@@ -494,6 +498,15 @@ mod native_window {
         }
     }
 
+    impl DragState for ResultPopupState {
+        fn drag_origin(&self) -> (i32, i32) {
+            self.drag_origin
+        }
+        fn drag_window_rect(&self) -> RECT {
+            self.drag_window_rect
+        }
+    }
+
     struct InputPopupState {
         input_text: String,
         content: String,
@@ -511,6 +524,9 @@ mod native_window {
         hovered_button: Option<InputButtonKind>,
         pressed_button: Option<InputButtonKind>,
         buttons: Vec<Button<InputButtonKind>>,
+        dragging: bool,
+        drag_origin: (i32, i32),
+        drag_window_rect: RECT,
         open_language_menu: Option<LanguageMenuKind>,
         hovered_language_option: Option<usize>,
         language_menu_options: Vec<Button<usize>>,
@@ -550,6 +566,15 @@ mod native_window {
         }
         fn set_translation_direction(&mut self, value: String) {
             self.translation_direction = value;
+        }
+    }
+
+    impl DragState for InputPopupState {
+        fn drag_origin(&self) -> (i32, i32) {
+            self.drag_origin
+        }
+        fn drag_window_rect(&self) -> RECT {
+            self.drag_window_rect
         }
     }
 
@@ -604,6 +629,9 @@ mod native_window {
                 hovered_button: None,
                 pressed_button: None,
                 buttons: Vec::new(),
+                dragging: false,
+                drag_origin: (0, 0),
+                drag_window_rect: empty_rect(),
                 open_language_menu: None,
                 hovered_language_option: None,
                 language_menu_options: Vec::new(),
@@ -812,6 +840,9 @@ mod native_window {
             }
             WM_MOUSEMOVE => {
                 let point = point_from_lparam(lparam);
+                if state.dragging {
+                    drag_popup_window(hwnd, state, point);
+                }
                 let previous_language_hover = state.hovered_language_option;
                 if state.open_language_menu.is_some() {
                     state.hovered_language_option = hit_button(&state.language_menu_options, point);
@@ -831,6 +862,15 @@ mod native_window {
             }
             WM_LBUTTONDOWN => {
                 let point = point_from_lparam(lparam);
+                if point.1 <= 44 && hit_button(&state.buttons, point).is_none() {
+                    state.dragging = true;
+                    state.drag_origin = cursor_screen_pos();
+                    unsafe {
+                        GetWindowRect(hwnd, &mut state.drag_window_rect);
+                    }
+                    SetCapture(hwnd);
+                    return 0;
+                }
                 if state.open_language_menu.is_some() {
                     if let Some(index) = hit_button(&state.language_menu_options, point) {
                         let changed = select_language_option(state, index);
@@ -864,17 +904,16 @@ mod native_window {
                     return 0;
                 }
 
-                if !point_in_rect(state.content_rect, point) {
-                    if point.1 <= 44 {
-                        ReleaseCapture();
-                        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION as WPARAM, 0);
-                    } else if !state.pinned {
-                        DestroyWindow(hwnd);
-                    }
+                if !point_in_rect(state.content_rect, point) && !state.pinned {
+                    DestroyWindow(hwnd);
                 }
                 0
             }
             WM_LBUTTONUP => {
+                if state.dragging {
+                    state.dragging = false;
+                    ReleaseCapture();
+                }
                 if let Some(pressed) = state.pressed_button.take() {
                     ReleaseCapture();
                     let point = point_from_lparam(lparam);
@@ -2427,6 +2466,46 @@ mod native_window {
             .map(|button| button.kind)
     }
 
+    fn drag_popup_window(
+        hwnd: HWND,
+        state: &mut impl DragState,
+        _point: (i32, i32),
+    ) {
+        let origin = state.drag_origin();
+        let cursor = cursor_screen_pos();
+        let dx = cursor.0 - origin.0;
+        let dy = cursor.1 - origin.1;
+        if dx != 0 || dy != 0 {
+            let rect = state.drag_window_rect();
+            let x = rect.left + dx;
+            let y = rect.top + dy;
+            unsafe {
+                SetWindowPos(
+                    hwnd,
+                    null_mut(),
+                    x,
+                    y,
+                    0,
+                    0,
+                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+                );
+            }
+        }
+    }
+
+    fn cursor_screen_pos() -> (i32, i32) {
+        let mut cursor = windows_sys::Win32::Foundation::POINT { x: 0, y: 0 };
+        unsafe {
+            GetCursorPos(&mut cursor);
+        }
+        (cursor.x, cursor.y)
+    }
+
+    trait DragState {
+        fn drag_origin(&self) -> (i32, i32);
+        fn drag_window_rect(&self) -> RECT;
+    }
+
     fn point_from_lparam(lparam: LPARAM) -> (i32, i32) {
         let x = (lparam & 0xffff) as i16 as i32;
         let y = ((lparam >> 16) & 0xffff) as i16 as i32;
@@ -2485,6 +2564,9 @@ mod native_window {
                 hovered_button: None,
                 pressed_button: None,
                 buttons: Vec::new(),
+                dragging: false,
+                drag_origin: (0, 0),
+                drag_window_rect: empty_rect(),
                 open_language_menu: None,
                 hovered_language_option: None,
                 language_menu_options: Vec::new(),
@@ -2581,6 +2663,9 @@ mod native_window {
             }
             WM_MOUSEMOVE => {
                 let point = point_from_lparam(lparam);
+                if state.dragging {
+                    drag_popup_window(hwnd, state, point);
+                }
                 let previous_language_hover = state.hovered_language_option;
                 if state.open_language_menu.is_some() {
                     state.hovered_language_option = hit_button(&state.language_menu_options, point);
@@ -2600,6 +2685,15 @@ mod native_window {
             }
             WM_LBUTTONDOWN => {
                 let point = point_from_lparam(lparam);
+                if point.1 <= 46 && hit_button(&state.buttons, point).is_none() {
+                    state.dragging = true;
+                    state.drag_origin = cursor_screen_pos();
+                    unsafe {
+                        GetWindowRect(hwnd, &mut state.drag_window_rect);
+                    }
+                    SetCapture(hwnd);
+                    return 0;
+                }
                 if state.open_language_menu.is_some() {
                     if let Some(index) = hit_button(&state.language_menu_options, point) {
                         let changed = select_language_option(state, index);
@@ -2644,17 +2738,18 @@ mod native_window {
 
                 if !point_in_rect(state.edit_rect, point)
                     && !point_in_rect(state.result_rect, point)
+                    && !state.pinned
+                    && !state.loading()
                 {
-                    if point.1 <= 46 {
-                        ReleaseCapture();
-                        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION as WPARAM, 0);
-                    } else if !state.pinned && !state.loading() {
-                        DestroyWindow(hwnd);
-                    }
+                    DestroyWindow(hwnd);
                 }
                 0
             }
             WM_LBUTTONUP => {
+                if state.dragging {
+                    state.dragging = false;
+                    ReleaseCapture();
+                }
                 if let Some(pressed) = state.pressed_button.take() {
                     ReleaseCapture();
                     let point = point_from_lparam(lparam);
@@ -2993,7 +3088,7 @@ mod native_window {
         );
         paint_soft_rect(hdc, state.result_rect, 14, palette.panel_bg, palette.panel_border);
         if state.loading() {
-            paint_skeleton(hdc, inset_rect(state.result_rect, 8, 8), state.animation_tick, palette);
+            paint_skeleton(hdc, state.result_rect, state.animation_tick, palette);
         } else {
             let saved = unsafe { SaveDC(hdc) };
             let clip = inset_rect(state.result_rect, 12, 10);
@@ -3001,13 +3096,23 @@ mod native_window {
                 IntersectClipRect(hdc, clip.left, clip.top, clip.right, clip.bottom);
             }
             let mut content_rect = clip;
-            content_rect.top = clip.top - state.scroll;
+            content_rect.top = clip.top - state.scroll
+                + state
+                    .reveal_frame
+                    .map(|frame| (REVEAL_FRAMES.saturating_sub(frame).min(REVEAL_FRAMES) as i32) * 2)
+                    .unwrap_or(0);
             content_rect.bottom = content_rect.top + 2400;
             draw_text(
                 hdc,
                 &state.content,
                 content_rect,
-                palette.text,
+                state
+                    .reveal_frame
+                    .map(|frame| {
+                        let progress = frame.min(REVEAL_FRAMES);
+                        blend_rgb(palette.text_secondary, palette.text, progress, REVEAL_FRAMES)
+                    })
+                    .unwrap_or(palette.text),
                 DT_WORDBREAK | DT_NOPREFIX,
             );
             if saved != 0 {

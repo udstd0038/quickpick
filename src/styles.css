@@ -1672,7 +1672,7 @@ body,
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
-  padding: 0 8px 8px;
+  padding: 0 8px 0;
   box-sizing: border-box;
 }
 
@@ -1809,7 +1809,7 @@ body,
 }
 
 .settings-savebar {
-  margin-bottom: 8px;
+  margin-bottom: 0;
   width: calc(100% - 12px);
 }
 
@@ -2835,6 +2835,7 @@ h3,
 
   .settings-nav {
     flex-direction: row;
+    justify-content: center;
     overflow-x: auto;
   }
 
@@ -3226,7 +3227,7 @@ h3,
   flex-direction: row;
   align-items: center;
   min-height: 54px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   padding: 9px 10px;
   border-radius: 8px;
   border-color: rgba(255, 255, 255, 0.12);
@@ -3457,6 +3458,7 @@ h3,
 :root[data-theme="workbench"] .settings-nav {
   flex-direction: row;
   align-self: stretch;
+  justify-content: center;
   gap: 4px;
   min-height: 46px;
   padding: 7px;
@@ -3646,7 +3648,7 @@ h3,
   flex-direction: row;
   align-items: center;
   min-height: 54px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   padding: 9px 10px;
   border-radius: 8px;
 }
@@ -3789,12 +3791,17 @@ h3,
 
 :root[data-theme="light"] .settings-layout,
 :root:not([data-theme]) .settings-layout {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
+  overflow: hidden;
 }
 
 :root[data-theme="light"] .settings-nav,
 :root:not([data-theme]) .settings-nav {
+  flex-direction: row;
   align-self: stretch;
+  justify-content: center;
   gap: 4px;
   min-height: 46px;
   padding: 7px;
@@ -3855,7 +3862,7 @@ h3,
 :root:not([data-theme]) .settings-savebar {
   gap: 8px;
   min-height: 54px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   padding: 9px 10px;
 }
 
