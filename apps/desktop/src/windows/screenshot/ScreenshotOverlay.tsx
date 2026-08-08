@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { captureRegionRect } from "../../services/invoke";
 
 type Point = { x: number; y: number };
 type Rect = { left: number; top: number; width: number; height: number };
@@ -30,7 +30,7 @@ export function ScreenshotOverlay() {
     }
     setBusy(true);
     try {
-      await invoke("capture_region_rect", {
+      await captureRegionRect({
         screenX: Math.round(activeRect.left),
         screenY: Math.round(activeRect.top),
         width: Math.round(activeRect.width),

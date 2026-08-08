@@ -1,15 +1,10 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-
-type SelectionSnapshot = {
-  status: "captured" | "empty" | "unsupported" | "error";
-  text: string;
-  preview: string;
-  charCount: number;
-  message: string;
-  source: string;
-};
+import {
+  getSelectionSnapshot,
+  runSelectionAction,
+  type SelectionSnapshot,
+} from "../../services/invoke";
 
 const actions = [
   { label: "复制", command: "copy_selection_text" },
@@ -26,7 +21,7 @@ export function SelectionWindow() {
     const currentWindow = getCurrentWindow();
     let disposed = false;
 
-    invoke<SelectionSnapshot>("get_selection_snapshot")
+    getSelectionSnapshot()
       .then((value) => {
         if (!disposed) {
           setSnapshot(value);
@@ -69,7 +64,15 @@ export function SelectionWindow() {
 
     setBusy(true);
     try {
-      await invoke(command, args ?? {});
+      const action =
+        command === "copy_selection_text"
+          ? "copy"
+          : command === "search_selection_text"
+            ? "search"
+            : args?.action === "summarize"
+              ? "summarize"
+              : "translate";
+      await runSelectionAction(action);
     } catch (error) {
       console.error("selection action failed", error);
     } finally {

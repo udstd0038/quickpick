@@ -1,11 +1,15 @@
 import {
   useEffect,
+  useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  copyResultContent,
+  requestResultTranslation,
+} from "../../services/invoke";
 import { useResultStore } from "../../stores/resultStore";
 
 type ResultSnapshotPayload = {
@@ -15,7 +19,7 @@ type ResultSnapshotPayload = {
   detail: string;
   sourceLanguage: string;
   targetLanguage: string;
-  translationDirection: string;
+  translationDirection: "left" | "right";
   canSwitchLanguage: boolean;
 };
 
@@ -27,14 +31,32 @@ const statusLabels = {
   error: "处理失败",
 } as const;
 
+const languageOptions = [
+  { value: "auto", label: "自动检测" },
+  { value: "zh-Hans", label: "简体中文" },
+  { value: "zh-Hant", label: "繁体中文" },
+  { value: "en", label: "英语" },
+  { value: "ja", label: "日语" },
+  { value: "ko", label: "韩语" },
+  { value: "fr", label: "法语" },
+  { value: "de", label: "德语" },
+  { value: "ru", label: "俄语" },
+  { value: "es", label: "西班牙语" },
+] as const;
+
 export function ResultWindow() {
   const content = useResultStore((state) => state.content);
   const detail = useResultStore((state) => state.detail);
   const status = useResultStore((state) => state.status);
+  const sourceLanguage = useResultStore((state) => state.sourceLanguage);
+  const targetLanguage = useResultStore((state) => state.targetLanguage);
+  const direction = useResultStore((state) => state.direction);
   const pinned = useResultStore((state) => state.pinned);
   const setContent = useResultStore((state) => state.setContent);
   const setStatus = useResultStore((state) => state.setStatus);
+  const setLanguages = useResultStore((state) => state.setLanguages);
   const setPinned = useResultStore((state) => state.setPinned);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -42,6 +64,11 @@ export function ResultWindow() {
       const payload = event.payload;
       setContent(payload.content, payload.detail);
       setStatus(payload.status);
+      setLanguages(
+        payload.sourceLanguage,
+        payload.targetLanguage,
+        payload.translationDirection,
+      );
     }).then((cleanup) => {
       unlisten = cleanup;
     });
@@ -57,7 +84,7 @@ export function ResultWindow() {
       unlisten?.();
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [setContent, setPinned, setStatus]);
+  }, [setContent, setLanguages, setPinned, setStatus]);
 
   const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
@@ -69,7 +96,7 @@ export function ResultWindow() {
 
   const copy = async () => {
     try {
-      await invoke("copy_result_content");
+      await copyResultContent();
     } catch (error) {
       console.error("copy result failed", error);
     }
@@ -77,6 +104,37 @@ export function ResultWindow() {
 
   const close = () => {
     void getCurrentWindow().hide();
+  };
+
+  const togglePinned = () => {
+    const next = !pinned;
+    setPinned(next);
+    void getCurrentWindow().setAlwaysOnTop(next);
+  };
+
+  const changeLanguages = async (
+    nextSource: string,
+    nextTarget: string,
+    nextDirection: "left" | "right",
+  ) => {
+    if (busy) {
+      return;
+    }
+    setLanguages(nextSource, nextTarget, nextDirection);
+    setStatus("loading");
+    setBusy(true);
+    try {
+      await requestResultTranslation({
+        sourceLanguage: nextSource,
+        targetLanguage: nextTarget,
+        direction: nextDirection,
+      });
+    } catch (error) {
+      setStatus("error");
+      setContent("", typeof error === "string" ? error : "切换语言失败");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -120,7 +178,7 @@ export function ResultWindow() {
         </div>
         <button
           type="button"
-          onClick={() => setPinned(!pinned)}
+          onClick={togglePinned}
           style={controlButtonStyle}
         >
           {pinned ? "取消固定" : "固定"}
@@ -129,6 +187,65 @@ export function ResultWindow() {
           关闭
         </button>
       </header>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 36px 1fr",
+          gap: 8,
+          alignItems: "center",
+        }}
+      >
+        <select
+          value={sourceLanguage}
+          onChange={(event) =>
+            void changeLanguages(
+              event.currentTarget.value,
+              targetLanguage,
+              direction,
+            )
+          }
+          style={controlSelectStyle}
+          aria-label="源语言"
+        >
+          {languageOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() =>
+            void changeLanguages(
+              sourceLanguage,
+              targetLanguage,
+              direction === "left" ? "right" : "left",
+            )
+          }
+          style={controlButtonStyle}
+          aria-label="切换翻译方向"
+        >
+          {direction === "left" ? "←" : "→"}
+        </button>
+        <select
+          value={targetLanguage}
+          onChange={(event) =>
+            void changeLanguages(
+              sourceLanguage,
+              event.currentTarget.value,
+              direction,
+            )
+          }
+          style={controlSelectStyle}
+          aria-label="目标语言"
+        >
+          {languageOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
       <div
         style={{
           flex: 1,
@@ -174,6 +291,17 @@ const controlButtonStyle: CSSProperties = {
   border: "1px solid rgba(164, 180, 202, 0.2)",
   borderRadius: 7,
   padding: "0 10px",
+  color: "#e7ecf3",
+  background: "rgba(30, 36, 45, 0.96)",
+  cursor: "pointer",
+};
+
+const controlSelectStyle: CSSProperties = {
+  width: "100%",
+  minHeight: 30,
+  border: "1px solid rgba(164, 180, 202, 0.2)",
+  borderRadius: 7,
+  padding: "0 8px",
   color: "#e7ecf3",
   background: "rgba(30, 36, 45, 0.96)",
   cursor: "pointer",

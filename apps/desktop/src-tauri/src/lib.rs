@@ -21,8 +21,25 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 struct AppState {
     selection_snapshot: Mutex<SelectionSnapshot>,
     result_snapshot: Mutex<ResultSnapshot>,
+    last_text_translation: Mutex<Option<LastTextTranslation>>,
+    last_image_translation: Mutex<Option<LastImageTranslation>>,
     hotkey_bindings: Mutex<HotkeyBindings>,
     hotkey_capture_mode: Mutex<bool>,
+}
+
+#[derive(Clone)]
+struct LastTextTranslation {
+    action: String,
+    text: String,
+    source_preview: String,
+    source_char_count: usize,
+}
+
+#[derive(Clone)]
+struct LastImageTranslation {
+    action: String,
+    png_bytes: Vec<u8>,
+    source_preview: String,
 }
 
 impl Default for AppState {
@@ -30,6 +47,8 @@ impl Default for AppState {
         Self {
             selection_snapshot: Mutex::new(SelectionSnapshot::default()),
             result_snapshot: Mutex::new(ResultSnapshot::default()),
+            last_text_translation: Mutex::new(None),
+            last_image_translation: Mutex::new(None),
             hotkey_bindings: Mutex::new(HotkeyBindings::default()),
             hotkey_capture_mode: Mutex::new(false),
         }
@@ -1880,6 +1899,14 @@ async fn run_text_ai_action_inner(
         target_language.clone(),
         translation_direction.clone(),
     )?;
+    if let Ok(mut last_text) = state.last_text_translation.lock() {
+        *last_text = Some(LastTextTranslation {
+            action: action.clone(),
+            text: text.clone(),
+            source_preview: source_preview.clone(),
+            source_char_count,
+        });
+    }
     let result_popup = open_native_result_popup(&app, &loading_snapshot);
     set_result_snapshot(&state, loading_snapshot)?;
 
@@ -2106,6 +2133,7 @@ pub fn run() {
             capture_region_to_clipboard,
             set_hotkey_capture_mode,
             request_input_translation,
+            request_result_translation,
             capture_region_rect
         ])
         .setup(|app| {
@@ -2729,6 +2757,13 @@ async fn run_screenshot_ai_action(
         "区域截图 {}x{}（{}）",
         image.width, image.height, image.monitor_name
     );
+    if let Ok(mut last_image) = app.state::<AppState>().last_image_translation.lock() {
+        *last_image = Some(LastImageTranslation {
+            action: action.to_string(),
+            png_bytes: image.png_bytes.clone(),
+            source_preview: source_preview.clone(),
+        });
+    }
     let loading = ResultSnapshot::image_loading(
         action,
         source_preview.clone(),
@@ -3200,6 +3235,119 @@ async fn request_input_translation(
     Ok(SelectionActionResult {
         message: "输入翻译已请求".to_string(),
     })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn request_result_translation(
+    app: tauri::AppHandle,
+    source_language: String,
+    target_language: String,
+    direction: String,
+) -> Result<SelectionActionResult, String> {
+    let settings = app_settings::load_app_settings(&app)?;
+    let (request_source_language, request_target_language) =
+        translation_request_languages(&source_language, &target_language, &direction);
+    let state = app.state::<AppState>();
+    let text_payload = state
+        .last_text_translation
+        .lock()
+        .map_err(|_| "读取文本翻译上下文失败".to_string())?
+        .clone();
+
+    if let Some(payload) = text_payload {
+        let ai_result = match security::load_api_key(&app, "text") {
+            Ok(Some(mut api_key)) => {
+                let result = ai::run_text_action(
+                    &settings,
+                    &api_key,
+                    &payload.action,
+                    &payload.text,
+                    &request_source_language,
+                    &request_target_language,
+                )
+                .await;
+                api_key.clear();
+                result
+            }
+            Ok(None) => Err("文本模型 API Key 未配置，请先到设置中保存".to_string()),
+            Err(error) => Err(error),
+        };
+        let snapshot = match ai_result {
+            Ok(content) => ResultSnapshot::text_success(
+                &payload.action,
+                payload.source_preview,
+                payload.source_char_count,
+                content,
+                source_language.clone(),
+                target_language.clone(),
+                direction.clone(),
+            )?,
+            Err(error) => ResultSnapshot::text_error(
+                &payload.action,
+                payload.source_preview,
+                payload.source_char_count,
+                error,
+                source_language.clone(),
+                target_language.clone(),
+                direction.clone(),
+            )?,
+        };
+        set_app_result_snapshot(&app, snapshot.clone())?;
+        let _ = app.emit_to("result", "result-ready", snapshot);
+        return Ok(SelectionActionResult {
+            message: "结果翻译已更新".to_string(),
+        });
+    }
+
+    let image_payload = state
+        .last_image_translation
+        .lock()
+        .map_err(|_| "读取截图翻译上下文失败".to_string())?
+        .clone();
+    if let Some(payload) = image_payload {
+        let ai_result = match security::load_api_key(&app, "vision") {
+            Ok(Some(mut api_key)) => {
+                let result = ai::run_image_action(
+                    &settings,
+                    &api_key,
+                    &payload.action,
+                    &payload.png_bytes,
+                    &request_source_language,
+                    &request_target_language,
+                )
+                .await;
+                api_key.clear();
+                result
+            }
+            Ok(None) => Err("截图模型 API Key 未配置，请先到设置中保存".to_string()),
+            Err(error) => Err(error),
+        };
+        let snapshot = match ai_result {
+            Ok(content) => ResultSnapshot::image_success(
+                &payload.action,
+                payload.source_preview,
+                content,
+                source_language.clone(),
+                target_language.clone(),
+                direction.clone(),
+            )?,
+            Err(error) => ResultSnapshot::image_error(
+                &payload.action,
+                payload.source_preview,
+                error,
+                source_language.clone(),
+                target_language.clone(),
+                direction.clone(),
+            )?,
+        };
+        set_app_result_snapshot(&app, snapshot.clone())?;
+        let _ = app.emit_to("result", "result-ready", snapshot);
+        return Ok(SelectionActionResult {
+            message: "截图翻译已更新".to_string(),
+        });
+    }
+
+    Err("当前结果不支持切换语言".to_string())
 }
 
 fn refresh_selection_snapshot(

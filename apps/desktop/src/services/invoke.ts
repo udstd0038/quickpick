@@ -1,8 +1,52 @@
 import { invoke } from "@tauri-apps/api/core";
+import type {
+  ApiKeyStatus,
+  AppSettings,
+} from "../lib/settingsTypes";
 
 export type SelectionActionResult = {
   message: string;
 };
+
+export type SelectionSnapshot = {
+  status: "captured" | "empty" | "unsupported" | "error";
+  text: string;
+  preview: string;
+  charCount: number;
+  message: string;
+  source: string;
+};
+
+export function getAppSettings() {
+  return invoke<AppSettings>("get_app_settings");
+}
+
+export function saveSettings(settings: AppSettings) {
+  return invoke<SelectionActionResult>("save_app_settings", { settings });
+}
+
+export function getApiKeyStatus(scope: "text" | "vision" | "input") {
+  return invoke<ApiKeyStatus>("get_api_key_status", { scope });
+}
+
+export function saveApiKey(
+  scope: "text" | "vision" | "input",
+  apiKey: string,
+) {
+  return invoke<SelectionActionResult>("save_api_key", { apiKey, scope });
+}
+
+export function clearApiKey(scope: "text" | "vision" | "input") {
+  return invoke<SelectionActionResult>("clear_api_key", { scope });
+}
+
+export function setHotkeyCaptureMode(enabled: boolean) {
+  return invoke<SelectionActionResult>("set_hotkey_capture_mode", { enabled });
+}
+
+export function getSelectionSnapshot() {
+  return invoke<SelectionSnapshot>("get_selection_snapshot");
+}
 
 export function requestInputTranslation(input: {
   inputText: string;
@@ -11,6 +55,14 @@ export function requestInputTranslation(input: {
   direction: "left" | "right";
 }) {
   return invoke<SelectionActionResult>("request_input_translation", input);
+}
+
+export function requestResultTranslation(input: {
+  sourceLanguage: string;
+  targetLanguage: string;
+  direction: "left" | "right";
+}) {
+  return invoke<SelectionActionResult>("request_result_translation", input);
 }
 
 export function captureRegionRect(input: {

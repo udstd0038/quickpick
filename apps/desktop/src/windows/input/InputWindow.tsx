@@ -5,9 +5,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { requestInputTranslation } from "../../services/invoke";
 import { useInputStore } from "../../stores/inputStore";
 
 type InputReadyPayload = {
@@ -96,7 +96,7 @@ export function InputWindow() {
     setBusy(true);
     setStatus("loading");
     try {
-      await invoke("request_input_translation", {
+      await requestInputTranslation({
         inputText: text,
         sourceLanguage,
         targetLanguage,
