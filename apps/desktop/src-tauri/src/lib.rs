@@ -2313,21 +2313,27 @@ fn apply_window_appearance(
     };
     app.set_theme(theme);
 
-    let Some(window) = app.get_webview_window("main") else {
-        return Ok(());
-    };
-    let _ = window.set_decorations(false);
-    window
-        .set_theme(theme)
-        .map_err(|error| format!("应用窗口主题失败：{error}"))?;
+    for (label, effect) in [
+        ("main", mica_effect_for_theme(settings)),
+        ("selection", Effect::Acrylic),
+        ("result", Effect::Acrylic),
+        ("input", Effect::Acrylic),
+    ] {
+        let Some(window) = app.get_webview_window(label) else {
+            continue;
+        };
+        let _ = window.set_decorations(false);
+        if let Err(error) = window.set_theme(theme) {
+            eprintln!("QuickPick {label} window theme sync skipped: {error}");
+        }
+        let _ = window.set_shadow(true);
+        let effects = Some(EffectsBuilder::new().effect(effect).build());
+        if let Err(error) = window.set_effects(effects) {
+            eprintln!("QuickPick {label} window effect sync skipped: {error}");
+        }
+    }
 
-    let _ = window.set_shadow(true);
-    let mica_effect = mica_effect_for_theme(settings);
-    let effects = Some(EffectsBuilder::new().effect(mica_effect).build());
-
-    window
-        .set_effects(effects)
-        .map_err(|error| format!("应用窗口效果失败：{error}"))
+    Ok(())
 }
 
 fn mica_effect_for_theme(settings: &app_settings::AppSettings) -> Effect {
