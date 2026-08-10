@@ -12,6 +12,9 @@ import {
 } from "../../services/invoke";
 import { ActionButton } from "../../components/ActionButton";
 
+const SCREENSHOT_TOOLBAR_WIDTH = 264;
+const SCREENSHOT_TOOLBAR_HEIGHT = 48;
+
 export function ScreenshotOverlay() {
   const [screenshot, setScreenshot] = useState<MonitorScreenshotPayload | null>(
     null,
@@ -130,9 +133,15 @@ export function ScreenshotOverlay() {
       ) : screenshot ? (
         <ReactCrop
           crop={crop}
-          onChange={(pixel, percent) => {
+          onChange={(_pixel, percent) => {
+            setCrop(percent);
+          }}
+          onComplete={(pixel, percent) => {
             setCrop(percent);
             setPixelCrop(pixel);
+          }}
+          onDragStart={() => {
+            setPixelCrop(null);
           }}
           keepSelection
           minWidth={8}
@@ -176,13 +185,13 @@ export function ScreenshotOverlay() {
           className="screenshot-toolbar"
           style={{
             position: "absolute",
-            left:
-              pixelCrop.x + pixelCrop.width + 10 + 264 <= window.innerWidth
-                ? pixelCrop.x + pixelCrop.width + 10
-                : Math.max(8, pixelCrop.x - 274),
+            left: Math.min(
+              pixelCrop.x + pixelCrop.width + 8,
+              Math.max(8, window.innerWidth - SCREENSHOT_TOOLBAR_WIDTH - 8),
+            ),
             top: Math.min(
-              Math.max(pixelCrop.y + pixelCrop.height / 2 - 24, 8),
-              window.innerHeight - 64,
+              pixelCrop.y + pixelCrop.height + 8,
+              Math.max(8, window.innerHeight - SCREENSHOT_TOOLBAR_HEIGHT - 8),
             ),
             display: "flex",
             gap: 8,
