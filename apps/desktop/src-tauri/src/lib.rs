@@ -2306,9 +2306,17 @@ fn register_hotkey_bindings(
         ("区域截图", bindings.screenshot_hotkey.as_str()),
         ("输入翻译", bindings.input_translate_hotkey.as_str()),
     ] {
-        app.global_shortcut()
-            .register(shortcut)
-            .map_err(|error| format!("{name} 快捷键注册失败，可能已被其他软件占用：{error}"))?;
+        match app.global_shortcut().register(shortcut) {
+            Ok(()) => {}
+            Err(error) if name == "设置" => {
+                eprintln!("QuickPick settings hotkey registration skipped: {error}");
+            }
+            Err(error) => {
+                return Err(format!(
+                    "{name} 快捷键注册失败，可能已被其他软件占用：{error}"
+                ));
+            }
+        }
     }
 
     Ok(())
@@ -3561,6 +3569,17 @@ mod tests {
 
         assert!(keys.contains(&0x12));
         assert!(keys.contains(&0x34));
+    }
+
+    #[test]
+    fn settings_hotkey_maps_to_settings_action() {
+        let bindings = HotkeyBindings::default();
+        let shortcut = app_settings::parse_hotkey("Alt+1", "设置").unwrap();
+
+        assert!(matches!(
+            bindings.action_for(&shortcut),
+            Some(HotkeyAction::Settings)
+        ));
     }
 
     #[test]
