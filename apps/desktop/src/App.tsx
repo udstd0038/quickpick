@@ -7,7 +7,10 @@ import {
   normalizeAppSettings,
   type AppSettings,
 } from "./lib/settingsTypes";
-import { applyDocumentTranslation } from "./lib/i18n";
+import {
+  applyDocumentTranslation,
+  setI18nLanguage,
+} from "./lib/i18n";
 import { SettingsWindow } from "./windows/settings/SettingsWindow";
 import { SelectionWindow } from "./windows/selection/SelectionWindow";
 import { ResultWindow } from "./windows/result/ResultWindow";
@@ -34,6 +37,7 @@ const appearanceAlphaVariables = [
 function applyGlobalAppearance(settings: AppSettings) {
   const root = document.documentElement;
   applyDocumentTranslation(settings.uiLanguage);
+  setI18nLanguage(settings.uiLanguage);
   const resolvedThemeMode: string =
     settings.themeMode === "system" ? currentSystemTheme() : settings.themeMode;
   const effectiveTheme =

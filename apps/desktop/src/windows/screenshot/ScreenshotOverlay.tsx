@@ -11,11 +11,13 @@ import {
   type MonitorScreenshotPayload,
 } from "../../services/invoke";
 import { ActionButton } from "../../components/ActionButton";
+import { useI18n } from "../../lib/i18n";
 
 const SCREENSHOT_TOOLBAR_WIDTH = 264;
 const SCREENSHOT_TOOLBAR_HEIGHT = 48;
 
 export function ScreenshotOverlay() {
+  const t = useI18n();
   const [screenshot, setScreenshot] = useState<MonitorScreenshotPayload | null>(
     null,
   );
@@ -156,7 +158,7 @@ export function ScreenshotOverlay() {
         >
           <img
             src={screenshot.pngDataUrl}
-            alt="当前屏幕"
+            alt={t("screenshot.currentScreen")}
             draggable={false}
             style={{
               display: "block",
@@ -176,7 +178,7 @@ export function ScreenshotOverlay() {
             color: "var(--qp-text-primary)",
           }}
         >
-          正在读取屏幕截图...
+          {t("screenshot.reading")}
         </div>
       )}
 
@@ -199,21 +201,25 @@ export function ScreenshotOverlay() {
             zIndex: 20,
           }}
         >
-          {["复制", "提取", "翻译"].map((label, index) => (
+          {[
+            { key: "screenshot.copy", action: "copy" },
+            { key: "screenshot.extract", action: "extract" },
+            { key: "screenshot.translate", action: "translate" },
+          ].map(({ key, action }) => (
             <ActionButton
-              key={label}
+              key={key}
               className="screenshot-tool-button"
               type="button"
               disabled={busy}
               onClick={() =>
-                void capture(index === 0 ? "copy" : index === 1 ? "extract" : "translate")
+                void capture(action)
               }
               style={{
                 minHeight: 32,
                 padding: "0 14px",
               }}
             >
-              {label}
+              {t(key)}
             </ActionButton>
           ))}
         </div>

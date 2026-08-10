@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 export type UiLanguage =
   | "system"
   | "zh-Hans"
@@ -286,6 +288,104 @@ export function translateText(source: string, language: UiLanguage): string {
     return `${leading}${exact}${trailing}`;
   }
   return localizePatterns(source, locale);
+}
+
+const keyToSource: Record<string, string> = {
+  "app.checkingCore": "正在检查核心连接",
+  "app.previewMode": "前端预览模式",
+  "language.auto": "自动检测",
+  "language.zhHans": "简体中文",
+  "language.zhHant": "繁体中文",
+  "language.en": "英语",
+  "language.ja": "日语",
+  "language.ko": "韩语",
+  "language.fr": "法语",
+  "language.de": "德语",
+  "language.ru": "俄语",
+  "language.es": "西班牙语",
+  "common.copy": "复制",
+  "common.close": "关闭",
+  "common.pin": "固定",
+  "common.unpin": "取消固定",
+  "common.search": "搜索",
+  "common.translate": "翻译",
+  "common.summarize": "总结",
+  "common.extract": "提取",
+  "common.retry": "重试",
+  "selection.title": "QuickPick 划词",
+  "result.empty": "暂无结果",
+  "result.pending": "待处理",
+  "result.loading": "正在处理",
+  "result.success": "翻译结果",
+  "result.error": "处理失败",
+  "result.copy": "复制结果",
+  "result.processing": "正在处理...",
+  "result.noResult": "暂无结果",
+  "result.switchFailed": "切换语言失败",
+  "result.sourceLanguage": "源语言",
+  "result.targetLanguage": "目标语言",
+  "result.switchDirection": "切换翻译方向",
+  "result.sourceTarget": "源语言：{source} → 目标语言：{target}",
+  "input.title": "输入翻译",
+  "input.placeholder": "输入要翻译的文本",
+  "input.translating": "翻译中",
+  "input.requestFailed": "翻译请求失败",
+  "input.sourceLanguage": "源语言",
+  "input.targetLanguage": "目标语言",
+  "input.switchDirection": "切换翻译方向",
+  "input.processing": "正在处理...",
+  "input.copy": "复制",
+  "input.sourceTarget": "源语言：{source} → 目标语言：{target}",
+  "screenshot.reading": "正在读取屏幕截图...",
+  "screenshot.currentScreen": "当前屏幕",
+  "screenshot.waiting": "等待截图区域",
+  "screenshot.copy": "复制",
+  "screenshot.extract": "提取",
+  "screenshot.translate": "翻译",
+};
+
+export type Translator = (
+  key: string,
+  params?: Record<string, string | number>,
+) => string;
+
+let currentUiLanguage: UiLanguage = "zh-Hans";
+const i18nListeners = new Set<() => void>();
+
+export function setI18nLanguage(language: UiLanguage) {
+  currentUiLanguage = language;
+  for (const listener of i18nListeners) {
+    listener();
+  }
+}
+
+function subscribeI18n(listener: () => void) {
+  i18nListeners.add(listener);
+  return () => {
+    i18nListeners.delete(listener);
+  };
+}
+
+function getI18nSnapshot() {
+  return currentUiLanguage;
+}
+
+export function createTranslator(language: UiLanguage): Translator {
+  return (key, params) => {
+    const source = keyToSource[key] ?? key;
+    let value = translateText(source, language);
+    if (params) {
+      for (const [name, param] of Object.entries(params)) {
+        value = value.replaceAll(`{${name}}`, String(param));
+      }
+    }
+    return value;
+  };
+}
+
+export function useI18n(): Translator {
+  const language = useSyncExternalStore(subscribeI18n, getI18nSnapshot);
+  return createTranslator(language);
 }
 
 const translatedAttributes = [

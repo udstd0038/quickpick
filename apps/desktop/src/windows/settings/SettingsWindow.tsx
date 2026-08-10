@@ -13,6 +13,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { RotateCcw } from "lucide-react";
 import {
   applyDocumentTranslation,
+  setI18nLanguage,
   targetLanguageForUiLanguage,
   translationLanguageOptions,
   uiLanguageOptions,
@@ -154,6 +155,7 @@ const appearanceAlphaVariables = [
 function applyDocumentAppearance(settings: AppSettings) {
   const root = document.documentElement;
   applyDocumentTranslation(settings.uiLanguage);
+  setI18nLanguage(settings.uiLanguage);
   const themeMode =
     settings.themeMode === "system" ? currentSystemTheme() : settings.themeMode;
   const effectiveTheme = themeMode === "dark" ? "workbench" : themeMode;

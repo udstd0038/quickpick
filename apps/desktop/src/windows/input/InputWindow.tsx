@@ -15,6 +15,7 @@ import {
 import { GlassSelect } from "../../components/GlassSelect";
 import { ActionButton } from "../../components/ActionButton";
 import { useInputStore } from "../../stores/inputStore";
+import { useI18n } from "../../lib/i18n";
 
 type InputReadyPayload = {
   status: "waiting" | "loading" | "success" | "error";
@@ -26,30 +27,24 @@ type InputReadyPayload = {
 };
 
 const languageOptions = [
-  { value: "auto", label: "自动检测" },
-  { value: "zh-Hans", label: "简体中文" },
-  { value: "zh-Hant", label: "繁体中文" },
-  { value: "en", label: "英语" },
-  { value: "ja", label: "日语" },
-  { value: "ko", label: "韩语" },
-  { value: "fr", label: "法语" },
-  { value: "de", label: "德语" },
-  { value: "ru", label: "俄语" },
-  { value: "es", label: "西班牙语" },
+  { value: "auto", key: "language.auto" },
+  { value: "zh-Hans", key: "language.zhHans" },
+  { value: "zh-Hant", key: "language.zhHant" },
+  { value: "en", key: "language.en" },
+  { value: "ja", key: "language.ja" },
+  { value: "ko", key: "language.ko" },
+  { value: "fr", key: "language.fr" },
+  { value: "de", key: "language.de" },
+  { value: "ru", key: "language.ru" },
+  { value: "es", key: "language.es" },
 ] as const;
 
-const languageSelectOptions = languageOptions.map((option) => ({
-  id: option.value,
-  label: option.label,
-}));
-
-function languageLabel(value: string) {
-  return (
-    languageOptions.find((option) => option.value === value)?.label || value
-  );
-}
-
 export function InputWindow() {
+  const t = useI18n();
+  const languageSelectOptions = languageOptions.map((option) => ({
+    id: option.value,
+    label: t(option.key),
+  }));
   const text = useInputStore((state) => state.text);
   const result = useInputStore((state) => state.result);
   const status = useInputStore((state) => state.status);
@@ -62,6 +57,11 @@ export function InputWindow() {
   const setLanguages = useInputStore((state) => state.setLanguages);
   const [busy, setBusy] = useState(false);
   const [pinned, setPinned] = useState(false);
+
+  const languageLabel = (value: string) => {
+    const option = languageOptions.find((item) => item.value === value);
+    return option ? t(option.key) : value;
+  };
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -115,7 +115,7 @@ export function InputWindow() {
       });
     } catch (error) {
       setStatus("error");
-      setResult(typeof error === "string" ? error : "翻译请求失败");
+      setResult(typeof error === "string" ? error : t("input.requestFailed"));
     } finally {
       setBusy(false);
     }
@@ -182,14 +182,14 @@ export function InputWindow() {
             whiteSpace: "nowrap",
           }}
         >
-          输入翻译
+          {t("input.title")}
         </div>
         <button
           className="popup-button popup-icon-button"
           type="button"
           onClick={togglePinned}
-          aria-label={pinned ? "取消固定" : "固定"}
-          title={pinned ? "取消固定" : "固定"}
+          aria-label={pinned ? t("common.unpin") : t("common.pin")}
+          title={pinned ? t("common.unpin") : t("common.pin")}
         >
           {pinned ? <PinOff size={15} /> : <Pin size={15} />}
         </button>
@@ -197,8 +197,8 @@ export function InputWindow() {
           className="popup-button popup-icon-button"
           type="button"
           onClick={close}
-          aria-label="关闭"
-          title="关闭"
+          aria-label={t("common.close")}
+          title={t("common.close")}
         >
           <X size={15} />
         </button>
@@ -216,7 +216,7 @@ export function InputWindow() {
           value={sourceLanguage}
           options={languageSelectOptions}
           onChange={(value) => setLanguages(value, targetLanguage, direction)}
-          ariaLabel="源语言"
+          ariaLabel={t("input.sourceLanguage")}
           className="popup-language-select"
         />
         <button
@@ -229,7 +229,7 @@ export function InputWindow() {
               direction === "left" ? "right" : "left",
             )
           }
-          aria-label="切换翻译方向"
+          aria-label={t("input.switchDirection")}
         >
           {direction === "left" ? "←" : "→"}
         </button>
@@ -237,7 +237,7 @@ export function InputWindow() {
           value={targetLanguage}
           options={languageSelectOptions}
           onChange={(value) => setLanguages(sourceLanguage, value, direction)}
-          ariaLabel="目标语言"
+          ariaLabel={t("input.targetLanguage")}
           className="popup-language-select"
         />
       </div>
@@ -246,7 +246,7 @@ export function InputWindow() {
         value={text}
         onChange={(event) => setText(event.currentTarget.value)}
         onKeyDown={translateOnEnter}
-        placeholder="输入要翻译的文本"
+        placeholder={t("input.placeholder")}
         autoFocus
         className="popup-textarea"
         style={{
@@ -268,8 +268,12 @@ export function InputWindow() {
         }}
       >
         {status === "loading"
-          ? "正在处理..."
-          : result || `源语言：${languageLabel(sourceLanguage)} → 目标语言：${languageLabel(targetLanguage)}`}
+          ? t("input.processing")
+          : result ||
+            t("input.sourceTarget", {
+              source: languageLabel(sourceLanguage),
+              target: languageLabel(targetLanguage),
+            })}
       </div>
       <div
         className="popup-footer"
@@ -286,7 +290,7 @@ export function InputWindow() {
           disabled={!text.trim() || busy}
           style={actionButtonStyle}
         >
-          {busy ? "翻译中" : "翻译"}
+          {busy ? t("input.translating") : t("common.translate")}
         </ActionButton>
         <ActionButton
           type="button"
@@ -294,7 +298,7 @@ export function InputWindow() {
           disabled={status !== "success"}
           style={actionButtonStyle}
         >
-          复制
+          {t("common.copy")}
         </ActionButton>
       </div>
     </main>

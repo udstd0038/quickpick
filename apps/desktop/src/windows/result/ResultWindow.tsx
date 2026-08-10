@@ -14,6 +14,7 @@ import {
 import { GlassSelect } from "../../components/GlassSelect";
 import { ActionButton } from "../../components/ActionButton";
 import { useResultStore } from "../../stores/resultStore";
+import { useI18n } from "../../lib/i18n";
 
 type ResultSnapshotPayload = {
   status: "empty" | "placeholder" | "loading" | "success" | "error";
@@ -26,33 +27,33 @@ type ResultSnapshotPayload = {
   canSwitchLanguage: boolean;
 };
 
-const statusLabels = {
-  empty: "暂无结果",
-  placeholder: "待处理",
-  loading: "正在处理",
-  success: "翻译结果",
-  error: "处理失败",
+const statusKeys = {
+  empty: "result.empty",
+  placeholder: "result.pending",
+  loading: "result.loading",
+  success: "result.success",
+  error: "result.error",
 } as const;
 
 const languageOptions = [
-  { value: "auto", label: "自动检测" },
-  { value: "zh-Hans", label: "简体中文" },
-  { value: "zh-Hant", label: "繁体中文" },
-  { value: "en", label: "英语" },
-  { value: "ja", label: "日语" },
-  { value: "ko", label: "韩语" },
-  { value: "fr", label: "法语" },
-  { value: "de", label: "德语" },
-  { value: "ru", label: "俄语" },
-  { value: "es", label: "西班牙语" },
+  { value: "auto", key: "language.auto" },
+  { value: "zh-Hans", key: "language.zhHans" },
+  { value: "zh-Hant", key: "language.zhHant" },
+  { value: "en", key: "language.en" },
+  { value: "ja", key: "language.ja" },
+  { value: "ko", key: "language.ko" },
+  { value: "fr", key: "language.fr" },
+  { value: "de", key: "language.de" },
+  { value: "ru", key: "language.ru" },
+  { value: "es", key: "language.es" },
 ] as const;
 
-const languageSelectOptions = languageOptions.map((option) => ({
-  id: option.value,
-  label: option.label,
-}));
-
 export function ResultWindow() {
+  const t = useI18n();
+  const languageSelectOptions = languageOptions.map((option) => ({
+    id: option.value,
+    label: t(option.key),
+  }));
   const content = useResultStore((state) => state.content);
   const detail = useResultStore((state) => state.detail);
   const status = useResultStore((state) => state.status);
@@ -139,7 +140,7 @@ export function ResultWindow() {
       });
     } catch (error) {
       setStatus("error");
-      setContent("", typeof error === "string" ? error : "切换语言失败");
+      setContent("", typeof error === "string" ? error : t("result.switchFailed"));
     } finally {
       setBusy(false);
     }
@@ -179,14 +180,14 @@ export function ResultWindow() {
             whiteSpace: "nowrap",
           }}
         >
-          {statusLabels[status]}
+          {t(statusKeys[status])}
         </div>
         <button
           className="popup-button popup-icon-button"
           type="button"
           onClick={togglePinned}
-          aria-label={pinned ? "取消固定" : "固定"}
-          title={pinned ? "取消固定" : "固定"}
+          aria-label={pinned ? t("common.unpin") : t("common.pin")}
+          title={pinned ? t("common.unpin") : t("common.pin")}
         >
           {pinned ? <PinOff size={15} /> : <Pin size={15} />}
         </button>
@@ -194,8 +195,8 @@ export function ResultWindow() {
           className="popup-button popup-icon-button"
           type="button"
           onClick={close}
-          aria-label="关闭"
-          title="关闭"
+          aria-label={t("common.close")}
+          title={t("common.close")}
         >
           <X size={15} />
         </button>
@@ -214,7 +215,7 @@ export function ResultWindow() {
           onChange={(value) =>
             void changeLanguages(value, targetLanguage, direction)
           }
-          ariaLabel="源语言"
+          ariaLabel={t("result.sourceLanguage")}
           className="popup-language-select"
         />
         <button
@@ -227,7 +228,7 @@ export function ResultWindow() {
               direction === "left" ? "right" : "left",
             )
           }
-          aria-label="切换翻译方向"
+          aria-label={t("result.switchDirection")}
         >
           {direction === "left" ? "←" : "→"}
         </button>
@@ -237,7 +238,7 @@ export function ResultWindow() {
           onChange={(value) =>
             void changeLanguages(sourceLanguage, value, direction)
           }
-          ariaLabel="目标语言"
+          ariaLabel={t("result.targetLanguage")}
           className="popup-language-select"
         />
       </div>
@@ -252,8 +253,8 @@ export function ResultWindow() {
         }}
       >
         {status === "loading"
-          ? "正在处理..."
-          : content || detail || "暂无结果"}
+          ? t("result.processing")
+          : content || detail || t("result.noResult")}
       </div>
       <footer
         className="popup-footer"
@@ -270,7 +271,7 @@ export function ResultWindow() {
           disabled={status !== "success"}
           style={actionButtonStyle}
         >
-          复制
+          {t("result.copy")}
         </ActionButton>
       </footer>
     </main>

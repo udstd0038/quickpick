@@ -10,15 +10,25 @@ import {
   type SelectionSnapshot,
 } from "../../services/invoke";
 import { ActionButton } from "../../components/ActionButton";
+import { useI18n } from "../../lib/i18n";
 
 const actions = [
-  { label: "复制", command: "copy_selection_text" },
-  { label: "翻译", command: "run_text_ai_action", args: { action: "translate" } },
-  { label: "总结", command: "run_text_ai_action", args: { action: "summarize" } },
-  { label: "搜索", command: "search_selection_text" },
+  { key: "common.copy", command: "copy_selection_text" },
+  {
+    key: "common.translate",
+    command: "run_text_ai_action",
+    args: { action: "translate" },
+  },
+  {
+    key: "common.summarize",
+    command: "run_text_ai_action",
+    args: { action: "summarize" },
+  },
+  { key: "common.search", command: "search_selection_text" },
 ] as const;
 
 export function SelectionWindow() {
+  const t = useI18n();
   const [snapshot, setSnapshot] = useState<SelectionSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -110,11 +120,11 @@ export function SelectionWindow() {
         cursor: "grab",
         userSelect: "none",
       }}
-      title={snapshot?.preview || snapshot?.message || "QuickPick 划词"}
+      title={snapshot?.preview || snapshot?.message || t("selection.title")}
     >
       {actions.map((action) => (
         <ActionButton
-          key={action.label}
+          key={action.key}
           type="button"
           disabled={busy}
           onClick={() => run(action.command, "args" in action ? action.args : undefined)}
@@ -126,7 +136,7 @@ export function SelectionWindow() {
             whiteSpace: "nowrap",
           }}
         >
-          {action.label}
+          {t(action.key)}
         </ActionButton>
       ))}
     </main>

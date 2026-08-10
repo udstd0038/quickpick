@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyDocumentTranslation,
+  createTranslator,
   targetLanguageForUiLanguage,
   translateText,
 } from "./i18n";
@@ -17,6 +18,13 @@ describe("i18n", () => {
     expect(translateText("复制", "en")).toBe("Copy");
     expect(translateText("翻译", "ja")).toBe("翻訳");
     expect(translateText("保存设置", "fr")).toBe("Enregistrer les paramètres");
+  });
+
+  it("translates key-based UI strings", () => {
+    const t = createTranslator("en");
+    expect(t("common.copy")).toBe("Copy");
+    expect(t("result.loading")).toBe("Processing");
+    expect(t("input.placeholder")).toBe("Enter text to translate");
   });
 
   it("applies translations to rendered DOM and attributes", () => {
