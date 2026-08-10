@@ -6,10 +6,13 @@ import {
 } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { Pin, PinOff, X } from "lucide-react";
 import {
   copyResultContent,
   requestResultTranslation,
 } from "../../services/invoke";
+import { GlassSelect } from "../../components/GlassSelect";
+import { ActionButton } from "../../components/ActionButton";
 import { useResultStore } from "../../stores/resultStore";
 
 type ResultSnapshotPayload = {
@@ -43,6 +46,11 @@ const languageOptions = [
   { value: "ru", label: "俄语" },
   { value: "es", label: "西班牙语" },
 ] as const;
+
+const languageSelectOptions = languageOptions.map((option) => ({
+  id: option.value,
+  label: option.label,
+}));
 
 export function ResultWindow() {
   const content = useResultStore((state) => state.content);
@@ -139,6 +147,7 @@ export function ResultWindow() {
 
   return (
     <main
+      className="popup-window"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -147,9 +156,6 @@ export function ResultWindow() {
         height: "100vh",
         padding: 12,
         boxSizing: "border-box",
-        color: "#e7ecf3",
-        background: "rgba(10, 14, 19, 0.96)",
-        fontFamily: "Segoe UI, Microsoft YaHei, sans-serif",
       }}
     >
       <header
@@ -167,7 +173,6 @@ export function ResultWindow() {
             flex: 1,
             minWidth: 0,
             overflow: "hidden",
-            color: "#d8e2ef",
             fontSize: 14,
             fontWeight: 700,
             textOverflow: "ellipsis",
@@ -177,14 +182,22 @@ export function ResultWindow() {
           {statusLabels[status]}
         </div>
         <button
+          className="popup-button popup-icon-button"
           type="button"
           onClick={togglePinned}
-          style={controlButtonStyle}
+          aria-label={pinned ? "取消固定" : "固定"}
+          title={pinned ? "取消固定" : "固定"}
         >
-          {pinned ? "取消固定" : "固定"}
+          {pinned ? <PinOff size={15} /> : <Pin size={15} />}
         </button>
-        <button type="button" onClick={close} style={controlButtonStyle}>
-          关闭
+        <button
+          className="popup-button popup-icon-button"
+          type="button"
+          onClick={close}
+          aria-label="关闭"
+          title="关闭"
+        >
+          <X size={15} />
         </button>
       </header>
       <div
@@ -195,25 +208,17 @@ export function ResultWindow() {
           alignItems: "center",
         }}
       >
-        <select
+        <GlassSelect
           value={sourceLanguage}
-          onChange={(event) =>
-            void changeLanguages(
-              event.currentTarget.value,
-              targetLanguage,
-              direction,
-            )
+          options={languageSelectOptions}
+          onChange={(value) =>
+            void changeLanguages(value, targetLanguage, direction)
           }
-          style={controlSelectStyle}
-          aria-label="源语言"
-        >
-          {languageOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          ariaLabel="源语言"
+          className="popup-language-select"
+        />
         <button
+          className="popup-button"
           type="button"
           onClick={() =>
             void changeLanguages(
@@ -222,40 +227,27 @@ export function ResultWindow() {
               direction === "left" ? "right" : "left",
             )
           }
-          style={controlButtonStyle}
           aria-label="切换翻译方向"
         >
           {direction === "left" ? "←" : "→"}
         </button>
-        <select
+        <GlassSelect
           value={targetLanguage}
-          onChange={(event) =>
-            void changeLanguages(
-              sourceLanguage,
-              event.currentTarget.value,
-              direction,
-            )
+          options={languageSelectOptions}
+          onChange={(value) =>
+            void changeLanguages(sourceLanguage, value, direction)
           }
-          style={controlSelectStyle}
-          aria-label="目标语言"
-        >
-          {languageOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          ariaLabel="目标语言"
+          className="popup-language-select"
+        />
       </div>
       <div
+        className="popup-result-box"
         style={{
           flex: 1,
           minHeight: 0,
-          border: "1px solid rgba(164, 180, 202, 0.16)",
-          borderRadius: 10,
           padding: 12,
           overflow: "auto",
-          background: "rgba(19, 23, 29, 0.94)",
-          color: "#e7ecf3",
           whiteSpace: "pre-wrap",
         }}
       >
@@ -264,56 +256,30 @@ export function ResultWindow() {
           : content || detail || "暂无结果"}
       </div>
       <footer
+        className="popup-footer"
         style={{
           display: "flex",
           justifyContent: "flex-end",
           gap: 8,
-          minHeight: 36,
           alignItems: "center",
         }}
       >
-        <button
+        <ActionButton
           type="button"
           onClick={copy}
           disabled={status !== "success"}
           style={actionButtonStyle}
         >
           复制
-        </button>
+        </ActionButton>
       </footer>
     </main>
   );
 }
 
-const controlButtonStyle: CSSProperties = {
-  flex: "0 0 auto",
-  minHeight: 30,
-  border: "1px solid rgba(164, 180, 202, 0.2)",
-  borderRadius: 7,
-  padding: "0 10px",
-  color: "#e7ecf3",
-  background: "rgba(30, 36, 45, 0.96)",
-  cursor: "pointer",
-};
-
-const controlSelectStyle: CSSProperties = {
-  width: "100%",
-  minHeight: 30,
-  border: "1px solid rgba(164, 180, 202, 0.2)",
-  borderRadius: 7,
-  padding: "0 8px",
-  color: "#e7ecf3",
-  background: "rgba(30, 36, 45, 0.96)",
-  cursor: "pointer",
-};
-
 const actionButtonStyle: CSSProperties = {
   flex: "0 0 auto",
   minHeight: 30,
-  border: "1px solid rgba(164, 180, 202, 0.2)",
-  borderRadius: 7,
   padding: "0 12px",
-  color: "#e7ecf3",
-  background: "rgba(30, 36, 45, 0.96)",
   cursor: "pointer",
 };

@@ -31,9 +31,9 @@ export function ScreenshotPreview() {
         height: "100vh",
         padding: 14,
         boxSizing: "border-box",
-        color: "#e7ecf3",
-        background: "rgba(10, 14, 19, 0.96)",
-        fontFamily: "Segoe UI, Microsoft YaHei, sans-serif",
+        color: "var(--qp-text-primary)",
+        background: "var(--qp-shell-bg)",
+        fontFamily: "'Segoe UI', 'Microsoft YaHei', sans-serif",
       }}
     >
       {preview ? (

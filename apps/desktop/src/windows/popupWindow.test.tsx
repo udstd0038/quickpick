@@ -126,6 +126,20 @@ describe("WebView popup behavior", () => {
     );
   });
 
+  it("copies the latest input translation result", async () => {
+    mocks.invoke.mockResolvedValue({ message: "ok" });
+    useInputStore.setState({
+      result: "translated result",
+      status: "success",
+    });
+    render(<InputWindow />);
+
+    fireEvent.click(screen.getByRole("button", { name: "复制" }));
+    await waitFor(() =>
+      expect(mocks.invoke).toHaveBeenCalledWith("copy_input_result"),
+    );
+  });
+
   it("closes the screenshot overlay on Escape", () => {
     render(<ScreenshotOverlay />);
 

@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   getSelectionSnapshot,
   runSelectionAction,
   type SelectionSnapshot,
 } from "../../services/invoke";
+import { ActionButton } from "../../components/ActionButton";
 
 const actions = [
   { label: "复制", command: "copy_selection_text" },
@@ -81,8 +86,18 @@ export function SelectionWindow() {
     }
   };
 
+  const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button, select, textarea, input, a")) {
+      return;
+    }
+    void getCurrentWindow().startDragging();
+  };
+
   return (
     <main
+      className="popup-window selection-window"
+      onPointerDown={startDrag}
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
@@ -92,33 +107,27 @@ export function SelectionWindow() {
         height: "100vh",
         padding: 8,
         boxSizing: "border-box",
-        color: "#e7ecf3",
-        background: "rgba(10, 14, 19, 0.96)",
-        fontFamily: "Segoe UI, Microsoft YaHei, sans-serif",
+        cursor: "grab",
         userSelect: "none",
       }}
       title={snapshot?.preview || snapshot?.message || "QuickPick 划词"}
     >
       {actions.map((action) => (
-        <button
+        <ActionButton
           key={action.label}
           type="button"
           disabled={busy}
           onClick={() => run(action.command, "args" in action ? action.args : undefined)}
           style={{
             width: "100%",
-            minHeight: 38,
-            border: "1px solid rgba(164, 180, 202, 0.24)",
-            borderRadius: 7,
-            padding: "0 8px",
-            color: "#e7ecf3",
-            background: "rgba(30, 36, 45, 0.96)",
+            minHeight: 30,
+            padding: "0 10px",
             cursor: busy ? "wait" : "pointer",
             whiteSpace: "nowrap",
           }}
         >
           {action.label}
-        </button>
+        </ActionButton>
       ))}
     </main>
   );

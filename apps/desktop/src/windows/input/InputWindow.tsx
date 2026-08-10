@@ -7,7 +7,13 @@ import {
 } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { requestInputTranslation } from "../../services/invoke";
+import { Pin, PinOff, X } from "lucide-react";
+import {
+  copyInputResult,
+  requestInputTranslation,
+} from "../../services/invoke";
+import { GlassSelect } from "../../components/GlassSelect";
+import { ActionButton } from "../../components/ActionButton";
 import { useInputStore } from "../../stores/inputStore";
 
 type InputReadyPayload = {
@@ -31,6 +37,11 @@ const languageOptions = [
   { value: "ru", label: "俄语" },
   { value: "es", label: "西班牙语" },
 ] as const;
+
+const languageSelectOptions = languageOptions.map((option) => ({
+  id: option.value,
+  label: option.label,
+}));
 
 function languageLabel(value: string) {
   return (
@@ -129,8 +140,17 @@ export function InputWindow() {
     void getCurrentWindow().hide();
   };
 
+  const copy = async () => {
+    try {
+      await copyInputResult();
+    } catch (error) {
+      console.error("copy input result failed", error);
+    }
+  };
+
   return (
     <main
+      className="popup-window"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -139,9 +159,6 @@ export function InputWindow() {
         height: "100vh",
         padding: 12,
         boxSizing: "border-box",
-        color: "#e7ecf3",
-        background: "rgba(10, 14, 19, 0.96)",
-        fontFamily: "Segoe UI, Microsoft YaHei, sans-serif",
       }}
     >
       <header
@@ -159,7 +176,6 @@ export function InputWindow() {
             flex: 1,
             minWidth: 0,
             overflow: "hidden",
-            color: "#d8e2ef",
             fontSize: 14,
             fontWeight: 700,
             textOverflow: "ellipsis",
@@ -169,14 +185,22 @@ export function InputWindow() {
           输入翻译
         </div>
         <button
+          className="popup-button popup-icon-button"
           type="button"
           onClick={togglePinned}
-          style={controlButtonStyle}
+          aria-label={pinned ? "取消固定" : "固定"}
+          title={pinned ? "取消固定" : "固定"}
         >
-          {pinned ? "取消固定" : "固定"}
+          {pinned ? <PinOff size={15} /> : <Pin size={15} />}
         </button>
-        <button type="button" onClick={close} style={controlButtonStyle}>
-          关闭
+        <button
+          className="popup-button popup-icon-button"
+          type="button"
+          onClick={close}
+          aria-label="关闭"
+          title="关闭"
+        >
+          <X size={15} />
         </button>
       </header>
 
@@ -188,21 +212,15 @@ export function InputWindow() {
           alignItems: "center",
         }}
       >
-        <select
+        <GlassSelect
           value={sourceLanguage}
-          onChange={(event) =>
-            setLanguages(event.currentTarget.value, targetLanguage, direction)
-          }
-          style={selectStyle}
-          aria-label="源语言"
-        >
-          {languageOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          options={languageSelectOptions}
+          onChange={(value) => setLanguages(value, targetLanguage, direction)}
+          ariaLabel="源语言"
+          className="popup-language-select"
+        />
         <button
+          className="popup-button"
           type="button"
           onClick={() =>
             setLanguages(
@@ -211,25 +229,17 @@ export function InputWindow() {
               direction === "left" ? "right" : "left",
             )
           }
-          style={controlButtonStyle}
           aria-label="切换翻译方向"
         >
           {direction === "left" ? "←" : "→"}
         </button>
-        <select
+        <GlassSelect
           value={targetLanguage}
-          onChange={(event) =>
-            setLanguages(sourceLanguage, event.currentTarget.value, direction)
-          }
-          style={selectStyle}
-          aria-label="目标语言"
-        >
-          {languageOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          options={languageSelectOptions}
+          onChange={(value) => setLanguages(sourceLanguage, value, direction)}
+          ariaLabel="目标语言"
+          className="popup-language-select"
+        />
       </div>
 
       <textarea
@@ -238,46 +248,22 @@ export function InputWindow() {
         onKeyDown={translateOnEnter}
         placeholder="输入要翻译的文本"
         autoFocus
+        className="popup-textarea"
         style={{
           minHeight: 76,
           resize: "none",
-          border: "1px solid rgba(164, 180, 202, 0.2)",
-          borderRadius: 10,
           padding: 10,
           outline: "none",
-          color: "#e7ecf3",
-          background: "rgba(19, 23, 29, 0.94)",
         }}
       />
 
       <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-          minHeight: 36,
-          alignItems: "center",
-        }}
-      >
-        <button
-          type="button"
-          onClick={translate}
-          disabled={!text.trim() || busy}
-          style={actionButtonStyle}
-        >
-          {busy ? "翻译中" : "翻译"}
-        </button>
-      </div>
-
-      <div
+        className="popup-result-box"
         style={{
           flex: 1,
           minHeight: 0,
-          border: "1px solid rgba(164, 180, 202, 0.16)",
-          borderRadius: 10,
           padding: 12,
           overflow: "auto",
-          background: "rgba(19, 23, 29, 0.94)",
           whiteSpace: "pre-wrap",
         }}
       >
@@ -285,39 +271,39 @@ export function InputWindow() {
           ? "正在处理..."
           : result || `源语言：${languageLabel(sourceLanguage)} → 目标语言：${languageLabel(targetLanguage)}`}
       </div>
+      <div
+        className="popup-footer"
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          alignItems: "center",
+        }}
+      >
+        <ActionButton
+          type="button"
+          onClick={translate}
+          disabled={!text.trim() || busy}
+          style={actionButtonStyle}
+        >
+          {busy ? "翻译中" : "翻译"}
+        </ActionButton>
+        <ActionButton
+          type="button"
+          onClick={copy}
+          disabled={status !== "success"}
+          style={actionButtonStyle}
+        >
+          复制
+        </ActionButton>
+      </div>
     </main>
   );
 }
 
-const controlButtonStyle: CSSProperties = {
-  flex: "0 0 auto",
-  minHeight: 30,
-  border: "1px solid rgba(164, 180, 202, 0.2)",
-  borderRadius: 7,
-  padding: "0 10px",
-  color: "#e7ecf3",
-  background: "rgba(30, 36, 45, 0.96)",
-  cursor: "pointer",
-};
-
 const actionButtonStyle: CSSProperties = {
   flex: "0 0 auto",
   minHeight: 30,
-  border: "1px solid rgba(164, 180, 202, 0.2)",
-  borderRadius: 7,
   padding: "0 12px",
-  color: "#e7ecf3",
-  background: "rgba(30, 36, 45, 0.96)",
-  cursor: "pointer",
-};
-
-const selectStyle: CSSProperties = {
-  width: "100%",
-  minHeight: 30,
-  border: "1px solid rgba(164, 180, 202, 0.2)",
-  borderRadius: 7,
-  padding: "0 8px",
-  color: "#e7ecf3",
-  background: "rgba(30, 36, 45, 0.96)",
   cursor: "pointer",
 };

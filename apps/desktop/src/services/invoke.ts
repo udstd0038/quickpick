@@ -92,6 +92,10 @@ export function copyResultContent() {
   return invoke<SelectionActionResult>("copy_result_content");
 }
 
+export function copyInputResult() {
+  return invoke<SelectionActionResult>("copy_input_result");
+}
+
 export function runSelectionAction(
   action: "copy" | "translate" | "summarize" | "search",
 ) {

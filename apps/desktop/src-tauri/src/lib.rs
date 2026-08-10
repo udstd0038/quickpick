@@ -22,6 +22,7 @@ struct AppState {
     result_snapshot: Mutex<ResultSnapshot>,
     last_text_translation: Mutex<Option<LastTextTranslation>>,
     last_image_translation: Mutex<Option<LastImageTranslation>>,
+    last_input_result: Mutex<Option<String>>,
     hotkey_bindings: Mutex<HotkeyBindings>,
     hotkey_capture_mode: Mutex<bool>,
 }
@@ -48,6 +49,7 @@ impl Default for AppState {
             result_snapshot: Mutex::new(ResultSnapshot::default()),
             last_text_translation: Mutex::new(None),
             last_image_translation: Mutex::new(None),
+            last_input_result: Mutex::new(None),
             hotkey_bindings: Mutex::new(HotkeyBindings::default()),
             hotkey_capture_mode: Mutex::new(false),
         }
@@ -217,16 +219,6 @@ struct InputReadyPayload {
     source_language: String,
     target_language: String,
     direction: String,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ScreenshotPreviewPayload {
-    screen_x: i32,
-    screen_y: i32,
-    width: u32,
-    height: u32,
-    status: String,
 }
 
 impl Default for ResultSnapshot {
@@ -1789,8 +1781,15 @@ fn search_selection_text_from_state(state: &AppState) -> Result<SelectionActionR
         encode_query_component(&text)
     );
 
-    tauri_plugin_opener::open_url(url, None::<&str>)
-        .map_err(|_| "打开默认浏览器失败，请检查系统默认浏览器设置".to_string())?;
+    if tauri_plugin_opener::open_url(url.clone(), None::<&str>).is_err() {
+        let fallback = std::process::Command::new("cmd")
+            .args(["/C", "start", "", url.as_str()])
+            .spawn()
+            .and_then(|mut child| child.wait());
+        if fallback.is_err() {
+            return Err("打开默认浏览器失败，请检查系统默认浏览器设置".to_string());
+        }
+    }
 
     Ok(SelectionActionResult {
         message: "已打开搜索".to_string(),
@@ -1818,6 +1817,27 @@ fn copy_result_content(state: tauri::State<'_, AppState>) -> Result<SelectionAct
 
     Ok(SelectionActionResult {
         message: "结果已复制".to_string(),
+    })
+}
+
+#[tauri::command]
+fn copy_input_result(state: tauri::State<'_, AppState>) -> Result<SelectionActionResult, String> {
+    let result = state
+        .last_input_result
+        .lock()
+        .map_err(|_| "读取输入翻译结果失败，请重新翻译后再试".to_string())?
+        .clone();
+
+    let content = result.as_deref().unwrap_or_default().trim();
+    if content.is_empty() {
+        return Err("当前没有可复制的输入翻译结果".to_string());
+    }
+
+    clipboard_win::set_clipboard_string(content)
+        .map_err(|_| "写入剪贴板失败，请稍后再试".to_string())?;
+
+    Ok(SelectionActionResult {
+        message: "输入翻译结果已复制".to_string(),
     })
 }
 
@@ -2041,6 +2061,7 @@ pub fn run() {
             copy_selection_text,
             search_selection_text,
             copy_result_content,
+            copy_input_result,
             run_text_ai_action,
             clear_result_snapshot,
             capture_current_monitor_to_clipboard,
@@ -2533,33 +2554,17 @@ fn show_screenshot_overlay(app: &tauri::AppHandle) -> bool {
     let Some(window) = app.get_webview_window("screenshot_overlay") else {
         return false;
     };
+    match screenshot::capture_current_monitor_screenshot() {
+        Ok(payload) => {
+            let _ = app.emit_to("screenshot_overlay", "screenshot-ready", payload);
+        }
+        Err(error) => {
+            let _ = app.emit_to("screenshot_overlay", "screenshot-error", error);
+        }
+    }
     let _ = window.set_always_on_top(true);
     let _ = window.show();
     let _ = window.set_focus();
-    true
-}
-
-fn show_screenshot_preview(
-    app: &tauri::AppHandle,
-    selection: &screenshot::RegionMenuSelection,
-    status: &str,
-) -> bool {
-    let Some(window) = app.get_webview_window("screenshot_preview") else {
-        return false;
-    };
-    let _ = window.set_always_on_top(true);
-    let _ = window.show();
-    let _ = app.emit_to(
-        "screenshot_preview",
-        "screenshot-preview",
-        ScreenshotPreviewPayload {
-            screen_x: selection.screen_x,
-            screen_y: selection.screen_y,
-            width: selection.width,
-            height: selection.height,
-            status: status.to_string(),
-        },
-    );
     true
 }
 
@@ -2584,7 +2589,6 @@ async fn capture_region_rect(
         width,
         height,
     };
-    show_screenshot_preview(&app, &selection, "已选择区域");
     handle_region_menu_selection(app, selection).await
 }
 
@@ -2786,6 +2790,36 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
     let Some(window) = app.get_webview_window("selection") else {
         return false;
     };
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::{
+            Foundation::POINT,
+            UI::WindowsAndMessaging::{
+                GetCursorPos, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN,
+            },
+        };
+
+        let mut cursor = POINT { x: 0, y: 0 };
+        unsafe {
+            GetCursorPos(&mut cursor);
+        }
+        let window_width = 480;
+        let window_height = 58;
+        let max_x =
+            (unsafe { GetSystemMetrics(SM_CXSCREEN) - window_width - 8 }).max(8);
+        let max_y =
+            (unsafe { GetSystemMetrics(SM_CYSCREEN) - window_height - 8 }).max(8);
+        let below_y = cursor.y + 18;
+        let y = if below_y > max_y {
+            (cursor.y - window_height - 18).clamp(8, max_y)
+        } else {
+            below_y.clamp(8, max_y)
+        };
+        let _ = window.set_position(tauri::PhysicalPosition::new(
+            cursor.x.clamp(8, max_x),
+            y,
+        ));
+    }
     let _ = window.set_always_on_top(true);
     let _ = window.show();
     #[cfg(windows)]
@@ -2912,6 +2946,10 @@ async fn request_input_translation(
         input_provider == "openai_compatible" && settings.input_ai_model.trim().is_empty();
     let trimmed = input_text.trim().to_string();
 
+    if let Ok(mut current) = app.state::<AppState>().last_input_result.lock() {
+        *current = None;
+    }
+
     let (status, content, detail) = if !api_key_configured || needs_explicit_base_url || needs_explicit_model {
         (
             "error".to_string(),
@@ -2946,7 +2984,12 @@ async fn request_input_translation(
         };
 
         match ai_result {
-            Ok(content) => ("success".to_string(), content, String::new()),
+            Ok(content) => {
+                if let Ok(mut current) = app.state::<AppState>().last_input_result.lock() {
+                    *current = Some(content.clone());
+                }
+                ("success".to_string(), content, String::new())
+            }
             Err(error) => ("error".to_string(), String::new(), error),
         }
     };

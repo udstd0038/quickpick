@@ -4,12 +4,13 @@ import ReactCrop, {
   type PixelCrop,
 } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
-  captureMonitorScreenshot,
   captureRegionRect,
   type MonitorScreenshotPayload,
 } from "../../services/invoke";
+import { ActionButton } from "../../components/ActionButton";
 
 export function ScreenshotOverlay() {
   const [screenshot, setScreenshot] = useState<MonitorScreenshotPayload | null>(
@@ -23,20 +24,30 @@ export function ScreenshotOverlay() {
   useEffect(() => {
     let disposed = false;
 
-    captureMonitorScreenshot()
-      .then((value) => {
-        if (!disposed) {
-          setScreenshot(value);
-        }
-      })
-      .catch((reason) => {
-        if (!disposed) {
-          setError(typeof reason === "string" ? reason : "截图读取失败");
-        }
-      });
+    let unlistenReady: (() => void) | undefined;
+    let unlistenError: (() => void) | undefined;
+
+    listen<MonitorScreenshotPayload>("screenshot-ready", (event) => {
+      if (!disposed) {
+        setError("");
+        setScreenshot(event.payload);
+      }
+    }).then((cleanup) => {
+      unlistenReady = cleanup;
+    });
+
+    listen<string>("screenshot-error", (event) => {
+      if (!disposed) {
+        setError(event.payload);
+      }
+    }).then((cleanup) => {
+      unlistenError = cleanup;
+    });
 
     return () => {
       disposed = true;
+      unlistenReady?.();
+      unlistenError?.();
     };
   }, []);
 
@@ -66,6 +77,7 @@ export function ScreenshotOverlay() {
     const scaleX = screenshot.width / window.innerWidth;
     const scaleY = screenshot.height / window.innerHeight;
     setBusy(true);
+    void getCurrentWindow().hide();
     try {
       await captureRegionRect({
         screenX: screenshot.monitorX + Math.round(pixelCrop.x * scaleX),
@@ -74,7 +86,6 @@ export function ScreenshotOverlay() {
         height: Math.round(pixelCrop.height * scaleY),
         action,
       });
-      await getCurrentWindow().hide();
     } finally {
       setBusy(false);
     }
@@ -93,7 +104,7 @@ export function ScreenshotOverlay() {
         height: "100vh",
         overflow: "hidden",
         cursor: "crosshair",
-        background: "#0a1122",
+        background: "var(--qp-shell-bg)",
         userSelect: "none",
         touchAction: "none",
       }}
@@ -104,7 +115,7 @@ export function ScreenshotOverlay() {
             display: "grid",
             minHeight: "100vh",
             placeItems: "center",
-            color: "#fff",
+            color: "var(--qp-text-primary)",
           }}
         >
           {error}
@@ -146,7 +157,7 @@ export function ScreenshotOverlay() {
             display: "grid",
             minHeight: "100vh",
             placeItems: "center",
-            color: "#fff",
+            color: "var(--qp-text-primary)",
           }}
         >
           正在读取屏幕截图...
@@ -155,23 +166,27 @@ export function ScreenshotOverlay() {
 
       {pixelCrop && pixelCrop.width >= 8 && pixelCrop.height >= 8 && (
         <div
+          className="screenshot-toolbar"
           style={{
             position: "absolute",
-            left: Math.min(pixelCrop.x, window.innerWidth - 300),
-            top: Math.min(pixelCrop.y + pixelCrop.height + 10, window.innerHeight - 52),
+            left:
+              pixelCrop.x + pixelCrop.width + 10 + 264 <= window.innerWidth
+                ? pixelCrop.x + pixelCrop.width + 10
+                : Math.max(8, pixelCrop.x - 274),
+            top: Math.min(
+              Math.max(pixelCrop.y + pixelCrop.height / 2 - 24, 8),
+              window.innerHeight - 64,
+            ),
             display: "flex",
             gap: 8,
             padding: 8,
-            border: "1px solid rgba(255, 255, 255, 0.3)",
-            borderRadius: 8,
-            background: "rgba(12, 20, 38, 0.92)",
-            boxShadow: "0 18px 50px rgba(0, 0, 0, 0.35)",
             zIndex: 20,
           }}
         >
           {["复制", "提取", "翻译"].map((label, index) => (
-            <button
+            <ActionButton
               key={label}
+              className="screenshot-tool-button"
               type="button"
               disabled={busy}
               onClick={() =>
@@ -180,15 +195,10 @@ export function ScreenshotOverlay() {
               style={{
                 minHeight: 32,
                 padding: "0 14px",
-                border: "1px solid rgba(164, 180, 202, 0.28)",
-                borderRadius: 7,
-                color: "#e7ecf3",
-                background: "rgba(38, 47, 58, 0.96)",
-                cursor: "pointer",
               }}
             >
               {label}
-            </button>
+            </ActionButton>
           ))}
         </div>
       )}
