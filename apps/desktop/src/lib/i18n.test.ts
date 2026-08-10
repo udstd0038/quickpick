@@ -24,6 +24,7 @@ describe("i18n", () => {
     expect(t("common.copy")).toBe("Copy");
     expect(t("result.loading")).toBe("Processing");
     expect(t("input.placeholder")).toBe("Enter text to translate");
+    expect(t("i18n:settings.readFailed")).toBe("Failed to read settings file");
   });
 
 });

@@ -1,5 +1,6 @@
 mod ai;
 mod app_settings;
+mod localized_error;
 mod screenshot;
 mod security;
 mod selection;

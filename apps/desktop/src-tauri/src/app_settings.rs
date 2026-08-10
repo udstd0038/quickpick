@@ -3,6 +3,8 @@ use std::{fs, path::PathBuf};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
 
+use crate::localized_error::error_key;
+
 const SETTINGS_FILE_NAME: &str = "settings.json";
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -192,10 +194,11 @@ pub fn load_app_settings(app: &AppHandle) -> Result<AppSettings, String> {
         return Ok(AppSettings::default());
     }
 
-    let content = fs::read_to_string(&path).map_err(|_| "读取设置文件失败".to_string())?;
+    let content = fs::read_to_string(&path)
+        .map_err(|_| error_key("settings.readFailed"))?;
     serde_json::from_str::<AppSettings>(&content)
         .map(normalize_settings_for_load)
-        .map_err(|_| "设置文件格式无效".to_string())
+        .map_err(|_| error_key("settings.invalidFormat"))
 }
 
 pub fn save_app_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
@@ -203,12 +206,12 @@ pub fn save_app_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), 
 
     let path = settings_path(app)?;
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|_| "创建设置目录失败".to_string())?;
+        fs::create_dir_all(parent).map_err(|_| error_key("settings.createDirFailed"))?;
     }
 
     let content =
-        serde_json::to_string_pretty(&settings).map_err(|_| "序列化设置失败".to_string())?;
-    fs::write(path, content).map_err(|_| "保存设置文件失败".to_string())
+        serde_json::to_string_pretty(&settings).map_err(|_| error_key("settings.serializeFailed"))?;
+    fs::write(path, content).map_err(|_| error_key("settings.writeFailed"))
 }
 
 pub fn normalize_settings_for_save(mut settings: AppSettings) -> Result<AppSettings, String> {
@@ -229,7 +232,7 @@ fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_config_dir()
-        .map_err(|_| "定位应用设置目录失败".to_string())?;
+        .map_err(|_| error_key("settings.locateFailed"))?;
     Ok(dir.join(SETTINGS_FILE_NAME))
 }
 
@@ -401,21 +404,21 @@ fn normalize_hotkey_for_load(value: &str, fallback: &str) -> String {
 fn normalize_hotkey_for_save(value: &str, label: &str) -> Result<String, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
-        return Err(format!("{label}快捷键不能为空"));
+        return Err(error_key("hotkey.empty"));
     }
 
     let shortcut = parse_hotkey(trimmed, label)?;
     if !shortcut.mods.contains(Modifiers::ALT) {
-        return Err(format!("{label}快捷键首版需包含 Alt，例如 Alt+2"));
+        return Err(error_key("hotkey.altRequired"));
     }
 
     Ok(format_shortcut(shortcut))
 }
 
-pub fn parse_hotkey(value: &str, label: &str) -> Result<Shortcut, String> {
+pub fn parse_hotkey(value: &str, _label: &str) -> Result<Shortcut, String> {
     value
         .parse::<Shortcut>()
-        .map_err(|_| format!("{label}快捷键格式无效，请使用 Alt+2 或 Ctrl+Alt+Q 这类格式"))
+        .map_err(|_| error_key("hotkey.invalid"))
 }
 
 fn validate_settings(settings: &AppSettings) -> Result<(), String> {
@@ -425,36 +428,36 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
     if settings_shortcut.id() == selection_shortcut.id()
         || settings_shortcut.id() == screenshot_shortcut.id()
     {
-        return Err("设置快捷键不能和划词菜单或区域截图使用同一个快捷键".to_string());
+        return Err(error_key("hotkey.settingsDuplicate"));
     }
     if selection_shortcut.id() == screenshot_shortcut.id() {
-        return Err("划词菜单和区域截图不能使用同一个快捷键".to_string());
+        return Err(error_key("hotkey.selectionScreenshotDuplicate"));
     }
     let input_shortcut = parse_hotkey(&settings.input_translate_hotkey, "输入翻译")?;
     if input_shortcut.id() == settings_shortcut.id()
         || input_shortcut.id() == selection_shortcut.id()
         || input_shortcut.id() == screenshot_shortcut.id()
     {
-        return Err("输入翻译不能和其他功能使用同一个快捷键".to_string());
+        return Err(error_key("hotkey.inputDuplicate"));
     }
 
     if !matches!(settings.theme_mode.as_str(), "system" | "light" | "dark") {
-        return Err("主题模式无效".to_string());
+        return Err(error_key("settings.themeInvalid"));
     }
 
     if !matches!(
         settings.ui_language.as_str(),
         "system" | "zh-Hans" | "zh-Hant" | "en" | "ko" | "ja" | "fr" | "de" | "es"
     ) {
-        return Err("界面语言无效".to_string());
+        return Err(error_key("settings.uiLanguageInvalid"));
     }
 
     if !matches!(settings.window_effect.as_str(), "acrylic" | "mica") {
-        return Err("窗口效果无效".to_string());
+        return Err(error_key("settings.windowEffectInvalid"));
     }
 
     if !(30..=100).contains(&settings.panel_opacity) {
-        return Err("不透明度需在 30% 到 100% 之间".to_string());
+        return Err(error_key("settings.opacityInvalid"));
     }
 
     validate_base_url(&settings.text_ai_base_url, "文本模型 Base URL")?;
@@ -462,25 +465,25 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
     validate_base_url(&settings.input_ai_base_url, "输入模型 Base URL")?;
 
     if settings.ai_timeout_seconds < 5 || settings.ai_timeout_seconds > 120 {
-        return Err("请求超时需在 5 到 120 秒之间".to_string());
+        return Err(error_key("settings.timeoutInvalid"));
     }
 
     if settings.text_ai_model.chars().count() > 120
         || settings.vision_ai_model.chars().count() > 120
         || settings.input_ai_model.chars().count() > 120
     {
-        return Err("模型名称过长，请缩短后保存".to_string());
+        return Err(error_key("settings.modelTooLong"));
     }
 
     Ok(())
 }
 
-fn validate_base_url(value: &str, label: &str) -> Result<(), String> {
+fn validate_base_url(value: &str, _label: &str) -> Result<(), String> {
     let base_url = value.trim();
     if !base_url.is_empty()
         && !(base_url.starts_with("https://") || base_url.starts_with("http://"))
     {
-        return Err(format!("{label} 必须以 http:// 或 https:// 开头"));
+        return Err(error_key("settings.baseUrlInvalid"));
     }
 
     Ok(())

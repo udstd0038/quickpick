@@ -271,6 +271,25 @@ const translations: Record<string, LocaleStrings> = {
   "保存前同步设置失败": entry("儲存前同步設定失敗", "Failed to sync before saving", "저장 전 동기화 실패", "保存前の同期に失敗", "Échec de la synchronisation avant enregistrement", "Synchronisierung vor dem Speichern fehlgeschlagen", "No se pudo sincronizar antes de guardar"),
   "通用 OpenAI 兼容": entry("通用 OpenAI 相容", "Generic OpenAI Compatible", "일반 OpenAI 호환", "汎用OpenAI互換", "OpenAI compatible générique", "Generisch OpenAI-kompatibel", "Compatible OpenAI genérico"),
   "小米 MiMo": entry("小米 MiMo", "Xiaomi MiMo", "샤오미 MiMo", "Xiaomi MiMo", "Xiaomi MiMo", "Xiaomi MiMo", "Xiaomi MiMo"),
+  "读取设置文件失败": entry("讀取設定檔案失敗", "Failed to read settings file", "설정 파일을 읽지 못했습니다", "設定ファイルを読み込めませんでした", "Impossible de lire le fichier de paramètres", "Einstellungsdatei konnte nicht gelesen werden", "No se pudo leer el archivo de configuración"),
+  "设置文件格式无效": entry("設定檔案格式無效", "Invalid settings file format", "설정 파일 형식이 잘못되었습니다", "設定ファイルの形式が無効です", "Format de fichier de paramètres invalide", "Ungültiges Format der Einstellungsdatei", "Formato de archivo de configuración no válido"),
+  "创建设置目录失败": entry("建立設定目錄失敗", "Failed to create settings directory", "설정 디렉터리를 만들지 못했습니다", "設定ディレクトリの作成に失敗", "Échec de création du dossier de paramètres", "Einstellungsverzeichnis konnte nicht erstellt werden", "No se pudo crear el directorio de configuración"),
+  "序列化设置失败": entry("序列化設定失敗", "Failed to serialize settings", "설정 직렬화 실패", "設定のシリアル化に失敗", "Échec de sérialisation des paramètres", "Einstellungen konnten nicht serialisiert werden", "No se pudieron serializar los ajustes"),
+  "保存设置文件失败": entry("儲存設定檔案失敗", "Failed to write settings file", "설정 파일 저장 실패", "設定ファイルの保存に失敗", "Échec d'écriture du fichier de paramètres", "Einstellungsdatei konnte nicht geschrieben werden", "No se pudo escribir el archivo de configuración"),
+  "定位应用设置目录失败": entry("定位應用設定目錄失敗", "Failed to locate app settings directory", "앱 설정 디렉터리를 찾지 못했습니다", "アプリ設定ディレクトリを特定できませんでした", "Échec de localisation du dossier de paramètres", "App-Einstellungsverzeichnis konnte nicht gefunden werden", "No se pudo ubicar el directorio de configuración"),
+  "快捷键不能为空": entry("快捷鍵不能為空", "Hotkey cannot be empty", "단축키는 비어 있을 수 없습니다", "ショートカットは空にできません", "Le raccourci ne peut pas être vide", "Tastenkürzel darf nicht leer sein", "El atajo no puede estar vacío"),
+  "快捷键首版需包含 Alt，例如 Alt+2": entry("快捷鍵首版需包含 Alt，例如 Alt+2", "Hotkey must include Alt, e.g. Alt+2", "단축키는 Alt를 포함해야 합니다. 예: Alt+2", "ショートカットにはAltを含める必要があります（例：Alt+2）", "Le raccourci doit inclure Alt, ex. Alt+2", "Tastenkürzel muss Alt enthalten, z. B. Alt+2", "El atajo debe incluir Alt, p. ej. Alt+2"),
+  "快捷键格式无效，请使用 Alt+2 或 Ctrl+Alt+Q 这类格式": entry("快捷鍵格式無效，請使用 Alt+2 或 Ctrl+Alt+Q 這類格式", "Invalid hotkey format, use Alt+2 or Ctrl+Alt+Q", "단축키 형식이 잘못되었습니다. Alt+2 또는 Ctrl+Alt+Q 형식을 사용하세요", "ショートカット形式が無効です。Alt+2やCtrl+Alt+Q形式を使用してください", "Format de raccourci invalide, utilisez Alt+2 ou Ctrl+Alt+Q", "Ungültiges Tastenkürzel, verwenden Sie Alt+2 oder Ctrl+Alt+Q", "Formato de atajo no válido, usa Alt+2 o Ctrl+Alt+Q"),
+  "设置快捷键不能和划词菜单或区域截图使用同一个快捷键": entry("設定快捷鍵不能和劃詞選單或區域截圖使用同一個快捷鍵", "Settings hotkey cannot share a hotkey with selection or screenshot", "설정 단축키는 선택 또는 스크린샷과 같은 단축키를 사용할 수 없습니다", "設定ショートカットは選択またはスクリーンショットと同一にできません", "Le raccourci des paramètres ne peut pas être partagé", "Einstellungen-Tastenkürzel darf nicht mit Auswahl oder Screenshot geteilt werden", "El atajo de configuración no puede compartirse con selección o captura"),
+  "划词菜单和区域截图不能使用同一个快捷键": entry("劃詞選單和區域截圖不能使用同一個快捷鍵", "Selection and screenshot cannot share a hotkey", "선택 및 스크린샷은 같은 단축키를 사용할 수 없습니다", "選択とスクリーンショットは同じショートカットにできません", "La sélection et la capture ne peuvent pas partager un raccourci", "Auswahl und Screenshot können kein Tastenkürzel teilen", "La selección y la captura no pueden compartir un atajo"),
+  "输入翻译不能和其他功能使用同一个快捷键": entry("輸入翻譯不能和其他功能使用同一個快捷鍵", "Input translation cannot share a hotkey with other actions", "입력 번역은 다른 기능과 같은 단축키를 사용할 수 없습니다", "入力翻訳は他の機能と同一のショートカットにできません", "La traduction de saisie ne peut pas partager un raccourci", "Eingabeübersetzung kann kein Tastenkürzel mit anderen Aktionen teilen", "La traducción de entrada no puede compartir un atajo con otras acciones"),
+  "主题模式无效": entry("主題模式無效", "Invalid theme mode", "테마 모드가 잘못되었습니다", "テーマモードが無効です", "Mode de thème invalide", "Ungültiger Designmodus", "Modo de tema no válido"),
+  "界面语言无效": entry("介面語言無效", "Invalid interface language", "인터페이스 언어가 잘못되었습니다", "インターフェース言語が無効です", "Langue d'interface invalide", "Ungültige Oberflächensprache", "Idioma de interfaz no válido"),
+  "窗口效果无效": entry("視窗效果無效", "Invalid window effect", "창 효과가 잘못되었습니다", "ウィンドウ効果が無効です", "Effet de fenêtre invalide", "Ungültiger Fenstereffekt", "Efecto de ventana no válido"),
+  "不透明度需在 30% 到 100% 之间": entry("不透明度需在 30% 到 100% 之間", "Opacity must be between 30% and 100%", "불투명도는 30%에서 100% 사이여야 합니다", "不透明度は30%から100%の間である必要があります", "L'opacité doit être entre 30% et 100%", "Deckkraft muss zwischen 30% und 100% liegen", "La opacidad debe estar entre 30% y 100%"),
+  "请求超时需在 5 到 120 秒之间": entry("請求逾時需在 5 到 120 秒之間", "Request timeout must be between 5 and 120 seconds", "요청 제한 시간은 5초에서 120초 사이여야 합니다", "リクエストタイムアウトは5秒から120秒の間である必要があります", "Le délai doit être entre 5 et 120 secondes", "Timeout muss zwischen 5 und 120 Sekunden liegen", "El tiempo de espera debe estar entre 5 y 120 segundos"),
+  "模型名称过长，请缩短后保存": entry("模型名稱過長，請縮短後儲存", "Model name is too long, shorten it and save", "모델 이름이 너무 깁니다. 줄인 후 저장하세요", "モデル名が長すぎます。短くして保存してください", "Nom du modèle trop long, raccourcissez-le", "Modellname zu lang, kürzen Sie ihn", "El nombre del modelo es demasiado largo, acórtalo"),
+  "Base URL 必须以 http:// 或 https:// 开头": entry("Base URL 必須以 http:// 或 https:// 開頭", "Base URL must start with http:// or https://", "Base URL은 http:// 또는 https://로 시작해야 합니다", "Base URLはhttp://またはhttps://で始まる必要があります", "L'URL de base doit commencer par http:// ou https://", "Basis-URL muss mit http:// oder https:// beginnen", "La URL base debe comenzar con http:// o https://"),
   "快捷键状态": entry("快捷鍵狀態", "Hotkey Status", "단축키 상태", "ショートカット状態", "État des raccourcis", "Tastenkürzel-Status", "Estado de atajos"),
   "已注册": entry("已註冊", "Registered", "등록됨", "登録済み", "Enregistré", "Registriert", "Registrado"),
   "已被占用": entry("已被佔用", "Occupied", "사용 중", "使用中", "Occupé", "Belegt", "Ocupado"),
@@ -501,6 +520,25 @@ const keyToSource: Record<string, string> = {
   "settings.clearFailed": "清除失败",
   "settings.syncFailed": "同步设置失败",
   "settings.syncBeforeSaveFailed": "保存前同步设置失败",
+  "settings.readFailed": "读取设置文件失败",
+  "settings.invalidFormat": "设置文件格式无效",
+  "settings.createDirFailed": "创建设置目录失败",
+  "settings.serializeFailed": "序列化设置失败",
+  "settings.writeFailed": "保存设置文件失败",
+  "settings.locateFailed": "定位应用设置目录失败",
+  "hotkey.empty": "快捷键不能为空",
+  "hotkey.altRequired": "快捷键首版需包含 Alt，例如 Alt+2",
+  "hotkey.invalid": "快捷键格式无效，请使用 Alt+2 或 Ctrl+Alt+Q 这类格式",
+  "hotkey.settingsDuplicate": "设置快捷键不能和划词菜单或区域截图使用同一个快捷键",
+  "hotkey.selectionScreenshotDuplicate": "划词菜单和区域截图不能使用同一个快捷键",
+  "hotkey.inputDuplicate": "输入翻译不能和其他功能使用同一个快捷键",
+  "settings.themeInvalid": "主题模式无效",
+  "settings.uiLanguageInvalid": "界面语言无效",
+  "settings.windowEffectInvalid": "窗口效果无效",
+  "settings.opacityInvalid": "不透明度需在 30% 到 100% 之间",
+  "settings.timeoutInvalid": "请求超时需在 5 到 120 秒之间",
+  "settings.modelTooLong": "模型名称过长，请缩短后保存",
+  "settings.baseUrlInvalid": "Base URL 必须以 http:// 或 https:// 开头",
 };
 
 export type Translator = (
@@ -531,7 +569,8 @@ function getI18nSnapshot() {
 
 export function createTranslator(language: UiLanguage): Translator {
   return (key, params) => {
-    const source = keyToSource[key] ?? key;
+    const resolvedKey = key.startsWith("i18n:") ? key.slice(5) : key;
+    const source = keyToSource[resolvedKey] ?? key;
     let value = translateText(source, language);
     if (params) {
       for (const [name, param] of Object.entries(params)) {
