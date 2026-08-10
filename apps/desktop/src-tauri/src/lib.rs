@@ -12,7 +12,7 @@ use tauri::{
     image::Image,
     menu::{CheckMenuItem, Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    window::{Effect, EffectsBuilder},
+    window::{Color, Effect, EffectsBuilder},
     Emitter, Manager, Theme, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -2322,13 +2322,18 @@ fn apply_window_appearance(
             eprintln!("QuickPick {label} window theme sync skipped: {error}");
         }
         let _ = window.set_shadow(true);
-        let effects = Some(EffectsBuilder::new().effect(Effect::Acrylic).build());
-        if let Err(error) = window.set_effects(effects) {
-            eprintln!("QuickPick {label} window effect sync skipped: {error}");
-        }
+        refresh_acrylic_glass(&window);
     }
 
     Ok(())
+}
+
+fn refresh_acrylic_glass(window: &tauri::WebviewWindow) {
+    let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
+    let effects = Some(EffectsBuilder::new().effect(Effect::Acrylic).build());
+    if let Err(error) = window.set_effects(effects) {
+        eprintln!("QuickPick window effect refresh skipped: {error}");
+    }
 }
 
 fn shortcut_release_keys(shortcut: &Shortcut) -> Vec<i32> {
@@ -2815,6 +2820,7 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
     }
     let _ = window.set_always_on_top(true);
     let _ = window.show();
+    refresh_acrylic_glass(&window);
     #[cfg(windows)]
     {
         use windows_sys::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
@@ -2847,6 +2853,7 @@ fn show_input_webview(
 
     let _ = window.set_always_on_top(true);
     let _ = window.show();
+    refresh_acrylic_glass(&window);
     let _ = window.set_focus();
     let _ = app.emit_to(
         "input",
@@ -3167,6 +3174,7 @@ fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapsho
     let _ = window.set_title(&snapshot.title);
     let _ = window.set_always_on_top(true);
     let _ = window.show();
+    refresh_acrylic_glass(&window);
     let _ = window.set_focus();
     let _ = app.emit_to("result", "result-ready", snapshot.clone());
 }
@@ -3301,6 +3309,7 @@ fn show_settings_window(app: &tauri::AppHandle) {
         let _ = window.set_decorations(false);
         let _ = window.unminimize();
         let _ = window.show();
+        refresh_acrylic_glass(&window);
         let _ = window.set_focus();
     }
 }
