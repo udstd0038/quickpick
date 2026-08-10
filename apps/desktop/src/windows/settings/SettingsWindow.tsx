@@ -17,6 +17,7 @@ import {
   targetLanguageForUiLanguage,
   translationLanguageOptions,
   uiLanguageOptions,
+  useI18n,
   type UiLanguage,
 } from "../../lib/i18n";
 import {
@@ -125,13 +126,13 @@ type GlassSelectOption<T extends string = string> = {
 };
 
 const settingsNavItems = [
-  { id: "general", label: "通用" },
-  { id: "hotkeys", label: "快捷键" },
-  { id: "ai-selection", label: "划词模型" },
-  { id: "ai-screenshot", label: "截图模型" },
-  { id: "ai-input", label: "输入模型" },
-  { id: "appearance", label: "外观" },
-  { id: "privacy", label: "隐私" },
+  { id: "general", label: "settings.general" },
+  { id: "hotkeys", label: "settings.hotkeys" },
+  { id: "ai-selection", label: "settings.aiSelection" },
+  { id: "ai-screenshot", label: "settings.aiScreenshot" },
+  { id: "ai-input", label: "settings.aiInput" },
+  { id: "appearance", label: "settings.appearance" },
+  { id: "privacy", label: "settings.privacy" },
 ] as const;
 
 type SettingsSectionId = (typeof settingsNavItems)[number]["id"];
@@ -179,6 +180,7 @@ function applyDocumentAppearance(settings: AppSettings) {
 }
 
 function SettingsTitlebar() {
+  const t = useI18n();
   useEffect(() => {
     getCurrentWindow().setDecorations(false).catch(() => {});
   }, []);
@@ -199,13 +201,13 @@ function SettingsTitlebar() {
     <div className="settings-titlebar" data-tauri-drag-region>
       <div className="settings-titlebar-brand" data-tauri-drag-region>
         <span className="settings-titlebar-mark" aria-hidden="true" />
-        <span data-tauri-drag-region>QuickPick 设置</span>
+        <span data-tauri-drag-region>{t("settings.title")}</span>
       </div>
       <div className="settings-titlebar-controls">
         <button
           className="settings-titlebar-button"
           type="button"
-          aria-label="最小化"
+          aria-label={t("settings.minimize")}
           onClick={minimizeWindow}
         >
           <span
@@ -216,7 +218,7 @@ function SettingsTitlebar() {
         <button
           className="settings-titlebar-button"
           type="button"
-          aria-label="最大化或还原"
+          aria-label={t("settings.maximize")}
           onClick={toggleMaximizeWindow}
         >
           <span
@@ -227,7 +229,7 @@ function SettingsTitlebar() {
         <button
           className="settings-titlebar-button settings-titlebar-button-close"
           type="button"
-          aria-label="关闭设置"
+          aria-label={t("settings.close")}
           onClick={hideWindow}
         >
           <span
@@ -358,6 +360,7 @@ function GlassSelect<T extends string>({
 }
 
 function SettingsWindow({ coreStatus }: { coreStatus: string }) {
+  const t = useI18n();
   const settings = useSettingsStore((state) => state.settings);
   const settingsStatus = useSettingsStore((state) => state.status);
   const setSettings = useSettingsStore((state) => state.setSettings);
@@ -939,7 +942,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
 
       <div className="settings-shell">
         <section className="settings-layout">
-          <nav className="settings-nav" aria-label="设置分类" ref={navRef}>
+          <nav className="settings-nav" aria-label={t("settings.categories")} ref={navRef}>
           <span
             className="settings-nav-indicator"
             ref={navIndicatorRef}
@@ -967,7 +970,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               }}
               onClick={() => scrollToSettingsSection(item.id)}
             >
-              {item.label}
+              {t(item.label)}
             </button>
           ))}
           </nav>
@@ -977,20 +980,20 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
             ref={sectionsRef}
             onScroll={updateActiveSettingsSection}
           >
-          <SettingsSection id="general" title="通用">
-            <SettingField label="重置默认设置">
+          <SettingsSection id="general" title={t("settings.general")}>
+            <SettingField label={t("settings.reset")}>
               <button
                 className="ghost-control popup-icon-button"
                 type="button"
                 onClick={resetDefaultSettings}
                 disabled={settingsStatus.kind === "saving"}
-                aria-label="重置默认设置"
-                title="重置默认设置"
+                aria-label={t("settings.reset")}
+                title={t("settings.reset")}
               >
                 <RotateCcw size={15} />
               </button>
             </SettingField>
-            <SettingField label="开机自启">
+            <SettingField label={t("settings.autostart")}>
               <label className="toggle-control">
                 <input
                   type="checkbox"
@@ -999,18 +1002,22 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                     updateSetting("autostartEnabled", event.currentTarget.checked)
                   }
                 />
-                <span>{settings.autostartEnabled ? "已启用" : "已关闭"}</span>
+                <span>
+                  {settings.autostartEnabled
+                    ? t("settings.enabled")
+                    : t("settings.disabled")}
+                </span>
               </label>
             </SettingField>
-            <SettingField label="语言">
+            <SettingField label={t("settings.language")}>
               <GlassSelect
-                ariaLabel="语言"
+                ariaLabel={t("settings.language")}
                 value={settings.uiLanguage}
                 options={uiLanguageOptions}
                 onChange={(value) => updateUiLanguage(value as UiLanguage)}
               />
             </SettingField>
-            <SettingField label="AI 请求超时">
+            <SettingField label={t("settings.aiTimeout")}>
               <input
                 className="setting-input setting-input-number"
                 type="number"
@@ -1026,10 +1033,10 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               />
             </SettingField>
           </SettingsSection>
-          <SettingsSection id="hotkeys" title="快捷键">
-            <SettingField label="设置">
+          <SettingsSection id="hotkeys" title={t("settings.hotkeys")}>
+            <SettingField label={t("settings.hotkeySettings")}>
               <HotkeyCaptureButton
-                label="设置"
+                label={t("settings.hotkeySettings")}
                 value={settings.settingsHotkey}
                 placeholder="Alt+1"
                 active={capturingHotkey === "settingsHotkey"}
@@ -1038,9 +1045,9 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 onKeyDown={(event) => captureHotkey("settingsHotkey", event)}
               />
             </SettingField>
-            <SettingField label="划词菜单">
+            <SettingField label={t("settings.hotkeySelection")}>
               <HotkeyCaptureButton
-                label="划词菜单"
+                label={t("settings.hotkeySelection")}
                 value={settings.selectionHotkey}
                 placeholder="Alt+2"
                 active={capturingHotkey === "selectionHotkey"}
@@ -1049,9 +1056,9 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 onKeyDown={(event) => captureHotkey("selectionHotkey", event)}
               />
             </SettingField>
-            <SettingField label="区域截图">
+            <SettingField label={t("settings.hotkeyScreenshot")}>
               <HotkeyCaptureButton
-                label="区域截图"
+                label={t("settings.hotkeyScreenshot")}
                 value={settings.screenshotHotkey}
                 placeholder="Alt+3"
                 active={capturingHotkey === "screenshotHotkey"}
@@ -1060,9 +1067,9 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 onKeyDown={(event) => captureHotkey("screenshotHotkey", event)}
               />
             </SettingField>
-            <SettingField label="输入翻译">
+            <SettingField label={t("settings.hotkeyInput")}>
               <HotkeyCaptureButton
-                label="输入翻译"
+                label={t("settings.hotkeyInput")}
                 value={settings.inputTranslateHotkey}
                 placeholder="Alt+4"
                 active={capturingHotkey === "inputTranslateHotkey"}
@@ -1074,16 +1081,16 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               />
             </SettingField>
           </SettingsSection>
-          <SettingsSection id="ai-selection" title="划词模型">
-            <SettingField label="文本供应商">
+          <SettingsSection id="ai-selection" title={t("settings.aiSelection")}>
+            <SettingField label={t("settings.textProvider")}>
               <GlassSelect
-                ariaLabel="选择文本模型供应商"
+                ariaLabel={t("settings.selectTextProvider")}
                 value={settings.textAiProvider}
                 options={textAiProviderOptions}
                 onChange={selectTextProvider}
               />
             </SettingField>
-            <SettingField label="文本 Base URL">
+            <SettingField label={t("settings.textBaseUrl")}>
               <input
                 className="setting-input"
                 type="url"
@@ -1095,7 +1102,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 }
               />
             </SettingField>
-            <SettingField label="文本模型">
+            <SettingField label={t("settings.textModel")}>
               <input
                 className="setting-input"
                 type="text"
@@ -1107,7 +1114,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 }
               />
             </SettingField>
-            <SettingField label="文本 API Key">
+            <SettingField label={t("settings.textApiKey")}>
               <div className="secret-control">
                 <input
                   className="setting-input"
@@ -1115,8 +1122,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                   value={textApiKeyInput}
                   placeholder={
                     textApiKeyConfigured
-                      ? "文本模型 Key 已加密保存，输入新 Key 可替换"
-                      : "输入文本模型 API Key"
+                      ? t("settings.textKeyEncryptedReplace")
+                      : t("settings.enterTextApiKey")
                   }
                   spellCheck={false}
                   autoComplete="off"
@@ -1133,7 +1140,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                     textApiKeyStatus.kind === "saving"
                   }
                 >
-                  保存文本 Key
+                  {t("settings.saveTextKey")}
                 </button>
                 <button
                   className="ghost-control"
@@ -1145,13 +1152,17 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                     textApiKeyStatus.kind === "saving"
                   }
                 >
-                  清除
+                  {t("settings.clear")}
                 </button>
               </div>
             </SettingField>
             <TextRow
-              label="文本 Key 状态"
-              value={textApiKeyConfigured ? "已加密保存" : "未配置"}
+              label={t("settings.textKeyStatus")}
+              value={
+                textApiKeyConfigured
+                  ? t("settings.encrypted")
+                  : t("settings.notConfigured")
+              }
             />
             <div className="settings-key-feedback">
               <span
@@ -1161,16 +1172,16 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               </span>
             </div>
           </SettingsSection>
-          <SettingsSection id="ai-screenshot" title="截图模型">
-            <SettingField label="视觉供应商">
+          <SettingsSection id="ai-screenshot" title={t("settings.aiScreenshot")}>
+            <SettingField label={t("settings.visionProvider")}>
               <GlassSelect
-                ariaLabel="选择视觉模型供应商"
+                ariaLabel={t("settings.selectVisionProvider")}
                 value={settings.visionAiProvider}
                 options={visionAiProviderOptions}
                 onChange={selectVisionProvider}
               />
             </SettingField>
-            <SettingField label="视觉 Base URL">
+            <SettingField label={t("settings.visionBaseUrl")}>
               <input
                 className="setting-input"
                 type="url"
@@ -1182,7 +1193,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 }
               />
             </SettingField>
-            <SettingField label="视觉模型">
+            <SettingField label={t("settings.visionModel")}>
               <input
                 className="setting-input"
                 type="text"
@@ -1194,7 +1205,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 }
               />
             </SettingField>
-            <SettingField label="视觉 API Key">
+            <SettingField label={t("settings.visionApiKey")}>
               <div className="secret-control">
                 <input
                   className="setting-input"
@@ -1202,8 +1213,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                   value={visionApiKeyInput}
                   placeholder={
                     visionApiKeyConfigured
-                      ? "视觉模型 Key 已加密保存，输入新 Key 可替换"
-                      : "输入视觉模型 API Key"
+                      ? t("settings.visionKeyEncryptedReplace")
+                      : t("settings.enterVisionApiKey")
                   }
                   spellCheck={false}
                   autoComplete="off"
@@ -1220,7 +1231,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                     visionApiKeyStatus.kind === "saving"
                   }
                 >
-                  保存视觉 Key
+                  {t("settings.saveVisionKey")}
                 </button>
                 <button
                   className="ghost-control"
@@ -1232,13 +1243,17 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                     visionApiKeyStatus.kind === "saving"
                   }
                 >
-                  清除
+                  {t("settings.clear")}
                 </button>
               </div>
             </SettingField>
             <TextRow
-              label="视觉 Key 状态"
-              value={visionApiKeyConfigured ? "已加密保存" : "未配置"}
+              label={t("settings.visionKeyStatus")}
+              value={
+                visionApiKeyConfigured
+                  ? t("settings.encrypted")
+                  : t("settings.notConfigured")
+              }
             />
             <div className="settings-key-feedback">
               <span
@@ -1248,16 +1263,16 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               </span>
             </div>
           </SettingsSection>
-          <SettingsSection id="ai-input" title="输入模型">
-            <SettingField label="输入供应商">
+          <SettingsSection id="ai-input" title={t("settings.aiInput")}>
+            <SettingField label={t("settings.inputProvider")}>
               <GlassSelect
-                ariaLabel="选择输入模型供应商"
+                ariaLabel={t("settings.selectInputProvider")}
                 value={settings.inputAiProvider}
                 options={inputAiProviderOptions}
                 onChange={selectInputProvider}
               />
             </SettingField>
-            <SettingField label="输入 Base URL">
+            <SettingField label={t("settings.inputBaseUrl")}>
               <input
                 className="setting-input"
                 type="url"
@@ -1269,7 +1284,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 }
               />
             </SettingField>
-            <SettingField label="输入模型">
+            <SettingField label={t("settings.inputModel")}>
               <input
                 className="setting-input"
                 type="text"
@@ -1281,7 +1296,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 }
               />
             </SettingField>
-            <SettingField label="输入 API Key">
+            <SettingField label={t("settings.inputApiKey")}>
               <div className="secret-control">
                 <input
                   className="setting-input"
@@ -1289,8 +1304,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                   value={inputApiKeyInput}
                   placeholder={
                     inputApiKeyConfigured
-                      ? "输入模型 Key 已加密保存，输入新 Key 可替换"
-                      : "输入输入模型 API Key"
+                      ? t("settings.inputKeyEncryptedReplace")
+                      : t("settings.enterInputApiKey")
                   }
                   spellCheck={false}
                   autoComplete="off"
@@ -1307,7 +1322,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                     inputApiKeyStatus.kind === "saving"
                   }
                 >
-                  保存输入 Key
+                  {t("settings.saveInputKey")}
                 </button>
                 <button
                   className="ghost-control"
@@ -1319,13 +1334,17 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                     inputApiKeyStatus.kind === "saving"
                   }
                 >
-                  清除
+                  {t("settings.clear")}
                 </button>
               </div>
             </SettingField>
             <TextRow
-              label="输入 Key 状态"
-              value={inputApiKeyConfigured ? "已加密保存" : "未配置"}
+              label={t("settings.inputKeyStatus")}
+              value={
+                inputApiKeyConfigured
+                  ? t("settings.encrypted")
+                  : t("settings.notConfigured")
+              }
             />
             <div className="settings-key-feedback">
               <span
@@ -1335,24 +1354,24 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               </span>
             </div>
           </SettingsSection>
-          <SettingsSection id="appearance" title="外观">
-            <SettingField label="主题">
+          <SettingsSection id="appearance" title={t("settings.appearance")}>
+            <SettingField label={t("settings.theme")}>
               <GlassSelect
-                ariaLabel="选择外观主题"
+                ariaLabel={t("settings.selectTheme")}
                 value={settings.themeMode}
                 options={themeModeOptions}
                 onChange={(value) => updateSetting("themeMode", value)}
               />
             </SettingField>
-            <SettingField label="窗口效果">
+            <SettingField label={t("settings.windowEffect")}>
               <GlassSelect
-                ariaLabel="选择窗口效果"
+                ariaLabel={t("settings.selectWindowEffect")}
                 value={settings.windowEffect}
                 options={windowEffectOptions}
                 onChange={(value) => updateSetting("windowEffect", value)}
               />
             </SettingField>
-            <SettingField label="不透明度">
+            <SettingField label={t("settings.opacity")}>
               <div className="opacity-slider-row">
                 <input
                   className="setting-input opacity-slider"
@@ -1372,13 +1391,19 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               </div>
             </SettingField>
           </SettingsSection>
-          <SettingsSection id="privacy" title="隐私">
-            <TextRow label="内容历史" value="默认不保存文本、截图和 AI 结果" />
-            <TextRow label="API Key" value="使用 Windows DPAPI 本机加密保存" />
+          <SettingsSection id="privacy" title={t("settings.privacy")}>
+            <TextRow
+              label={t("settings.contentHistory")}
+              value={t("settings.contentHistoryValue")}
+            />
+            <TextRow
+              label={t("settings.apiKey")}
+              value={t("settings.apiKeyValue")}
+            />
           </SettingsSection>
         </div>
       </section>
-      <footer className="settings-savebar" aria-label="保存设置">
+      <footer className="settings-savebar" aria-label={t("settings.save")}>
         <span
           className={`settings-feedback settings-feedback-${settingsStatus.kind}`}
           aria-live="polite"
@@ -1393,7 +1418,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
             settingsStatus.kind === "loading" || settingsStatus.kind === "saving"
           }
         >
-          保存设置
+          {t("settings.save")}
         </button>
       </footer>
       </div>
@@ -1450,13 +1475,14 @@ function HotkeyCaptureButton({
   onCancel: () => void;
   onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
 }) {
+  const t = useI18n();
   return (
     <button
       className={`setting-input setting-input-shortcut hotkey-capture ${
         active ? "hotkey-capture-active" : ""
       }`}
       type="button"
-      aria-label={`录制${label}快捷键`}
+      aria-label={t("settings.recordHotkey", { label })}
       aria-pressed={active}
       onClick={onStart}
       onBlur={() => {
@@ -1466,7 +1492,9 @@ function HotkeyCaptureButton({
       }}
       onKeyDown={onKeyDown}
     >
-      <span>{active ? "按下快捷键组合" : value || placeholder}</span>
+      <span>
+        {active ? t("settings.hotkeyCapture") : value || placeholder}
+      </span>
     </button>
   );
 }
