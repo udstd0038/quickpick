@@ -7,8 +7,7 @@
     "selection",
     "result",
     "input",
-    "screenshot_overlay",
-    "screenshot_preview"
+    "screenshot_overlay"
   ],
   "permissions": [
     "core:event:allow-listen",
