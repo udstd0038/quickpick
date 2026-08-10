@@ -30,6 +30,8 @@ export function ScreenshotOverlay() {
     listen<MonitorScreenshotPayload>("screenshot-ready", (event) => {
       if (!disposed) {
         setError("");
+        setCrop(undefined);
+        setPixelCrop(null);
         setScreenshot(event.payload);
       }
     }).then((cleanup) => {
@@ -38,6 +40,9 @@ export function ScreenshotOverlay() {
 
     listen<string>("screenshot-error", (event) => {
       if (!disposed) {
+        setCrop(undefined);
+        setPixelCrop(null);
+        setScreenshot(null);
         setError(event.payload);
       }
     }).then((cleanup) => {
@@ -77,7 +82,7 @@ export function ScreenshotOverlay() {
     const scaleX = screenshot.width / window.innerWidth;
     const scaleY = screenshot.height / window.innerHeight;
     setBusy(true);
-    void getCurrentWindow().hide();
+    await getCurrentWindow().hide();
     try {
       await captureRegionRect({
         screenX: screenshot.monitorX + Math.round(pixelCrop.x * scaleX),
@@ -88,6 +93,8 @@ export function ScreenshotOverlay() {
       });
     } finally {
       setBusy(false);
+      setCrop(undefined);
+      setPixelCrop(null);
     }
   };
 
