@@ -1143,7 +1143,7 @@ fn config_permission_plugin_audit_items(capability_windows: &[String]) -> Vec<Di
         },
         DiagnosticItem {
             label: "创建残留",
-            value: "selection_bar、result 和 settings 的 WebView 创建入口均已撤回；新增 native_popup 原生弹窗入口"
+            value: "已统一迁移到 WebView 结果/输入弹窗入口"
                 .to_string(),
             status: "ok",
         },

@@ -1456,26 +1456,6 @@ h3 {
   color: #17241f;
 }
 
-:root[data-window-effect="mica"] .app-shell {
-  background:
-    linear-gradient(135deg, rgba(248, 250, 248, 0.78), rgba(229, 236, 233, 0.68)),
-    rgba(238, 242, 239, 0.72);
-}
-
-:root[data-theme="dark"][data-window-effect="mica"] .app-shell {
-  background:
-    linear-gradient(135deg, rgba(28, 34, 32, 0.82), rgba(15, 20, 18, 0.76)),
-    rgba(21, 26, 24, 0.72);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"])[data-window-effect="mica"] .app-shell {
-    background:
-      linear-gradient(135deg, rgba(28, 34, 32, 0.82), rgba(15, 20, 18, 0.76)),
-      rgba(21, 26, 24, 0.72);
-  }
-}
-
 /* Frosted Glass visual layer, inspired by TieZ's translucent shell style. */
 :root {
   --qp-text-primary: #172235;
@@ -1619,21 +1599,6 @@ h3 {
   --qp-shadow-lg:
     0 30px 96px rgba(0, 0, 0, 0.24),
     0 5px 18px rgba(0, 0, 0, 0.14);
-}
-
-:root[data-window-effect="mica"] {
-  --qp-shell-bg: rgba(246, 250, 255, 0.34);
-  --qp-shell-blur: blur(20px) saturate(1.22);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"])[data-window-effect="mica"] {
-    --qp-shell-bg: rgba(8, 12, 20, 0.2);
-  }
-}
-
-:root[data-theme="dark"][data-window-effect="mica"] {
-  --qp-shell-bg: rgba(8, 12, 20, 0.2);
 }
 
 html,
@@ -2441,11 +2406,6 @@ h3,
       0 5px 18px rgba(0, 0, 0, 0.3);
   }
 
-  :root:not([data-theme="light"])[data-window-effect="mica"] {
-    --qp-shell-bg: rgba(13, 13, 12, 0.5);
-    --qp-shell-blur: blur(30px) saturate(0.92);
-    --qp-panel-blur: blur(24px) saturate(0.9);
-  }
 }
 
 :root[data-theme="dark"] {
@@ -2488,12 +2448,6 @@ h3,
   --qp-shadow-lg:
     0 24px 74px rgba(0, 0, 0, 0.46),
     0 5px 18px rgba(0, 0, 0, 0.3);
-}
-
-:root[data-theme="dark"][data-window-effect="mica"] {
-  --qp-shell-bg: rgba(13, 13, 12, 0.5);
-  --qp-shell-blur: blur(30px) saturate(0.92);
-  --qp-panel-blur: blur(24px) saturate(0.9);
 }
 
 :root[data-theme="dark"] .app-shell {
@@ -3336,10 +3290,6 @@ h3,
     0 3px 10px rgba(0, 0, 0, 0.3);
   --qp-shell-blur: blur(22px) saturate(0.86);
   --qp-panel-blur: blur(18px) saturate(0.84);
-}
-
-:root[data-theme="workbench"][data-window-effect="mica"] {
-  --qp-shell-bg: rgba(7, 9, 12, 0.82);
 }
 
 :root[data-theme="workbench"] .app-shell.settings-window {
