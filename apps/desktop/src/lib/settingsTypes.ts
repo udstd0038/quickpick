@@ -54,7 +54,7 @@ export type AiProviderOption = {
 export const textAiProviderOptions: AiProviderOption[] = [
   {
     id: "openai_compatible",
-    label: "通用 OpenAI 兼容",
+    label: "providers.openaiCompatible",
     baseUrl: "",
     textModel: "",
     visionModel: "",
@@ -68,7 +68,7 @@ export const textAiProviderOptions: AiProviderOption[] = [
   },
   {
     id: "xiaomi_mimo",
-    label: "小米 MiMo",
+    label: "providers.xiaomiMimo",
     baseUrl: "https://api.xiaomimimo.com/v1",
     textModel: "mimo-v2.5",
     visionModel: "mimo-v2.5",
@@ -109,9 +109,9 @@ export const visionAiProviderOptions = textAiProviderOptions.filter(
 export const inputAiProviderOptions = textAiProviderOptions;
 
 export const themeModeOptions = [
-  { id: "system", label: "跟随系统" },
-  { id: "light", label: "浅色" },
-  { id: "dark", label: "深色" },
+  { id: "system", label: "settings.themeSystem" },
+  { id: "light", label: "settings.themeLight" },
+  { id: "dark", label: "settings.themeDark" },
 ] as const;
 
 export const windowEffectOptions = [

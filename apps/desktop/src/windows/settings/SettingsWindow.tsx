@@ -361,6 +361,30 @@ function GlassSelect<T extends string>({
 
 function SettingsWindow({ coreStatus }: { coreStatus: string }) {
   const t = useI18n();
+  const localizedUiLanguageOptions = uiLanguageOptions.map((option) => ({
+    id: option.id,
+    label: t(option.label),
+  }));
+  const localizedTextProviderOptions = textAiProviderOptions.map((option) => ({
+    id: option.id,
+    label: t(option.label),
+  }));
+  const localizedVisionProviderOptions = visionAiProviderOptions.map(
+    (option) => ({
+      id: option.id,
+      label: t(option.label),
+    }),
+  );
+  const localizedInputProviderOptions = inputAiProviderOptions.map(
+    (option) => ({
+      id: option.id,
+      label: t(option.label),
+    }),
+  );
+  const localizedThemeModeOptions = themeModeOptions.map((option) => ({
+    id: option.id,
+    label: t(option.label),
+  }));
   const settings = useSettingsStore((state) => state.settings);
   const settingsStatus = useSettingsStore((state) => state.status);
   const setSettings = useSettingsStore((state) => state.setSettings);
@@ -382,17 +406,17 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
   const [visionApiKeyConfigured, setVisionApiKeyConfigured] = useState(false);
   const [textApiKeyStatus, setTextApiKeyStatus] = useState<SettingsStatus>({
     kind: "loading",
-    message: "正在检查文本模型 Key",
+    message: t("settings.checkingTextKey"),
   });
   const [visionApiKeyStatus, setVisionApiKeyStatus] = useState<SettingsStatus>({
     kind: "loading",
-    message: "正在检查视觉模型 Key",
+    message: t("settings.checkingVisionKey"),
   });
   const [inputApiKeyInput, setInputApiKeyInput] = useState("");
   const [inputApiKeyConfigured, setInputApiKeyConfigured] = useState(false);
   const [inputApiKeyStatus, setInputApiKeyStatus] = useState<SettingsStatus>({
     kind: "loading",
-    message: "正在检查输入模型 Key",
+    message: t("settings.checkingInputKey"),
   });
 
   const loadInputApiKeyStatus = () => {
@@ -402,8 +426,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
         setInputApiKeyStatus({
           kind: "idle",
           message: value.configured
-            ? "输入模型 Key 已加密保存"
-            : "输入模型 Key 未配置",
+            ? t("settings.inputKeyEncrypted")
+            : t("settings.inputKeyNotConfigured"),
         });
       })
       .catch((error) => {
@@ -411,7 +435,9 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
         setInputApiKeyStatus({
           kind: "error",
           message:
-            typeof error === "string" ? error : "检查输入模型 Key 状态失败",
+            typeof error === "string"
+              ? error
+              : t("settings.checkInputKeyFailed"),
         });
       });
   };
@@ -444,7 +470,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       .then((value) => {
         if (isMounted) {
           setSettings(normalizeAppSettings(value));
-          setSettingsStatus({ kind: "idle", message: "设置已载入" });
+          setSettingsStatus({ kind: "idle", message: t("settings.loaded") });
         }
       })
       .catch((error) => {
@@ -453,7 +479,9 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           setSettingsStatus({
             kind: "error",
             message:
-              typeof error === "string" ? error : "读取设置失败，已使用默认值",
+              typeof error === "string"
+                ? error
+                : t("settings.loadFailed"),
           });
         }
       });
@@ -465,8 +493,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           setTextApiKeyStatus({
             kind: "idle",
             message: value.configured
-              ? "文本模型 Key 已加密保存"
-              : "文本模型 Key 未配置",
+              ? t("settings.textKeyEncrypted")
+              : t("settings.textKeyNotConfigured"),
           });
         }
       })
@@ -476,7 +504,9 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           setTextApiKeyStatus({
             kind: "error",
             message:
-              typeof error === "string" ? error : "检查文本模型 Key 状态失败",
+              typeof error === "string"
+                ? error
+                : t("settings.checkTextKeyFailed"),
           });
         }
       });
@@ -488,8 +518,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           setVisionApiKeyStatus({
             kind: "idle",
             message: value.configured
-              ? "视觉模型 Key 已加密保存"
-              : "视觉模型 Key 未配置",
+              ? t("settings.visionKeyEncrypted")
+              : t("settings.visionKeyNotConfigured"),
           });
         }
       })
@@ -499,7 +529,9 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           setVisionApiKeyStatus({
             kind: "error",
             message:
-              typeof error === "string" ? error : "检查视觉模型 Key 状态失败",
+              typeof error === "string"
+                ? error
+                : t("settings.checkVisionKeyFailed"),
           });
         }
       });
@@ -509,7 +541,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     };
   }, []);
 
-  const markSettingsDirty = (message = "有未保存的修改") => {
+  const markSettingsDirty = (message = t("settings.unsaved")) => {
     setSettingsStatus((current) =>
       current.kind === "loading" || current.kind === "saving"
         ? current
@@ -547,7 +579,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     setHotkeyCaptureMode(true);
     setSettingsStatus({
       kind: "idle",
-      message: "请直接按下新的快捷键组合，Esc 取消",
+      message: t("settings.hotkeyPrompt"),
     });
   };
 
@@ -569,7 +601,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     event.stopPropagation();
 
     if (event.key === "Escape") {
-      finishHotkeyCapture("已取消快捷键录制");
+      finishHotkeyCapture(t("settings.hotkeyCancelled"));
       return;
     }
     if (modifierKeyNames.has(event.key)) {
@@ -578,7 +610,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     if (!event.altKey) {
       setSettingsStatus({
         kind: "error",
-        message: "快捷键必须包含 Alt，请重新按下组合键",
+        message: t("settings.hotkeyNeedsAlt"),
       });
       return;
     }
@@ -587,19 +619,19 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     if (!shortcut) {
       setSettingsStatus({
         kind: "error",
-        message: "这个按键暂不支持，请换一个组合键",
+        message: t("settings.hotkeyUnsupported"),
       });
       return;
     }
 
     const conflictWith =
       key === "settingsHotkey"
-        ? "设置"
+        ? "settings.hotkeySettings"
         : key === "selectionHotkey"
-        ? "划词和截图"
+        ? "settings.conflictSelectionScreenshot"
         : key === "screenshotHotkey"
-          ? "截图和输入翻译"
-          : "输入翻译和划词";
+          ? "settings.conflictScreenshotInput"
+          : "settings.conflictInputSelection";
     if (
       (key !== "settingsHotkey" &&
         sameShortcut(shortcut, settings.settingsHotkey)) ||
@@ -612,13 +644,15 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     ) {
       setSettingsStatus({
         kind: "error",
-        message: `${conflictWith}不能使用同一个快捷键`,
+        message: t("settings.hotkeyConflict", {
+          conflict: t(conflictWith),
+        }),
       });
       return;
     }
 
     setSettings((current) => ({ ...current, [key]: shortcut }));
-    finishHotkeyCapture("快捷键已记录，请保存设置");
+    finishHotkeyCapture(t("settings.hotkeyRecorded"));
   };
 
   useEffect(() => {
@@ -634,7 +668,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
 
     const nextSettings = normalizeAppSettings(settings);
 
-    setSettingsStatus({ kind: "saving", message: "正在保存" });
+    setSettingsStatus({ kind: "saving", message: t("settings.saving") });
     invoke<SelectionActionResult>("save_app_settings", {
       settings: nextSettings,
     })
@@ -645,7 +679,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       .catch((error) => {
         setSettingsStatus({
           kind: "error",
-          message: typeof error === "string" ? error : "保存设置失败",
+          message: typeof error === "string" ? error : t("settings.saveFailed"),
         });
       });
   };
@@ -655,7 +689,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       return;
     }
 
-    setSettingsStatus({ kind: "saving", message: "正在重置默认设置" });
+    setSettingsStatus({ kind: "saving", message: t("settings.resetting") });
     const nextSettings = normalizeAppSettings(defaultAppSettings);
     invoke<SelectionActionResult>("save_app_settings", {
       settings: nextSettings,
@@ -668,24 +702,24 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
         setSettingsStatus({
           kind: "error",
           message:
-            typeof error === "string" ? error : "重置默认设置失败",
+            typeof error === "string" ? error : t("settings.resetFailed"),
         });
       });
   };
 
   const selectTextProvider = (providerId: string) => {
     setSettings((current) => applyTextAiProviderDefaults(current, providerId));
-    markSettingsDirty("文本模型供应商默认值已填入，请保存设置");
+    markSettingsDirty(t("settings.textProviderFilled"));
   };
 
   const selectVisionProvider = (providerId: string) => {
     setSettings((current) => applyVisionAiProviderDefaults(current, providerId));
-    markSettingsDirty("视觉模型供应商默认值已填入，请保存设置");
+    markSettingsDirty(t("settings.visionProviderFilled"));
   };
 
   const selectInputProvider = (providerId: string) => {
     setSettings((current) => applyInputAiProviderDefaults(current, providerId));
-    markSettingsDirty("输入模型供应商默认值已填入，请保存设置");
+    markSettingsDirty(t("settings.inputProviderFilled"));
   };
 
   const updateTextApiKeyInput = (value: string) => {
@@ -694,8 +728,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       setTextApiKeyStatus({
         kind: "idle",
         message: textApiKeyConfigured
-          ? "输入新 Key 后保存会替换文本模型 Key"
-          : "文本模型 Key 未配置",
+          ? t("settings.replaceTextKeyHint")
+          : t("settings.textKeyNotConfigured"),
       });
     }
   };
@@ -706,8 +740,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       setVisionApiKeyStatus({
         kind: "idle",
         message: visionApiKeyConfigured
-          ? "输入新 Key 后保存会替换视觉模型 Key"
-          : "视觉模型 Key 未配置",
+          ? t("settings.replaceVisionKeyHint")
+          : t("settings.visionKeyNotConfigured"),
       });
     }
   };
@@ -718,8 +752,8 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       setInputApiKeyStatus({
         kind: "idle",
         message: inputApiKeyConfigured
-          ? "输入新 Key 后保存会替换输入模型 Key"
-          : "输入模型 Key 未配置",
+          ? t("settings.replaceInputKeyHint")
+          : t("settings.inputKeyNotConfigured"),
       });
     }
   };
@@ -752,30 +786,34 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       : isVision
         ? setVisionApiKeyStatus
         : setInputApiKeyStatus;
-    const label = isText
-      ? "文本模型 Key"
+    const labelKey = isText
+      ? "settings.textKeyLabel"
       : isVision
-        ? "视觉模型 Key"
-        : "输入模型 Key";
+        ? "settings.visionKeyLabel"
+        : "settings.inputKeyLabel";
+    const label = t(labelKey);
 
     if (status.kind === "saving") {
       return;
     }
 
     if (!input.trim()) {
-      setStatus({ kind: "error", message: `${label} 不能为空` });
+      setStatus({
+        kind: "error",
+        message: `${label} ${t("settings.cannotBeEmpty")}`,
+      });
       return;
     }
 
     const nextSettings = normalizeAppSettings(settings);
     setSettings(nextSettings);
-    setSettingsStatus({ kind: "saving", message: "正在同步 AI 设置" });
-    setStatus({ kind: "saving", message: "正在加密保存" });
+    setSettingsStatus({ kind: "saving", message: t("settings.syncingAi") });
+    setStatus({ kind: "saving", message: t("settings.encrypting") });
     invoke<SelectionActionResult>("save_app_settings", {
       settings: nextSettings,
     })
       .then(() => {
-        setSettingsStatus({ kind: "success", message: "设置已保存" });
+        setSettingsStatus({ kind: "success", message: t("settings.saved") });
         invoke<SelectionActionResult>("save_api_key", {
           apiKey: input,
           scope,
@@ -788,18 +826,22 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           .catch((error) => {
             setStatus({
               kind: "error",
-              message: typeof error === "string" ? error : `保存${label}失败`,
+              message:
+                typeof error === "string"
+                  ? error
+                  : `${label} ${t("settings.saveKeyFailed")}`,
             });
           });
       })
       .catch((error) => {
         setSettingsStatus({
           kind: "error",
-          message: typeof error === "string" ? error : "同步 AI 设置失败",
+          message:
+            typeof error === "string" ? error : t("settings.syncAiFailed"),
         });
         setStatus({
           kind: "error",
-          message: `保存${label}前同步设置失败`,
+          message: `${t("settings.syncBeforeSaveFailed")}: ${label}`,
         });
       });
   };
@@ -827,17 +869,18 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       : isVision
         ? setVisionApiKeyStatus
         : setInputApiKeyStatus;
-    const label = isText
-      ? "文本模型 Key"
+    const labelKey = isText
+      ? "settings.textKeyLabel"
       : isVision
-        ? "视觉模型 Key"
-        : "输入模型 Key";
+        ? "settings.visionKeyLabel"
+        : "settings.inputKeyLabel";
+    const label = t(labelKey);
 
     if (status.kind === "saving") {
       return;
     }
 
-    setStatus({ kind: "saving", message: "正在清除" });
+    setStatus({ kind: "saving", message: t("settings.clearing") });
     invoke<SelectionActionResult>("clear_api_key", { scope })
       .then((result) => {
         setInput("");
@@ -847,7 +890,10 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       .catch((error) => {
         setStatus({
           kind: "error",
-          message: typeof error === "string" ? error : `清除${label}失败`,
+          message:
+            typeof error === "string"
+              ? error
+              : `${label} ${t("settings.clearFailed")}`,
         });
       });
   };
@@ -1013,7 +1059,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               <GlassSelect
                 ariaLabel={t("settings.language")}
                 value={settings.uiLanguage}
-                options={uiLanguageOptions}
+                options={localizedUiLanguageOptions}
                 onChange={(value) => updateUiLanguage(value as UiLanguage)}
               />
             </SettingField>
@@ -1041,7 +1087,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 placeholder="Alt+1"
                 active={capturingHotkey === "settingsHotkey"}
                 onStart={() => startHotkeyCapture("settingsHotkey")}
-                onCancel={() => finishHotkeyCapture("已取消快捷键录制")}
+                onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
                 onKeyDown={(event) => captureHotkey("settingsHotkey", event)}
               />
             </SettingField>
@@ -1052,7 +1098,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 placeholder="Alt+2"
                 active={capturingHotkey === "selectionHotkey"}
                 onStart={() => startHotkeyCapture("selectionHotkey")}
-                onCancel={() => finishHotkeyCapture("已取消快捷键录制")}
+                onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
                 onKeyDown={(event) => captureHotkey("selectionHotkey", event)}
               />
             </SettingField>
@@ -1063,7 +1109,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 placeholder="Alt+3"
                 active={capturingHotkey === "screenshotHotkey"}
                 onStart={() => startHotkeyCapture("screenshotHotkey")}
-                onCancel={() => finishHotkeyCapture("已取消快捷键录制")}
+                onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
                 onKeyDown={(event) => captureHotkey("screenshotHotkey", event)}
               />
             </SettingField>
@@ -1074,7 +1120,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 placeholder="Alt+4"
                 active={capturingHotkey === "inputTranslateHotkey"}
                 onStart={() => startHotkeyCapture("inputTranslateHotkey")}
-                onCancel={() => finishHotkeyCapture("已取消快捷键录制")}
+                onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
                 onKeyDown={(event) =>
                   captureHotkey("inputTranslateHotkey", event)
                 }
@@ -1086,7 +1132,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               <GlassSelect
                 ariaLabel={t("settings.selectTextProvider")}
                 value={settings.textAiProvider}
-                options={textAiProviderOptions}
+                options={localizedTextProviderOptions}
                 onChange={selectTextProvider}
               />
             </SettingField>
@@ -1177,7 +1223,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               <GlassSelect
                 ariaLabel={t("settings.selectVisionProvider")}
                 value={settings.visionAiProvider}
-                options={visionAiProviderOptions}
+                options={localizedVisionProviderOptions}
                 onChange={selectVisionProvider}
               />
             </SettingField>
@@ -1268,7 +1314,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               <GlassSelect
                 ariaLabel={t("settings.selectInputProvider")}
                 value={settings.inputAiProvider}
-                options={inputAiProviderOptions}
+                options={localizedInputProviderOptions}
                 onChange={selectInputProvider}
               />
             </SettingField>
@@ -1359,7 +1405,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               <GlassSelect
                 ariaLabel={t("settings.selectTheme")}
                 value={settings.themeMode}
-                options={themeModeOptions}
+                options={localizedThemeModeOptions}
                 onChange={(value) => updateSetting("themeMode", value)}
               />
             </SettingField>
