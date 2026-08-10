@@ -50,49 +50,6 @@ pub struct RegionMenuSelection {
     pub height: u32,
 }
 
-pub fn capture_current_monitor_to_clipboard() -> Result<CaptureClipboardResult, String> {
-    let monitors = Monitor::all().map_err(|error| format!("读取显示器列表失败：{error}"))?;
-    if monitors.is_empty() {
-        return Err("未发现可截图的显示器".to_string());
-    }
-
-    let monitor_index = monitors
-        .iter()
-        .position(|monitor| monitor.is_primary().unwrap_or(false))
-        .unwrap_or(0);
-    let monitor = monitors
-        .into_iter()
-        .nth(monitor_index)
-        .ok_or_else(|| "选择显示器失败，请稍后重试".to_string())?;
-    let monitor_name = monitor
-        .friendly_name()
-        .or_else(|_| monitor.name())
-        .unwrap_or_else(|_| "当前显示器".to_string());
-
-    let image = monitor
-        .capture_image()
-        .map_err(|error| format!("读取屏幕失败：{error}"))?;
-    let width = image.width();
-    let height = image.height();
-    if width == 0 || height == 0 {
-        return Err("截图结果为空，请稍后重试".to_string());
-    }
-
-    let bmp_bytes = rgba_image_to_bmp_bytes(&image)?;
-    copy_bmp_bytes_to_clipboard(&bmp_bytes)?;
-
-    Ok(CaptureClipboardResult {
-        width,
-        height,
-        monitor_name: monitor_name.clone(),
-        clipboard_format: CLIPBOARD_FORMAT,
-        message: format!(
-            "已复制当前显示器截图：{}x{}（{}）",
-            width, height, monitor_name
-        ),
-    })
-}
-
 pub fn capture_current_monitor_screenshot() -> Result<MonitorScreenshotPayload, String> {
     let monitors = Monitor::all().map_err(|error| format!("读取显示器列表失败：{error}"))?;
     if monitors.is_empty() {

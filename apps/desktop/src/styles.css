@@ -49,8 +49,6 @@
   color: #18251f;
   font-size: 15px;
   letter-spacing: 0;
-}.main-ai-key-row .setting-field{
-  flex: 1 1 auto;
 }.primary-action, .ghost-control{
   min-height: 38px;
   border-radius: 8px;
@@ -215,9 +213,6 @@
   background:
     linear-gradient(135deg, rgba(248, 250, 248, 0.92), rgba(229, 236, 233, 0.84)),
     #eef2ef;
-}
-.main-ai-key-row .setting-field{
-  flex: 1 1 auto;
 }
 .primary-action, .ghost-control{
   min-height: 38px;

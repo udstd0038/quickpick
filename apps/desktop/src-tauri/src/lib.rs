@@ -611,11 +611,6 @@ impl ResultSnapshot {
 }
 
 #[tauri::command]
-fn ping() -> &'static str {
-    "QuickPick 核心已连接"
-}
-
-#[tauri::command]
 fn get_selection_snapshot(state: tauri::State<'_, AppState>) -> SelectionSnapshot {
     state
         .selection_snapshot
@@ -968,51 +963,6 @@ async fn run_text_ai_action_inner(
 }
 
 #[tauri::command]
-fn clear_result_snapshot(
-    state: tauri::State<'_, AppState>,
-) -> Result<SelectionActionResult, String> {
-    let mut current = state
-        .result_snapshot
-        .lock()
-        .map_err(|_| error_key("result.clearFailed"))?;
-    *current = ResultSnapshot::default();
-
-    Ok(SelectionActionResult {
-        message: "已关闭".to_string(),
-    })
-}
-
-#[tauri::command]
-fn capture_current_monitor_to_clipboard(
-    app: tauri::AppHandle,
-) -> Result<SelectionActionResult, String> {
-    let result = screenshot::capture_current_monitor_to_clipboard()?;
-    emit_screenshot_status(&app, "success", result.message.clone());
-
-    Ok(SelectionActionResult {
-        message: result.message,
-    })
-}
-
-#[tauri::command]
-fn capture_monitor_screenshot() -> Result<screenshot::MonitorScreenshotPayload, String> {
-    screenshot::capture_current_monitor_screenshot()
-}
-
-#[tauri::command]
-async fn capture_region_to_clipboard(
-    app: tauri::AppHandle,
-) -> Result<SelectionActionResult, String> {
-    if !show_screenshot_overlay(&app) {
-        return Err(error_key("screenshot.windowUnavailable"));
-    }
-
-    Ok(SelectionActionResult {
-        message: "截图窗口已打开".to_string(),
-    })
-}
-
-#[tauri::command]
 fn set_hotkey_capture_mode(
     state: tauri::State<'_, AppState>,
     enabled: bool,
@@ -1040,10 +990,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_window_controls::init())
-        .plugin(tauri_plugin_frameless_window::init())
         .invoke_handler(tauri::generate_handler![
-            ping,
             get_selection_snapshot,
             get_result_snapshot,
             get_input_snapshot,
@@ -1058,10 +1005,6 @@ pub fn run() {
             copy_result_content,
             copy_input_result,
             run_text_ai_action,
-            clear_result_snapshot,
-            capture_current_monitor_to_clipboard,
-            capture_monitor_screenshot,
-            capture_region_to_clipboard,
             set_hotkey_capture_mode,
             request_input_translation,
             request_result_translation,
@@ -1375,7 +1318,8 @@ fn apply_window_vibrancy(
         return Ok(());
     }
 
-    window_vibrancy::apply_blur(window, None)
+    window
+        .set_effects(EffectsBuilder::new().effect(Effect::Blur).build())
         .map_err(|error| {
             localized_error::error_key_with_detail(
                 "windowEffect.acrylicFailed",

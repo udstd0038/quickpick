@@ -1,8 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 import {
   defaultAppSettings,
-  normalizeAppSettings,
   type AppSettings,
   type SettingsStatus,
 } from "../lib/settingsTypes";
@@ -21,10 +19,9 @@ interface SettingsState {
     value: AppSettings[K],
   ) => void;
   markDirty: (message?: string) => void;
-  saveSettings: () => Promise<void>;
 }
 
-export const useSettingsStore = create<SettingsState>((set, get) => ({
+export const useSettingsStore = create<SettingsState>((set) => ({
   settings: defaultAppSettings,
   status: { kind: "idle", message: "settings.loaded" },
   setSettings: (settings) => {
@@ -49,23 +46,5 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   markDirty: (message = "settings.unsaved") => {
     set({ status: { kind: "idle", message } });
-  },
-  saveSettings: async () => {
-    const settings = normalizeAppSettings(get().settings);
-    set({ status: { kind: "saving", message: "settings.saving" } });
-    try {
-      await invoke("save_app_settings", { settings });
-      set({
-        settings,
-        status: { kind: "success", message: "settings.saved" },
-      });
-    } catch (error) {
-      set({
-        status: {
-          kind: "error",
-          message: typeof error === "string" ? error : "settings.saveFailed",
-        },
-      });
-    }
   },
 }));
