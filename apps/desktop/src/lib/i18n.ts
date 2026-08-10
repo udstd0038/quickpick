@@ -271,6 +271,10 @@ const translations: Record<string, LocaleStrings> = {
   "保存前同步设置失败": entry("儲存前同步設定失敗", "Failed to sync before saving", "저장 전 동기화 실패", "保存前の同期に失敗", "Échec de la synchronisation avant enregistrement", "Synchronisierung vor dem Speichern fehlgeschlagen", "No se pudo sincronizar antes de guardar"),
   "通用 OpenAI 兼容": entry("通用 OpenAI 相容", "Generic OpenAI Compatible", "일반 OpenAI 호환", "汎用OpenAI互換", "OpenAI compatible générique", "Generisch OpenAI-kompatibel", "Compatible OpenAI genérico"),
   "小米 MiMo": entry("小米 MiMo", "Xiaomi MiMo", "샤오미 MiMo", "Xiaomi MiMo", "Xiaomi MiMo", "Xiaomi MiMo", "Xiaomi MiMo"),
+  "快捷键状态": entry("快捷鍵狀態", "Hotkey Status", "단축키 상태", "ショートカット状態", "État des raccourcis", "Tastenkürzel-Status", "Estado de atajos"),
+  "已注册": entry("已註冊", "Registered", "등록됨", "登録済み", "Enregistré", "Registriert", "Registrado"),
+  "已被占用": entry("已被佔用", "Occupied", "사용 중", "使用中", "Occupé", "Belegt", "Ocupado"),
+  "注册失败": entry("註冊失敗", "Registration Failed", "등록 실패", "登録に失敗", "Échec de l'enregistrement", "Registrierung fehlgeschlagen", "Error de registro"),
 };
 
 function languageLabelTranslation(value: string, locale: TranslationLanguage): string {
@@ -380,6 +384,10 @@ const keyToSource: Record<string, string> = {
   "screenshot.translate": "翻译",
   "settings.general": "通用",
   "settings.hotkeys": "快捷键",
+  "settings.hotkeyStatus": "快捷键状态",
+  "hotkey.status.registered": "已注册",
+  "hotkey.status.occupied": "已被占用",
+  "hotkey.status.failed": "注册失败",
   "settings.aiSelection": "划词模型",
   "settings.aiScreenshot": "截图模型",
   "settings.aiInput": "输入模型",

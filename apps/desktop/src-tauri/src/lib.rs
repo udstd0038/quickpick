@@ -62,7 +62,7 @@ struct HotkeyBindings {
     selection_hotkey: String,
     screenshot_hotkey: String,
     input_translate_hotkey: String,
-    settings_id: u32,
+    settings_id: Option<u32>,
     selection_id: u32,
     screenshot_id: u32,
     input_translate_id: u32,
@@ -81,7 +81,7 @@ impl HotkeyBindings {
             selection_hotkey: settings.selection_hotkey.clone(),
             screenshot_hotkey: settings.screenshot_hotkey.clone(),
             input_translate_hotkey: settings.input_translate_hotkey.clone(),
-            settings_id: settings_hotkey.id(),
+            settings_id: Some(settings_hotkey.id()),
             selection_id: selection.id(),
             screenshot_id: screenshot.id(),
             input_translate_id: input_translate.id(),
@@ -90,7 +90,7 @@ impl HotkeyBindings {
 
     fn action_for(&self, shortcut: &Shortcut) -> Option<HotkeyAction> {
         let id = shortcut.id();
-        if id == self.settings_id {
+        if self.settings_id == Some(id) {
             return Some(HotkeyAction::Settings);
         }
         if id == self.selection_id {
@@ -125,6 +125,29 @@ enum HotkeyAction {
 #[serde(rename_all = "camelCase")]
 struct SelectionActionResult {
     message: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+enum HotkeyRegistrationStatus {
+    Registered,
+    Occupied,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HotkeyStatus {
+    name: String,
+    status: HotkeyRegistrationStatus,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SettingsActionResult {
+    message: String,
+    hotkey_statuses: Vec<HotkeyStatus>,
 }
 
 #[derive(Clone, Serialize)]
@@ -1694,10 +1717,10 @@ fn get_app_settings(app: tauri::AppHandle) -> Result<app_settings::AppSettings, 
 fn save_app_settings(
     app: tauri::AppHandle,
     settings: app_settings::AppSettings,
-) -> Result<SelectionActionResult, String> {
+) -> Result<SettingsActionResult, String> {
     let previous_settings = app_settings::load_app_settings(&app).unwrap_or_default();
     let settings = app_settings::normalize_settings_for_save(settings)?;
-    replace_global_shortcuts(&app, &settings)?;
+    let hotkey_statuses = replace_global_shortcuts(&app, &settings)?;
     if let Err(error) = app_settings::save_app_settings(&app, &settings) {
         let _ = replace_global_shortcuts(&app, &previous_settings);
         return Err(error);
@@ -1711,8 +1734,9 @@ fn save_app_settings(
     }
     let _ = app.emit("app-settings-changed", settings.clone());
 
-    Ok(SelectionActionResult {
+    Ok(SettingsActionResult {
         message: "设置已保存".to_string(),
+        hotkey_statuses,
     })
 }
 
@@ -2266,7 +2290,7 @@ fn setup_global_shortcuts(
 fn replace_global_shortcuts(
     app: &tauri::AppHandle,
     settings: &app_settings::AppSettings,
-) -> Result<(), String> {
+) -> Result<Vec<HotkeyStatus>, String> {
     let next = HotkeyBindings::from_settings(settings)?;
     let previous = app
         .state::<AppState>()
@@ -2279,19 +2303,30 @@ fn replace_global_shortcuts(
         .unregister_all()
         .map_err(|_| "注销旧快捷键失败".to_string())?;
 
-    if let Err(error) = register_hotkey_bindings(app, &next) {
-        let _ = register_hotkey_bindings(app, &previous);
-        if let Ok(mut bindings) = app.state::<AppState>().hotkey_bindings.lock() {
-            *bindings = previous;
+    let statuses = match register_hotkey_bindings(app, &next) {
+        Ok(statuses) => statuses,
+        Err(error) => {
+            let _ = register_hotkey_bindings(app, &previous);
+            if let Ok(mut bindings) = app.state::<AppState>().hotkey_bindings.lock() {
+                *bindings = previous;
+            }
+            return Err(error);
         }
-        return Err(error);
-    }
+    };
 
     app.state::<AppState>()
         .hotkey_bindings
         .lock()
         .map(|mut bindings| {
-            *bindings = next;
+            let mut registered = next;
+            if statuses.iter().any(|status| {
+                status.name == "设置"
+                    && !matches!(status.status, HotkeyRegistrationStatus::Registered)
+            }) {
+                registered.settings_id = None;
+            }
+            *bindings = registered;
+            statuses
         })
         .map_err(|_| "更新快捷键状态失败".to_string())
 }
@@ -2299,7 +2334,8 @@ fn replace_global_shortcuts(
 fn register_hotkey_bindings(
     app: &tauri::AppHandle,
     bindings: &HotkeyBindings,
-) -> Result<(), String> {
+) -> Result<Vec<HotkeyStatus>, String> {
+    let mut statuses = Vec::new();
     for (name, shortcut) in [
         ("设置", bindings.settings_hotkey.as_str()),
         ("划词菜单", bindings.selection_hotkey.as_str()),
@@ -2307,9 +2343,16 @@ fn register_hotkey_bindings(
         ("输入翻译", bindings.input_translate_hotkey.as_str()),
     ] {
         match app.global_shortcut().register(shortcut) {
-            Ok(()) => {}
+            Ok(()) => statuses.push(HotkeyStatus {
+                name: name.to_string(),
+                status: HotkeyRegistrationStatus::Registered,
+            }),
             Err(error) if name == "设置" => {
                 eprintln!("QuickPick settings hotkey registration skipped: {error}");
+                statuses.push(HotkeyStatus {
+                    name: name.to_string(),
+                    status: HotkeyRegistrationStatus::Occupied,
+                });
             }
             Err(error) => {
                 return Err(format!(
@@ -2319,7 +2362,7 @@ fn register_hotkey_bindings(
         }
     }
 
-    Ok(())
+    Ok(statuses)
 }
 
 fn sync_window_appearance(app: &tauri::AppHandle, settings: &app_settings::AppSettings) {

@@ -38,6 +38,10 @@ import { useSettingsStore } from "../../stores/settingsStore";
 
 type SelectionActionResult = {
   message: string;
+  hotkeyStatuses?: Array<{
+    name: string;
+    status: "registered" | "occupied" | "failed";
+  }>;
 };
 
 type HotkeySettingKey =
@@ -398,6 +402,9 @@ function SettingsWindow() {
     useState<HotkeySettingKey | null>(null);
   const [activeSettingsSection, setActiveSettingsSection] =
     useState<SettingsSectionId>("general");
+  const [hotkeyStatuses, setHotkeyStatuses] = useState<
+    NonNullable<SelectionActionResult["hotkeyStatuses"]>
+  >([]);
   const [textApiKeyInput, setTextApiKeyInput] = useState("");
   const [visionApiKeyInput, setVisionApiKeyInput] = useState("");
   const [textApiKeyConfigured, setTextApiKeyConfigured] = useState(false);
@@ -672,6 +679,7 @@ function SettingsWindow() {
     })
       .then((result) => {
         setSettings(nextSettings);
+        setHotkeyStatuses(result.hotkeyStatuses ?? []);
         setSettingsStatus({ kind: "success", message: result.message });
       })
       .catch((error) => {
@@ -694,6 +702,7 @@ function SettingsWindow() {
     })
       .then((result) => {
         setSettings(nextSettings);
+        setHotkeyStatuses(result.hotkeyStatuses ?? []);
         setSettingsStatus({ kind: "success", message: result.message });
       })
       .catch((error) => {
@@ -1076,6 +1085,22 @@ function SettingsWindow() {
                 }
               />
             </SettingField>
+            {hotkeyStatuses.length > 0 && (
+              <div
+                className="settings-hotkey-statuses"
+                aria-label={t("settings.hotkeyStatus")}
+              >
+                {hotkeyStatuses.map((item) => (
+                  <div
+                    key={item.name}
+                    className={`settings-hotkey-status settings-hotkey-status-${item.status}`}
+                  >
+                    <span>{t(item.name)}</span>
+                    <strong>{t(`hotkey.status.${item.status}`)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
           </SettingsSection>
           <SettingsSection id="hotkeys" title={t("settings.hotkeys")}>
             <SettingField label={t("settings.hotkeySettings")}>

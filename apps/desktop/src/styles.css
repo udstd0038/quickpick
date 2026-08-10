@@ -1769,6 +1769,41 @@ body,
   width: calc(100% - 12px);
 }
 
+.settings-hotkey-statuses {
+  display: grid;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.settings-hotkey-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 30px;
+  padding: 6px 9px;
+  border: 1px solid var(--qp-border);
+  border-radius: 7px;
+  color: var(--qp-text-secondary);
+  background: var(--qp-control-bg);
+}
+
+.settings-hotkey-status strong {
+  color: var(--qp-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-hotkey-status-occupied {
+  border-color: rgba(155, 117, 35, 0.32);
+  background: rgba(155, 117, 35, 0.1);
+}
+
+.settings-hotkey-status-failed {
+  border-color: rgba(186, 74, 74, 0.32);
+  background: rgba(186, 74, 74, 0.1);
+}
+
 .hero-band,
 .workflow-panel,
 .diagnostic-panel,
