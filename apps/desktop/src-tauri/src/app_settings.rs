@@ -101,7 +101,7 @@ fn default_theme_mode() -> String {
 }
 
 fn default_window_effect() -> String {
-    "mica".to_string()
+    "acrylic".to_string()
 }
 
 impl Default for AppSettings {
@@ -265,7 +265,7 @@ fn normalize_common_fields(settings: &mut AppSettings) {
         "workbench" => "dark".to_string(),
         _ => "system".to_string(),
     };
-    settings.window_effect = "mica".to_string();
+    settings.window_effect = "acrylic".to_string();
 
     if settings.ai_timeout_seconds < 5 || settings.ai_timeout_seconds > 120 {
         settings.ai_timeout_seconds = AppSettings::default().ai_timeout_seconds;
@@ -359,7 +359,7 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
         return Err("主题模式无效".to_string());
     }
 
-    if settings.window_effect.as_str() != "mica" {
+    if settings.window_effect.as_str() != "acrylic" {
         return Err("窗口效果无效".to_string());
     }
 
@@ -529,7 +529,7 @@ mod tests {
         let settings = normalize_settings_for_save(settings).unwrap();
 
         assert_eq!(settings.theme_mode, "system");
-        assert_eq!(settings.window_effect, "mica");
+        assert_eq!(settings.window_effect, "acrylic");
 
         let settings = AppSettings {
             theme_mode: "workbench".to_string(),

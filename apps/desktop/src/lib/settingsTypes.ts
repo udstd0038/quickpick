@@ -4,7 +4,7 @@ export type AppSettings = {
   screenshotHotkey: string;
   inputTranslateHotkey: string;
   themeMode: "system" | "light" | "dark";
-  windowEffect: "mica";
+  windowEffect: "acrylic";
   textAiProvider: string;
   textAiBaseUrl: string;
   textAiModel: string;
@@ -39,7 +39,7 @@ export const defaultAppSettings: AppSettings = {
   screenshotHotkey: "Alt+3",
   inputTranslateHotkey: "Alt+4",
   themeMode: "system",
-  windowEffect: "mica",
+  windowEffect: "acrylic",
   textAiProvider: "deepseek",
   textAiBaseUrl: "",
   textAiModel: "",

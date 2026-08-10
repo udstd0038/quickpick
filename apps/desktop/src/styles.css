@@ -1089,7 +1089,7 @@ h3 {
 @media (prefers-color-scheme: dark) {
   :root {
     color: #edf4f0;
-    background: #151a18;
+    background: transparent;
   }
 
   .app-shell {
@@ -1314,7 +1314,7 @@ h3 {
 
 :root[data-theme="dark"] {
   color: #edf4f0;
-  background: #151a18;
+  background: transparent;
 }
 
 :root[data-theme="dark"] .app-shell {
@@ -4196,6 +4196,8 @@ h3,
   color: var(--qp-text-primary);
   background: var(--qp-shell-bg);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  -webkit-backdrop-filter: var(--qp-shell-blur);
+  backdrop-filter: var(--qp-shell-blur);
 }
 
 .selection-window {
@@ -4449,7 +4451,10 @@ h3,
   }
 }
 
-:root {
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"],
+:root[data-theme="workbench"] {
   --qp-glass-blur-size: 28px;
   --qp-glass-saturation: 1.4;
   --qp-panel-blur-size: 26px;
@@ -4482,6 +4487,17 @@ h3,
   --qp-shadow-lg:
     0 28px 90px rgba(var(--qp-accent-rgb), 0.16),
     0 5px 18px rgba(18, 29, 48, 0.1);
+}
+
+:root[data-theme="light"] .settings-titlebar,
+:root[data-theme="dark"] .settings-titlebar,
+:root[data-theme="workbench"] .settings-titlebar,
+.settings-titlebar {
+  background:
+    linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
+    var(--qp-panel-bg-strong);
+  -webkit-backdrop-filter: var(--qp-panel-blur);
+  backdrop-filter: var(--qp-panel-blur);
 }
 
 :root[data-theme="light"] .settings-savebar,

@@ -84,7 +84,7 @@ type AppSettings = {
   screenshotHotkey: string;
   inputTranslateHotkey: string;
   themeMode: "system" | "light" | "dark";
-  windowEffect: "mica";
+  windowEffect: "acrylic";
   textAiProvider: string;
   textAiBaseUrl: string;
   textAiModel: string;
@@ -211,7 +211,7 @@ const defaultAppSettings: AppSettings = {
   screenshotHotkey: "Alt+3",
   inputTranslateHotkey: "Alt+4",
   themeMode: "system",
-  windowEffect: "mica",
+  windowEffect: "acrylic",
   textAiProvider: "deepseek",
   textAiBaseUrl: "",
   textAiModel: "",
@@ -443,7 +443,7 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
       current.inputTranslateHotkey.trim() ||
       defaultAppSettings.inputTranslateHotkey,
     themeMode,
-    windowEffect: "mica",
+    windowEffect: "acrylic",
     textAiProvider: textProvider.id,
     textAiBaseUrl: current.textAiBaseUrl.trim() || textProvider.baseUrl,
     textAiModel: current.textAiModel.trim() || textProvider.textModel,
@@ -3012,7 +3012,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 onChange={(value) => updateSetting("themeMode", value)}
               />
             </SettingField>
-            <TextRow label="窗口效果" value="Mica" />
+            <TextRow label="窗口效果" value="Acrylic" />
           </SettingsSection>
           <SettingsSection id="privacy" title="隐私">
             <TextRow label="内容历史" value="默认不保存文本、截图和 AI 结果" />
