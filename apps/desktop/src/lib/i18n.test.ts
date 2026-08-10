@@ -25,6 +25,9 @@ describe("i18n", () => {
     expect(t("result.loading")).toBe("Processing");
     expect(t("input.placeholder")).toBe("Enter text to translate");
     expect(t("i18n:settings.readFailed")).toBe("Failed to read settings file");
+    expect(t("i18n:ai.httpStatus:500")).toBe(
+      "AI request failed, HTTP status code 500",
+    );
   });
 
 });

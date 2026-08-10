@@ -290,6 +290,29 @@ const translations: Record<string, LocaleStrings> = {
   "请求超时需在 5 到 120 秒之间": entry("請求逾時需在 5 到 120 秒之間", "Request timeout must be between 5 and 120 seconds", "요청 제한 시간은 5초에서 120초 사이여야 합니다", "リクエストタイムアウトは5秒から120秒の間である必要があります", "Le délai doit être entre 5 et 120 secondes", "Timeout muss zwischen 5 und 120 Sekunden liegen", "El tiempo de espera debe estar entre 5 y 120 segundos"),
   "模型名称过长，请缩短后保存": entry("模型名稱過長，請縮短後儲存", "Model name is too long, shorten it and save", "모델 이름이 너무 깁니다. 줄인 후 저장하세요", "モデル名が長すぎます。短くして保存してください", "Nom du modèle trop long, raccourcissez-le", "Modellname zu lang, kürzen Sie ihn", "El nombre del modelo es demasiado largo, acórtalo"),
   "Base URL 必须以 http:// 或 https:// 开头": entry("Base URL 必須以 http:// 或 https:// 開頭", "Base URL must start with http:// or https://", "Base URL은 http:// 또는 https://로 시작해야 합니다", "Base URLはhttp://またはhttps://で始まる必要があります", "L'URL de base doit commencer par http:// ou https://", "Basis-URL muss mit http:// oder https:// beginnen", "La URL base debe comenzar con http:// o https://"),
+  "选中文本过长，请缩短到 12000 字以内后再试": entry("選中文字過長，請縮短到 12000 字以內後再試", "Selected text is too long, shorten it to 12000 characters", "선택한 텍스트가 너무 깁니다. 12000자 이내로 줄이세요", "選択テキストが長すぎます。12000文字以内にしてください", "Texte sélectionné trop long, réduisez-le à 12000 caractères", "Ausgewählter Text zu lang, kürzen Sie ihn auf 12000 Zeichen", "El texto seleccionado es demasiado largo, redúcelo a 12000 caracteres"),
+  "初始化 AI 请求客户端失败": entry("初始化 AI 請求用戶端失敗", "Failed to initialize AI client", "AI 클라이언트 초기화 실패", "AIクライアントの初期化に失敗", "Échec d'initialisation du client IA", "KI-Client konnte nicht initialisiert werden", "No se pudo inicializar el cliente de IA"),
+  "AI 返回为空，请稍后重试或检查模型配置": entry("AI 回傳為空，請稍後重試或檢查模型配置", "AI returned empty, retry or check model config", "AI 응답이 비어 있습니다. 다시 시도하거나 모델 설정을 확인하세요", "AIが空を返しました。再試行するかモデル設定を確認してください", "L'IA a renvoyé un résultat vide, réessayez", "KI-Antwort ist leer, versuchen Sie es erneut", "La IA devolvió vacío, reintenta o revisa la configuración"),
+  "输入文本过长，请缩短到 12000 字以内后再试": entry("輸入文字過長，請縮短到 12000 字以內後再試", "Input text is too long, shorten it to 12000 characters", "입력 텍스트가 너무 깁니다. 12000자 이내로 줄이세요", "入力テキストが長すぎます。12000文字以内にしてください", "Texte de saisie trop long, réduisez-le à 12000 caractères", "Eingabetext zu lang, kürzen Sie ihn auf 12000 Zeichen", "El texto de entrada es demasiado largo, redúcelo a 12000 caracteres"),
+  "截图图片为空，请重新框选后再试": entry("截圖圖片為空，請重新框選後再試", "Screenshot image is empty, select again", "스크린샷 이미지가 비어 있습니다. 다시 선택하세요", "スクリーンショット画像が空です。再選択してください", "Image de capture vide, recommencez", "Screenshot-Bild ist leer, wählen Sie erneut", "La imagen de captura está vacía, selecciona de nuevo"),
+  "截图图片过大，请缩小框选区域后再试": entry("截圖圖片過大，請縮小框選區域後再試", "Screenshot image is too large, select a smaller region", "스크린샷 이미지가 너무 큽니다. 더 작은 영역을 선택하세요", "スクリーンショット画像が大きすぎます。領域を縮小してください", "Image de capture trop grande, réduisez la région", "Screenshot-Bild zu groß, wählen Sie einen kleineren Bereich", "La imagen de captura es demasiado grande, selecciona una región menor"),
+  "未知的 AI 操作类型": entry("未知的 AI 操作類型", "Unknown AI action", "알 수 없는 AI 작업", "不明なAI操作", "Action IA inconnue", "Unbekannte KI-Aktion", "Acción de IA desconocida"),
+  "未知的图片 AI 操作类型": entry("未知的圖片 AI 操作類型", "Unknown image AI action", "알 수 없는 이미지 AI 작업", "不明な画像AI操作", "Action IA d'image inconnue", "Unbekannte Bild-KI-Aktion", "Acción de IA de imagen desconocida"),
+  "Base URL 未配置": entry("Base URL 未配置", "Base URL is not configured", "Base URL이 설정되지 않았습니다", "Base URLが設定されていません", "URL de base non configurée", "Basis-URL nicht konfiguriert", "URL base no configurada"),
+  "文本模型未配置": entry("文字模型未配置", "Text model is not configured", "텍스트 모델이 설정되지 않았습니다", "テキストモデルが設定されていません", "Modèle de texte non configuré", "Textmodell nicht konfiguriert", "Modelo de texto no configurado"),
+  "视觉模型未配置；DeepSeek 当前只用于文本模型，请选择其他多模态视觉供应商": entry("視覺模型未配置；DeepSeek 目前只用於文字模型，請選擇其他多模態視覺供應商", "Vision model is not configured; DeepSeek is text-only, choose another vision provider", "비전 모델이 설정되지 않았습니다. DeepSeek는 텍스트 전용이므로 다른 비전 공급자를 선택하세요", "ビジョンモデルが設定されていません。DeepSeekはテキスト専用です。別のビジョンプロバイダーを選択してください", "Modèle visuel non configuré ; DeepSeek est textuel, choisissez un autre fournisseur", "Bildmodell nicht konfiguriert; DeepSeek ist textbasiert, wählen Sie einen anderen Anbieter", "Modelo visual no configurado; DeepSeek es solo texto, elige otro proveedor"),
+  "输入模型未配置": entry("輸入模型未配置", "Input model is not configured", "입력 모델이 설정되지 않았습니다", "入力モデルが設定されていません", "Modèle de saisie non configuré", "Eingabemodell nicht konfiguriert", "Modelo de entrada no configurado"),
+  "AI 请求超时，请稍后重试或调大请求超时": entry("AI 請求逾時，請稍後重試或調大請求逾時", "AI request timed out, retry or increase timeout", "AI 요청 시간이 초과되었습니다. 다시 시도하거나 시간을 늘리세요", "AIリクエストがタイムアウトしました。再試行またはタイムアウトを延長してください", "Délai IA dépassé, réessayez ou augmentez le délai", "KI-Anfrage-Timeout, versuchen Sie es erneut", "Se agotó el tiempo de IA, reintenta o aumenta el tiempo"),
+  "无法连接 AI 服务，请检查 Base URL 和网络连接": entry("無法連線 AI 服務，請檢查 Base URL 和網路連線", "Cannot connect to AI service, check Base URL and network", "AI 서비스에 연결할 수 없습니다. Base URL과 네트워크를 확인하세요", "AIサービスに接続できません。Base URLとネットワークを確認してください", "Connexion IA impossible, vérifiez l'URL et le réseau", "KI-Dienst nicht erreichbar, prüfen Sie URL und Netzwerk", "No se puede conectar con la IA, revisa la URL base y la red"),
+  "AI 请求失败，请检查网络、Base URL 和模型配置": entry("AI 請求失敗，請檢查網路、Base URL 和模型配置", "AI request failed, check network, Base URL and model config", "AI 요청 실패. 네트워크, Base URL, 모델 설정을 확인하세요", "AIリクエストに失敗。ネットワーク、Base URL、モデル設定を確認してください", "Échec de la requête IA, vérifiez le réseau et la configuration", "KI-Anfrage fehlgeschlagen, prüfen Sie Netzwerk und Konfiguration", "Error de solicitud de IA, revisa red y configuración"),
+  "AI 请求被服务拒绝，请检查模型名称和服务兼容性": entry("AI 請求被服務拒絕，請檢查模型名稱和服務相容性", "AI request rejected, check model name and compatibility", "AI 요청이 거부되었습니다. 모델 이름과 호환성을 확인하세요", "AIリクエストが拒否されました。モデル名と互換性を確認してください", "Requête IA rejetée, vérifiez le modèle", "KI-Anfrage abgelehnt, prüfen Sie Modellname und Kompatibilität", "Solicitud de IA rechazada, revisa modelo y compatibilidad"),
+  "AI 鉴权失败，请检查 API Key 是否有效": entry("AI 鑑權失敗，請檢查 API Key 是否有效", "AI authentication failed, check API Key", "AI 인증 실패. API 키를 확인하세요", "AI認証に失敗。APIキーを確認してください", "Échec d'authentification IA, vérifiez la clé API", "KI-Authentifizierung fehlgeschlagen, prüfen Sie den API-Schlüssel", "Error de autenticación de IA, revisa la clave API"),
+  "AI 接口不存在，请确认 Base URL 是否包含正确的 /v1 路径": entry("AI 介面不存在，請確認 Base URL 是否包含正確的 /v1 路徑", "AI endpoint not found, check Base URL includes /v1", "AI 엔드포인트를 찾을 수 없습니다. Base URL에 /v1이 있는지 확인하세요", "AIエンドポイントが見つかりません。Base URLに/v1が含まれるか確認してください", "Point de terminaison IA introuvable, vérifiez /v1", "KI-Endpunkt nicht gefunden, prüfen Sie /v1 in der URL", "No se encuentra el endpoint de IA, revisa /v1 en la URL"),
+  "AI 服务响应超时，请稍后重试": entry("AI 服務回應逾時，請稍後重試", "AI service timed out, retry later", "AI 서비스 응답 시간 초과. 나중에 다시 시도하세요", "AIサービスの応答がタイムアウトしました。後で再試行してください", "Service IA en timeout, réessayez", "KI-Dienst-Timeout, versuchen Sie es später", "Tiempo de respuesta de IA agotado, reintenta"),
+  "AI 服务限流或余额不足，请稍后重试或检查账户状态": entry("AI 服務限流或餘額不足，請稍後重試或檢查帳戶狀態", "AI rate limited or out of balance, retry or check account", "AI 요청이 제한되었거나 잔액이 부족합니다. 나중에 시도하거나 계정을 확인하세요", "AIのレート制限または残高不足。後で再試行するかアカウントを確認してください", "IA limitée ou solde insuffisant, réessayez", "KI-Dienst begrenzt oder Guthaben fehlt", "IA limitada o saldo insuficiente, reintenta"),
+  "AI 服务暂时不可用，请稍后重试": entry("AI 服務暫時不可用，請稍後重試", "AI service temporarily unavailable, retry later", "AI 서비스를 일시적으로 사용할 수 없습니다. 나중에 다시 시도하세요", "AIサービスが一時的に利用できません。後で再試行してください", "Service IA temporairement indisponible", "KI-Dienst vorübergehend nicht verfügbar", "Servicio de IA temporalmente no disponible"),
+  "AI 请求失败，HTTP 状态码": entry("AI 請求失敗，HTTP 狀態碼", "AI request failed, HTTP status code", "AI 요청 실패, HTTP 상태 코드", "AIリクエスト失敗、HTTPステータスコード", "Échec de la requête IA, code HTTP", "KI-Anfrage fehlgeschlagen, HTTP-Statuscode", "Error de solicitud de IA, código HTTP"),
+  "视觉模型拒绝了截图请求，请检查视觉模型供应商、Base URL、模型名称和 API Key 是否匹配。": entry("視覺模型拒絕了截圖請求，請檢查視覺模型供應商、Base URL、模型名稱和 API Key 是否匹配。", "Vision model rejected the screenshot request, check provider, Base URL, model and API Key", "비전 모델이 스크린샷 요청을 거부했습니다. 공급자, Base URL, 모델, API 키를 확인하세요", "ビジョンモデルがスクリーンショット要求を拒否しました。プロバイダー、Base URL、モデル、APIキーを確認してください", "Le modèle visuel a refusé la capture, vérifiez la configuration", "Bildmodell hat Screenshot-Anfrage abgelehnt, prüfen Sie die Konfiguration", "El modelo visual rechazó la captura, revisa la configuración"),
   "快捷键状态": entry("快捷鍵狀態", "Hotkey Status", "단축키 상태", "ショートカット状態", "État des raccourcis", "Tastenkürzel-Status", "Estado de atajos"),
   "已注册": entry("已註冊", "Registered", "등록됨", "登録済み", "Enregistré", "Registriert", "Registrado"),
   "已被占用": entry("已被佔用", "Occupied", "사용 중", "使用中", "Occupé", "Belegt", "Ocupado"),
@@ -539,6 +562,30 @@ const keyToSource: Record<string, string> = {
   "settings.timeoutInvalid": "请求超时需在 5 到 120 秒之间",
   "settings.modelTooLong": "模型名称过长，请缩短后保存",
   "settings.baseUrlInvalid": "Base URL 必须以 http:// 或 https:// 开头",
+  "ai.textTooLong": "选中文本过长，请缩短到 12000 字以内后再试",
+  "ai.clientInitFailed": "初始化 AI 请求客户端失败",
+  "ai.emptyResponse": "AI 返回为空，请稍后重试或检查模型配置",
+  "ai.inputTooLong": "输入文本过长，请缩短到 12000 字以内后再试",
+  "ai.imageEmpty": "截图图片为空，请重新框选后再试",
+  "ai.imageTooLarge": "截图图片过大，请缩小框选区域后再试",
+  "ai.unknownAction": "未知的 AI 操作类型",
+  "ai.unknownImageAction": "未知的图片 AI 操作类型",
+  "ai.baseUrlMissing": "Base URL 未配置",
+  "ai.baseUrlInvalid": "Base URL 必须以 http:// 或 https:// 开头",
+  "ai.textModelMissing": "文本模型未配置",
+  "ai.visionModelMissing": "视觉模型未配置；DeepSeek 当前只用于文本模型，请选择其他多模态视觉供应商",
+  "ai.inputModelMissing": "输入模型未配置",
+  "ai.requestTimeout": "AI 请求超时，请稍后重试或调大请求超时",
+  "ai.connectFailed": "无法连接 AI 服务，请检查 Base URL 和网络连接",
+  "ai.requestFailed": "AI 请求失败，请检查网络、Base URL 和模型配置",
+  "ai.httpBadRequest": "AI 请求被服务拒绝，请检查模型名称和服务兼容性",
+  "ai.httpUnauthorized": "AI 鉴权失败，请检查 API Key 是否有效",
+  "ai.httpNotFound": "AI 接口不存在，请确认 Base URL 是否包含正确的 /v1 路径",
+  "ai.httpTimeout": "AI 服务响应超时，请稍后重试",
+  "ai.httpRateLimited": "AI 服务限流或余额不足，请稍后重试或检查账户状态",
+  "ai.httpServerError": "AI 服务暂时不可用，请稍后重试",
+  "ai.httpStatus": "AI 请求失败，HTTP 状态码",
+  "ai.visionRejected": "视觉模型拒绝了截图请求，请检查视觉模型供应商、Base URL、模型名称和 API Key 是否匹配。",
 };
 
 export type Translator = (
@@ -569,9 +616,23 @@ function getI18nSnapshot() {
 
 export function createTranslator(language: UiLanguage): Translator {
   return (key, params) => {
-    const resolvedKey = key.startsWith("i18n:") ? key.slice(5) : key;
+    let detail = "";
+    let resolvedKey = key;
+    if (key.startsWith("i18n:")) {
+      const rest = key.slice(5);
+      const separator = rest.indexOf(":");
+      if (separator >= 0) {
+        resolvedKey = rest.slice(0, separator);
+        detail = rest.slice(separator + 1);
+      } else {
+        resolvedKey = rest;
+      }
+    }
     const source = keyToSource[resolvedKey] ?? key;
     let value = translateText(source, language);
+    if (detail) {
+      value = `${value} ${detail}`;
+    }
     if (params) {
       for (const [name, param] of Object.entries(params)) {
         value = value.replaceAll(`{${name}}`, String(param));

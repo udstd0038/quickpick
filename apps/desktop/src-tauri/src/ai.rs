@@ -1,4 +1,5 @@
 use crate::app_settings::AppSettings;
+use crate::localized_error::{error_key, error_key_with_detail};
 use base64::{engine::general_purpose, Engine as _};
 use serde::Deserialize;
 use std::time::Duration;
@@ -38,7 +39,7 @@ pub async fn run_text_action(
     target_language: &str,
 ) -> Result<String, String> {
     if selected_text.chars().count() > MAX_TEXT_INPUT_CHARS {
-        return Err("选中文本过长，请缩短到 12000 字以内后再试".to_string());
+        return Err(error_key("ai.textTooLong"));
     }
 
     let (system_prompt, user_prefix) = text_prompts(action, source_language, target_language)?;
@@ -50,7 +51,7 @@ pub async fn run_text_action(
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(settings.ai_timeout_seconds.into()))
         .build()
-        .map_err(|_| "初始化 AI 请求客户端失败".to_string())?;
+        .map_err(|_| error_key("ai.clientInitFailed"))?;
 
     let response = client
         .post(endpoint)
@@ -78,7 +79,7 @@ pub async fn run_text_action(
         .find_map(|choice| choice.message.content)
         .map(|content| content.trim().to_string())
         .filter(|content| !content.is_empty())
-        .ok_or_else(|| "AI 返回为空，请稍后重试或检查模型配置".to_string())
+        .ok_or_else(|| error_key("ai.emptyResponse"))
 }
 
 pub async fn run_input_text_action(
@@ -90,7 +91,7 @@ pub async fn run_input_text_action(
     target_language: &str,
 ) -> Result<String, String> {
     if selected_text.chars().count() > MAX_TEXT_INPUT_CHARS {
-        return Err("输入文本过长，请缩短到 12000 字以内后再试".to_string());
+        return Err(error_key("ai.inputTooLong"));
     }
 
     let (system_prompt, user_prefix) = text_prompts(action, source_language, target_language)?;
@@ -108,7 +109,7 @@ pub async fn run_input_text_action(
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(settings.ai_timeout_seconds.into()))
         .build()
-        .map_err(|_| "初始化 AI 请求客户端失败".to_string())?;
+        .map_err(|_| error_key("ai.clientInitFailed"))?;
 
     let response = client
         .post(endpoint)
@@ -136,7 +137,7 @@ pub async fn run_input_text_action(
         .find_map(|choice| choice.message.content)
         .map(|content| content.trim().to_string())
         .filter(|content| !content.is_empty())
-        .ok_or_else(|| "AI 返回为空，请稍后重试或检查输入模型配置".to_string())
+        .ok_or_else(|| error_key("ai.emptyResponse"))
 }
 
 pub async fn run_image_action(
@@ -148,10 +149,10 @@ pub async fn run_image_action(
     target_language: &str,
 ) -> Result<String, String> {
     if png_bytes.is_empty() {
-        return Err("截图图片为空，请重新框选后再试".to_string());
+        return Err(error_key("ai.imageEmpty"));
     }
     if png_bytes.len() > MAX_IMAGE_INPUT_BYTES {
-        return Err("截图图片过大，请缩小框选区域后再试".to_string());
+        return Err(error_key("ai.imageTooLarge"));
     }
 
     let (system_prompt, user_prompt) = image_prompts(action, source_language, target_language)?;
@@ -189,7 +190,7 @@ pub async fn run_image_action(
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(settings.ai_timeout_seconds.into()))
         .build()
-        .map_err(|_| "初始化 AI 请求客户端失败".to_string())?;
+        .map_err(|_| error_key("ai.clientInitFailed"))?;
 
     let response = client
         .post(endpoint)
@@ -217,7 +218,7 @@ pub async fn run_image_action(
         .find_map(|choice| choice.message.content)
         .map(|content| content.trim().to_string())
         .filter(|content| !content.is_empty())
-        .ok_or_else(|| "AI 返回为空，请稍后重试或检查视觉模型配置".to_string())
+        .ok_or_else(|| error_key("ai.emptyResponse"))
 }
 
 fn text_prompts(
@@ -236,7 +237,7 @@ fn text_prompts(
             "你是 QuickPick 的划词总结助手。用简体中文概括用户提供的文本，保留关键事实、术语和结论。只输出摘要。".to_string(),
             "请总结以下文本：".to_string(),
         )),
-        _ => Err("未知的 AI 操作类型".to_string()),
+        _ => Err(error_key("ai.unknownAction")),
     }
 }
 
@@ -256,7 +257,7 @@ fn image_prompts(
             format!("你是 QuickPick 的截图文字翻译器。只做一件事：读取图片中所有清晰可辨的文字，{source}，然后直接翻译为自然、准确的{target}。禁止描述图片内容，禁止说明识别过程，禁止输出“图片中显示...”“我看到了...”等说明。保留专有名词、数字、URL 和代码格式。如果图片没有可识别文字，只输出“未识别到文字”。"),
             format!("直接翻译这张截图中的文字为{target}。只输出译文，不要输出原文对照，也不要描述图片内容或识别过程。"),
         )),
-        _ => Err("未知的图片 AI 操作类型".to_string()),
+        _ => Err(error_key("ai.unknownImageAction")),
     }
 }
 
@@ -314,11 +315,11 @@ fn chat_completions_endpoint(
     };
     let trimmed = base_url.trim().trim_end_matches('/');
     if trimmed.is_empty() {
-        return Err("Base URL 未配置".to_string());
+        return Err(error_key("ai.baseUrlMissing"));
     }
 
     if !(trimmed.starts_with("https://") || trimmed.starts_with("http://")) {
-        return Err("Base URL 必须以 http:// 或 https:// 开头".to_string());
+        return Err(error_key("ai.baseUrlInvalid"));
     }
 
     Ok(format!("{trimmed}/chat/completions"))
@@ -396,7 +397,7 @@ fn effective_text_model(settings: &AppSettings) -> Result<String, String> {
         PROVIDER_GLM => Ok("glm-5.2".to_string()),
         PROVIDER_MINIMAX => Ok("MiniMax-M2.7".to_string()),
         PROVIDER_QWEN => Ok("qwen-plus".to_string()),
-        _ => Err("文本模型未配置".to_string()),
+        _ => Err(error_key("ai.textModelMissing")),
     }
 }
 
@@ -412,9 +413,7 @@ fn effective_vision_model(settings: &AppSettings) -> Result<String, String> {
         PROVIDER_GLM => Ok("glm-4.5v".to_string()),
         PROVIDER_MINIMAX => Ok("MiniMax-VL-01".to_string()),
         PROVIDER_QWEN => Ok("qwen3-vl-plus".to_string()),
-        _ => Err(
-            "视觉模型未配置；DeepSeek 当前只用于文本模型，请选择其他多模态视觉供应商".to_string(),
-        ),
+        _ => Err(error_key("ai.visionModelMissing")),
     }
 }
 
@@ -431,7 +430,7 @@ fn effective_input_model(settings: &AppSettings) -> Result<String, String> {
         PROVIDER_GLM => Ok("glm-5.2".to_string()),
         PROVIDER_MINIMAX => Ok("MiniMax-M2.7".to_string()),
         PROVIDER_QWEN => Ok("qwen-plus".to_string()),
-        _ => Err("输入模型未配置".to_string()),
+        _ => Err(error_key("ai.inputModelMissing")),
     }
 }
 
@@ -472,29 +471,29 @@ fn input_provider_id(settings: &AppSettings) -> &str {
 
 fn map_request_error(error: reqwest::Error) -> String {
     if error.is_timeout() {
-        "AI 请求超时，请稍后重试或调大请求超时".to_string()
+        error_key("ai.requestTimeout")
     } else if error.is_connect() {
-        "无法连接 AI 服务，请检查 Base URL 和网络连接".to_string()
+        error_key("ai.connectFailed")
     } else {
-        "AI 请求失败，请检查网络、Base URL 和模型配置".to_string()
+        error_key("ai.requestFailed")
     }
 }
 
 fn map_http_status(status: u16) -> String {
     match status {
-        400 => "AI 请求被服务拒绝，请检查模型名称和服务兼容性".to_string(),
-        401 | 403 => "AI 鉴权失败，请检查 API Key 是否有效".to_string(),
-        404 => "AI 接口不存在，请确认 Base URL 是否包含正确的 /v1 路径".to_string(),
-        408 | 504 => "AI 服务响应超时，请稍后重试".to_string(),
-        429 => "AI 服务限流或余额不足，请稍后重试或检查账户状态".to_string(),
-        500..=599 => "AI 服务暂时不可用，请稍后重试".to_string(),
-        _ => format!("AI 请求失败，HTTP 状态码 {status}"),
+        400 => error_key("ai.httpBadRequest"),
+        401 | 403 => error_key("ai.httpUnauthorized"),
+        404 => error_key("ai.httpNotFound"),
+        408 | 504 => error_key("ai.httpTimeout"),
+        429 => error_key("ai.httpRateLimited"),
+        500..=599 => error_key("ai.httpServerError"),
+        _ => error_key_with_detail("ai.httpStatus", &status.to_string()),
     }
 }
 
 fn map_image_http_status(status: u16) -> String {
     if status == 400 {
-        return "视觉模型拒绝了截图请求，请检查视觉模型供应商、Base URL、模型名称和 API Key 是否匹配。".to_string();
+        return error_key("ai.visionRejected");
     }
 
     map_http_status(status)
