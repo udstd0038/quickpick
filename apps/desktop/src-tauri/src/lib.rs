@@ -6,6 +6,7 @@ mod security;
 mod selection;
 
 use selection::SelectionSnapshot;
+use localized_error::error_key;
 use serde::Serialize;
 use std::sync::Mutex;
 use tauri::{
@@ -710,7 +711,7 @@ fn copy_selection_text_from_state(state: &AppState) -> Result<SelectionActionRes
     let text = current_selection_text(state)?;
 
     clipboard_win::set_clipboard_string(&text)
-        .map_err(|_| "写入剪贴板失败，请稍后再试".to_string())?;
+        .map_err(|_| error_key("clipboard.writeFailed"))?;
 
     Ok(SelectionActionResult {
         message: "已复制".to_string(),
@@ -729,7 +730,7 @@ fn search_selection_text_from_state(state: &AppState) -> Result<SelectionActionR
 
     let text = current_selection_text(state)?;
     if text.chars().count() > MAX_SEARCH_CHARS {
-        return Err("搜索内容过长，请缩短选择范围后再试".to_string());
+        return Err(error_key("search.tooLong"));
     }
 
     let url = format!(
@@ -743,7 +744,7 @@ fn search_selection_text_from_state(state: &AppState) -> Result<SelectionActionR
             .spawn()
             .and_then(|mut child| child.wait());
         if fallback.is_err() {
-            return Err("打开默认浏览器失败，请检查系统默认浏览器设置".to_string());
+            return Err(error_key("search.browserFailed"));
         }
     }
 
@@ -757,19 +758,19 @@ fn copy_result_content(state: tauri::State<'_, AppState>) -> Result<SelectionAct
     let snapshot = state
         .result_snapshot
         .lock()
-        .map_err(|_| "读取结果状态失败，请重试".to_string())?;
+        .map_err(|_| error_key("result.readFailed"))?;
 
     if snapshot.status != "success" || !snapshot.can_copy {
-        return Err("当前没有可复制的结果".to_string());
+        return Err(error_key("result.noCopyable"));
     }
 
     let content = snapshot.content.trim();
     if content.is_empty() {
-        return Err("结果为空，无法复制".to_string());
+        return Err(error_key("result.emptyCopy"));
     }
 
     clipboard_win::set_clipboard_string(content)
-        .map_err(|_| "写入剪贴板失败，请稍后再试".to_string())?;
+        .map_err(|_| error_key("clipboard.writeFailed"))?;
 
     Ok(SelectionActionResult {
         message: "结果已复制".to_string(),
@@ -781,16 +782,16 @@ fn copy_input_result(state: tauri::State<'_, AppState>) -> Result<SelectionActio
     let result = state
         .last_input_result
         .lock()
-        .map_err(|_| "读取输入翻译结果失败，请重新翻译后再试".to_string())?
+        .map_err(|_| error_key("input.readResultFailed"))?
         .clone();
 
     let content = result.as_deref().unwrap_or_default().trim();
     if content.is_empty() {
-        return Err("当前没有可复制的输入翻译结果".to_string());
+        return Err(error_key("input.noCopyableResult"));
     }
 
     clipboard_win::set_clipboard_string(content)
-        .map_err(|_| "写入剪贴板失败，请稍后再试".to_string())?;
+        .map_err(|_| error_key("clipboard.writeFailed"))?;
 
     Ok(SelectionActionResult {
         message: "输入翻译结果已复制".to_string(),
@@ -899,7 +900,7 @@ async fn run_text_ai_action_inner(
             api_key.clear();
             result
         }
-        Ok(None) => Err("文本模型 API Key 未配置，请先到设置中保存".to_string()),
+        Ok(None) => Err(error_key("ai.textApiKeyMissing")),
         Err(error) => Err(error),
     };
 
@@ -938,7 +939,7 @@ fn clear_result_snapshot(
     let mut current = state
         .result_snapshot
         .lock()
-        .map_err(|_| "清理结果状态失败".to_string())?;
+        .map_err(|_| error_key("result.clearFailed"))?;
     *current = ResultSnapshot::default();
 
     Ok(SelectionActionResult {
@@ -968,7 +969,7 @@ async fn capture_region_to_clipboard(
     app: tauri::AppHandle,
 ) -> Result<SelectionActionResult, String> {
     if !show_screenshot_overlay(&app) {
-        return Err("截图 WebView 窗口不可用".to_string());
+        return Err(error_key("screenshot.windowUnavailable"));
     }
 
     Ok(SelectionActionResult {
@@ -987,7 +988,7 @@ fn set_hotkey_capture_mode(
         .map(|mut current| {
             *current = enabled;
         })
-        .map_err(|_| "切换快捷键录制状态失败".to_string())?;
+        .map_err(|_| error_key("hotkey.captureToggleFailed"))?;
 
     Ok(SelectionActionResult {
         message: if enabled {
@@ -1096,11 +1097,11 @@ fn current_selection_text(state: &AppState) -> Result<String, String> {
     let snapshot = state
         .selection_snapshot
         .lock()
-        .map_err(|_| "读取选区状态失败，请重新选择后再试".to_string())?;
+        .map_err(|_| error_key("selection.readFailed"))?;
     let text = snapshot.text.trim();
 
     if text.is_empty() {
-        Err("未读取到可操作的选中文本，请重新选择后再试".to_string())
+        Err(error_key("selection.noText"))
     } else {
         Ok(text.to_string())
     }
@@ -1110,11 +1111,11 @@ fn current_selection_payload(state: &AppState) -> Result<(String, String, usize)
     let snapshot = state
         .selection_snapshot
         .lock()
-        .map_err(|_| "读取选区状态失败，请重新选择后再试".to_string())?;
+        .map_err(|_| error_key("selection.readFailed"))?;
     let text = snapshot.text.trim();
 
     if text.is_empty() {
-        Err("未读取到可操作的选中文本，请重新选择后再试".to_string())
+        Err(error_key("selection.noText"))
     } else {
         Ok((
             text.to_string(),
@@ -1128,7 +1129,7 @@ fn set_result_snapshot(state: &AppState, snapshot: ResultSnapshot) -> Result<(),
     let mut current = state
         .result_snapshot
         .lock()
-        .map_err(|_| "写入结果状态失败，请重试".to_string())?;
+        .map_err(|_| error_key("result.writeFailed"))?;
     *current = snapshot;
     Ok(())
 }
