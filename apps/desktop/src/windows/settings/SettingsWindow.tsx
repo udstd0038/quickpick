@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { RotateCcw } from "lucide-react";
 import {
   applyDocumentTranslation,
   targetLanguageForUiLanguage,
@@ -2755,12 +2756,14 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           <SettingsSection id="general" title="通用">
             <SettingField label="重置默认设置">
               <button
-                className="ghost-control"
+                className="ghost-control popup-icon-button"
                 type="button"
                 onClick={resetDefaultSettings}
                 disabled={settingsStatus.kind === "saving"}
+                aria-label="重置默认设置"
+                title="重置默认设置"
               >
-                重置默认设置
+                <RotateCcw size={15} />
               </button>
             </SettingField>
             <SettingField label="开机自启">
