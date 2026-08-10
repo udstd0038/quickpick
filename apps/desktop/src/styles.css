@@ -4454,16 +4454,16 @@ h3,
   --qp-glass-saturation: 1.4;
   --qp-panel-blur-size: 26px;
   --qp-panel-saturation: 1.36;
-  --qp-shell-alpha: 0.3;
-  --qp-panel-alpha: 0.3;
-  --qp-panel-strong-alpha: 0.3;
-  --qp-panel-soft-alpha: 0.3;
-  --qp-control-alpha: 0.55;
-  --qp-input-alpha: 0.65;
+  --qp-shell-alpha: 0.7;
+  --qp-panel-alpha: 0.7;
+  --qp-panel-strong-alpha: 0.7;
+  --qp-panel-soft-alpha: 0.7;
+  --qp-control-alpha: 0.7;
+  --qp-input-alpha: 0.7;
   --qp-highlight-alpha: 0.92;
   --qp-border-alpha: 0.2;
   --qp-border-strong-alpha: 0.32;
-  --qp-footer-alpha: 0.3;
+  --qp-footer-alpha: 0.7;
   --qp-shell-blur: blur(var(--qp-glass-blur-size)) saturate(var(--qp-glass-saturation));
   --qp-panel-blur: blur(var(--qp-panel-blur-size)) saturate(var(--qp-panel-saturation));
   --qp-shell-bg: rgba(var(--qp-shell-rgb), var(--qp-shell-alpha));
@@ -4491,6 +4491,50 @@ h3,
   background:
     linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
     var(--qp-footer-bg);
+  -webkit-backdrop-filter: var(--qp-panel-blur);
+  backdrop-filter: var(--qp-panel-blur);
+}
+
+:root[data-theme="light"] .app-shell.settings-window,
+:root[data-theme="dark"] .app-shell.settings-window,
+:root[data-theme="workbench"] .app-shell.settings-window,
+.app-shell.settings-window {
+  background:
+    linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
+    var(--qp-shell-bg);
+  -webkit-backdrop-filter: var(--qp-shell-blur);
+  backdrop-filter: var(--qp-shell-blur);
+}
+
+:root[data-theme="light"] .settings-header,
+:root[data-theme="dark"] .settings-header,
+:root[data-theme="workbench"] .settings-header,
+.settings-header {
+  background:
+    linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
+    var(--qp-panel-bg-strong);
+  -webkit-backdrop-filter: var(--qp-panel-blur);
+  backdrop-filter: var(--qp-panel-blur);
+}
+
+:root[data-theme="light"] .settings-nav,
+:root[data-theme="dark"] .settings-nav,
+:root[data-theme="workbench"] .settings-nav,
+.settings-nav {
+  background:
+    linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
+    var(--qp-panel-bg);
+  -webkit-backdrop-filter: var(--qp-panel-blur);
+  backdrop-filter: var(--qp-panel-blur);
+}
+
+:root[data-theme="light"] .settings-section,
+:root[data-theme="dark"] .settings-section,
+:root[data-theme="workbench"] .settings-section,
+.settings-section {
+  background:
+    linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
+    var(--qp-panel-bg);
   -webkit-backdrop-filter: var(--qp-panel-blur);
   backdrop-filter: var(--qp-panel-blur);
 }
