@@ -7,6 +7,7 @@
 - `screenshot/mod.rs` 已移除旧原生 Win32 框选代码，只保留捕获、坐标换算、裁剪、剪贴板和 PNG/BMP 编码。
 - 前端设置模型唯一入口为 `lib/settingsTypes.ts`；`SettingsWindow.tsx` 不再保存重复的 `AppSettings`、默认值和归一化逻辑。
 - 界面语言使用 key-based `t()`，不扫描 DOM，不依赖 MutationObserver。
+- Rust 设置与 AI 常见错误返回 `i18n:<key>`，前端通过 `t()` 映射为当前语言；带状态码错误使用 `i18n:<key>:<detail>`。
 - 快捷键保存会返回“已注册/已被占用”状态；未注册成功的设置热键不会进入运行状态。
 - `get_main_diagnostics` 和旧诊断面板代码已移除，不再作为开发入口。
 - `screenshot_preview` 窗口已冻结，不再进入窗口配置、capability 或前端路由；源文件待确认后删除。
