@@ -870,7 +870,7 @@
 :root[data-theme="dark"] .settings-titlebar-button{
   width: 46px;
   min-height: var(--qp-titlebar-height);
-  color: #c7c7c7;
+  color: #e0e5ec;
 }
 :root[data-theme="dark"] .settings-layout, :root[data-theme="dark"] .settings-savebar{
   margin-right: 12px;
@@ -903,7 +903,7 @@
   min-height: 30px;
   padding: 6px 10px;
   border-radius: 7px;
-  color: #c7c7c7;
+  color: #e0e5ec;
   font-size: 13px;
   text-align: center;
   white-space: nowrap;
@@ -957,7 +957,7 @@
   border-top-color: rgba(255, 255, 255, 0.09);
 }
 :root[data-theme="dark"] .setting-row span, :root[data-theme="dark"] .setting-field span{
-  color: #c7ccd4;
+  color: #e2e8f0;
   font-size: 13px;
 }
 :root[data-theme="dark"] .setting-row strong, :root[data-theme="dark"] .toggle-control{
@@ -979,7 +979,7 @@
 }
 :root[data-theme="dark"] .glass-select-option{
   min-height: 32px;
-  color: #d2d8df;
+  color: #e6ebf2;
 }
 :root[data-theme="dark"] .primary-action:hover, :root[data-theme="dark"] .ghost-control:hover{
   border-color: rgba(255, 255, 255, 0.2);
@@ -1017,7 +1017,7 @@
     0 8px 22px rgba(0, 0, 0, 0.25);
 }
 :root[data-theme="dark"] .settings-savebar .settings-feedback{
-  color: #c7ccd4;
+  color: #e2e8f0;
   font-size: 12px;
 }
 :root[data-theme="dark"] .settings-save-button{
@@ -1410,8 +1410,8 @@
   --qp-panel-blur: blur(26px) saturate(1.36);
 }:root[data-theme="dark"], :root[data-theme="workbench"]{
   --qp-text-primary: #eaf3ff;
-  --qp-text-secondary: #c3cfe0;
-  --qp-text-muted: #94a7bd;
+  --qp-text-secondary: #e2e8f0;
+  --qp-text-muted: #cbd5e1;
   --qp-bg-solid: #07090c;
   --qp-shell-bg: rgba(10, 14, 19, 0.96);
   --qp-shell-gradient: linear-gradient(
@@ -1447,8 +1447,8 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --qp-text-primary: #eaf3ff;
-    --qp-text-secondary: #c3cfe0;
-    --qp-text-muted: #94a7bd;
+    --qp-text-secondary: #e2e8f0;
+    --qp-text-muted: #cbd5e1;
     --qp-bg-solid: #07090c;
     --qp-shell-bg: rgba(10, 14, 19, 0.96);
     --qp-shell-gradient: linear-gradient(
