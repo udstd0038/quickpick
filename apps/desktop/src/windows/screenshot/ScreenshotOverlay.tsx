@@ -8,6 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   captureRegionRect,
+  getScreenshotSnapshot,
   type MonitorScreenshotPayload,
 } from "../../services/invoke";
 import { ActionButton } from "../../components/ActionButton";
@@ -31,6 +32,26 @@ export function ScreenshotOverlay() {
 
     let unlistenReady: (() => void) | undefined;
     let unlistenError: (() => void) | undefined;
+
+    getScreenshotSnapshot()
+      .then((payload) => {
+        if (!payload || disposed) {
+          return;
+        }
+        setError("");
+        setCrop(undefined);
+        setPixelCrop(null);
+        setScreenshot(payload);
+      })
+      .catch((error) => {
+        if (disposed) {
+          return;
+        }
+        setCrop(undefined);
+        setPixelCrop(null);
+        setScreenshot(null);
+        setError(typeof error === "string" ? error : t("screenshot.reading"));
+      });
 
     listen<MonitorScreenshotPayload>("screenshot-ready", (event) => {
       if (!disposed) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -7,14 +7,29 @@ import {
   normalizeAppSettings,
   type AppSettings,
 } from "./lib/settingsTypes";
-import {
-  setI18nLanguage,
-} from "./lib/i18n";
+import { setI18nLanguage } from "./lib/i18n";
 import { SettingsWindow } from "./windows/settings/SettingsWindow";
-import { SelectionWindow } from "./windows/selection/SelectionWindow";
-import { ResultWindow } from "./windows/result/ResultWindow";
-import { InputWindow } from "./windows/input/InputWindow";
-import { ScreenshotOverlay } from "./windows/screenshot/ScreenshotOverlay";
+
+const SelectionWindow = lazy(() =>
+  import("./windows/selection/SelectionWindow").then((module) => ({
+    default: module.SelectionWindow,
+  })),
+);
+const ResultWindow = lazy(() =>
+  import("./windows/result/ResultWindow").then((module) => ({
+    default: module.ResultWindow,
+  })),
+);
+const InputWindow = lazy(() =>
+  import("./windows/input/InputWindow").then((module) => ({
+    default: module.InputWindow,
+  })),
+);
+const ScreenshotOverlay = lazy(() =>
+  import("./windows/screenshot/ScreenshotOverlay").then((module) => ({
+    default: module.ScreenshotOverlay,
+  })),
+);
 
 function currentSystemTheme(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -96,16 +111,19 @@ export default function App() {
     setWindowKind(knownLabels.has(label) ? label : "main");
   }, []);
 
-  switch (windowKind) {
-    case "selection":
-      return <SelectionWindow />;
-    case "result":
-      return <ResultWindow />;
-    case "input":
-      return <InputWindow />;
-    case "screenshot_overlay":
-      return <ScreenshotOverlay />;
-    default:
-      return <SettingsWindow />;
-  }
+  return (
+    <Suspense fallback={null}>
+      {windowKind === "selection" ? (
+        <SelectionWindow />
+      ) : windowKind === "result" ? (
+        <ResultWindow />
+      ) : windowKind === "input" ? (
+        <InputWindow />
+      ) : windowKind === "screenshot_overlay" ? (
+        <ScreenshotOverlay />
+      ) : (
+        <SettingsWindow />
+      )}
+    </Suspense>
+  );
 }

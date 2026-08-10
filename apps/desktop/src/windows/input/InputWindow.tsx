@@ -10,21 +10,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Pin, PinOff, X } from "lucide-react";
 import {
   copyInputResult,
+  getInputSnapshot,
   requestInputTranslation,
+  type InputReadyPayload,
 } from "../../services/invoke";
 import { GlassSelect } from "../../components/GlassSelect";
 import { ActionButton } from "../../components/ActionButton";
 import { useInputStore } from "../../stores/inputStore";
 import { useI18n } from "../../lib/i18n";
-
-type InputReadyPayload = {
-  status: "waiting" | "loading" | "success" | "error";
-  content: string;
-  detail: string;
-  sourceLanguage: string;
-  targetLanguage: string;
-  direction: "left" | "right";
-};
 
 const languageOptions = [
   { value: "auto", key: "language.auto" },
@@ -65,6 +58,24 @@ export function InputWindow() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+
+    getInputSnapshot()
+      .then((payload) => {
+        if (!payload) {
+          return;
+        }
+        setResult(payload.content || payload.detail);
+        setStatus(payload.status);
+        setLanguages(
+          payload.sourceLanguage,
+          payload.targetLanguage,
+          payload.direction,
+        );
+      })
+      .catch(() => {
+        // The Rust event path still covers normally-opened windows.
+      });
+
     listen<InputReadyPayload>("input-ready", (event) => {
       const payload = event.payload;
       setResult(payload.content || payload.detail);

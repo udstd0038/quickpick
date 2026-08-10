@@ -9,23 +9,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Pin, PinOff, X } from "lucide-react";
 import {
   copyResultContent,
+  getResultSnapshot,
   requestResultTranslation,
+  type ResultSnapshotPayload,
 } from "../../services/invoke";
 import { GlassSelect } from "../../components/GlassSelect";
 import { ActionButton } from "../../components/ActionButton";
 import { useResultStore } from "../../stores/resultStore";
 import { useI18n } from "../../lib/i18n";
-
-type ResultSnapshotPayload = {
-  status: "empty" | "placeholder" | "loading" | "success" | "error";
-  title: string;
-  content: string;
-  detail: string;
-  sourceLanguage: string;
-  targetLanguage: string;
-  translationDirection: "left" | "right";
-  canSwitchLanguage: boolean;
-};
 
 const statusKeys = {
   empty: "result.empty",
@@ -69,6 +60,21 @@ export function ResultWindow() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+
+    getResultSnapshot()
+      .then((payload) => {
+        setContent(payload.content, payload.detail);
+        setStatus(payload.status);
+        setLanguages(
+          payload.sourceLanguage,
+          payload.targetLanguage,
+          payload.translationDirection,
+        );
+      })
+      .catch(() => {
+        // The Rust event path still covers first paint for normally-opened windows.
+      });
+
     listen<ResultSnapshotPayload>("result-ready", (event) => {
       const payload = event.payload;
       setContent(payload.content, payload.detail);

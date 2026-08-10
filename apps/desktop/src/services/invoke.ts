@@ -48,6 +48,38 @@ export function getSelectionSnapshot() {
   return invoke<SelectionSnapshot>("get_selection_snapshot");
 }
 
+export type ResultSnapshotPayload = {
+  status: "empty" | "placeholder" | "loading" | "success" | "error";
+  title: string;
+  content: string;
+  detail: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  translationDirection: "left" | "right";
+  canSwitchLanguage: boolean;
+};
+
+export function getResultSnapshot() {
+  return invoke<ResultSnapshotPayload>("get_result_snapshot");
+}
+
+export type InputReadyPayload = {
+  status: "waiting" | "loading" | "success" | "error";
+  content: string;
+  detail: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  direction: "left" | "right";
+};
+
+export function getInputSnapshot() {
+  return invoke<InputReadyPayload | null>("get_input_snapshot");
+}
+
+export function getScreenshotSnapshot() {
+  return invoke<MonitorScreenshotPayload | null>("get_screenshot_snapshot");
+}
+
 export function requestInputTranslation(input: {
   inputText: string;
   sourceLanguage: string;

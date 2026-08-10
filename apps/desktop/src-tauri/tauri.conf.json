@@ -21,59 +21,13 @@
         "center": true,
         "resizable": true,
         "transparent": true,
-        "backgroundColor": [0, 0, 0, 0],
+        "backgroundColor": [
+          0,
+          0,
+          0,
+          0
+        ],
         "decorations": false,
-        "visible": false
-      },
-      {
-        "label": "selection",
-        "title": "QuickPick 划词",
-        "width": 480,
-        "height": 58,
-        "resizable": false,
-        "transparent": true,
-        "backgroundColor": [0, 0, 0, 0],
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false
-      },
-      {
-        "label": "result",
-        "title": "QuickPick 结果",
-        "width": 480,
-        "height": 460,
-        "resizable": true,
-        "transparent": true,
-        "backgroundColor": [0, 0, 0, 0],
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false
-      },
-      {
-        "label": "input",
-        "title": "QuickPick 输入翻译",
-        "width": 480,
-        "height": 460,
-        "resizable": true,
-        "transparent": true,
-        "backgroundColor": [0, 0, 0, 0],
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false
-      },
-      {
-        "label": "screenshot_overlay",
-        "title": "QuickPick 截图",
-        "fullscreen": true,
-        "resizable": false,
-        "transparent": true,
-        "backgroundColor": [0, 0, 0, 0],
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
         "visible": false
       }
     ],
@@ -84,6 +38,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.ico", "icons/icon.png"]
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.png"
+    ]
   }
 }

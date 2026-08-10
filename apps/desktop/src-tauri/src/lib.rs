@@ -14,7 +14,7 @@ use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     window::{Color, Effect, EffectsBuilder},
-    Emitter, Manager, Theme, WindowEvent,
+    Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -24,6 +24,9 @@ struct AppState {
     last_text_translation: Mutex<Option<LastTextTranslation>>,
     last_image_translation: Mutex<Option<LastImageTranslation>>,
     last_input_result: Mutex<Option<String>>,
+    last_input_payload: Mutex<Option<InputReadyPayload>>,
+    last_screenshot_payload: Mutex<Option<screenshot::MonitorScreenshotPayload>>,
+    last_screenshot_error: Mutex<Option<String>>,
     hotkey_bindings: Mutex<HotkeyBindings>,
     hotkey_capture_mode: Mutex<bool>,
 }
@@ -51,6 +54,9 @@ impl Default for AppState {
             last_text_translation: Mutex::new(None),
             last_image_translation: Mutex::new(None),
             last_input_result: Mutex::new(None),
+            last_input_payload: Mutex::new(None),
+            last_screenshot_payload: Mutex::new(None),
+            last_screenshot_error: Mutex::new(None),
             hotkey_bindings: Mutex::new(HotkeyBindings::default()),
             hotkey_capture_mode: Mutex::new(false),
         }
@@ -628,6 +634,35 @@ fn get_result_snapshot(state: tauri::State<'_, AppState>) -> ResultSnapshot {
 }
 
 #[tauri::command]
+fn get_input_snapshot(state: tauri::State<'_, AppState>) -> Option<InputReadyPayload> {
+    state
+        .last_input_payload
+        .lock()
+        .ok()
+        .and_then(|payload| payload.clone())
+}
+
+#[tauri::command]
+fn get_screenshot_snapshot(
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<screenshot::MonitorScreenshotPayload>, String> {
+    if let Some(error) = state
+        .last_screenshot_error
+        .lock()
+        .ok()
+        .and_then(|mut current| current.take())
+    {
+        return Err(error);
+    }
+
+    Ok(state
+        .last_screenshot_payload
+        .lock()
+        .ok()
+        .and_then(|mut current| current.take()))
+}
+
+#[tauri::command]
 fn get_app_settings(app: tauri::AppHandle) -> Result<app_settings::AppSettings, String> {
     app_settings::load_app_settings(&app)
 }
@@ -1011,6 +1046,8 @@ pub fn run() {
             ping,
             get_selection_snapshot,
             get_result_snapshot,
+            get_input_snapshot,
+            get_screenshot_snapshot,
             get_app_settings,
             save_app_settings,
             get_api_key_status,
@@ -1755,15 +1792,59 @@ fn capture_region_from_entry(app: &tauri::AppHandle) {
     eprintln!("QuickPick screenshot WebView window is unavailable");
 }
 
+fn get_or_create_window(
+    app: &tauri::AppHandle,
+    label: &str,
+) -> Option<tauri::WebviewWindow> {
+    if let Some(window) = app.get_webview_window(label) {
+        return Some(window);
+    }
+
+    let mut builder =
+        WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
+            .transparent(true)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .visible(false);
+
+    match label {
+        "selection" => {
+            builder = builder.inner_size(480.0, 58.0).resizable(false).center();
+        }
+        "result" => {
+            builder = builder.inner_size(480.0, 460.0).resizable(true).center();
+        }
+        "input" => {
+            builder = builder.inner_size(480.0, 460.0).resizable(true).center();
+        }
+        "screenshot_overlay" => {
+            builder = builder.fullscreen(true).resizable(false);
+        }
+        _ => return None,
+    }
+
+    let window = builder.build().ok()?;
+    let settings = app_settings::load_app_settings(app).unwrap_or_default();
+    sync_window_appearance(app, &settings);
+    Some(window)
+}
+
 fn show_screenshot_overlay(app: &tauri::AppHandle) -> bool {
-    let Some(window) = app.get_webview_window("screenshot_overlay") else {
+    let Some(window) = get_or_create_window(app, "screenshot_overlay") else {
         return false;
     };
     match screenshot::capture_current_monitor_screenshot() {
         Ok(payload) => {
+            if let Ok(mut current) = app.state::<AppState>().last_screenshot_payload.lock() {
+                *current = Some(payload.clone());
+            }
             let _ = app.emit_to("screenshot_overlay", "screenshot-ready", payload);
         }
         Err(error) => {
+            if let Ok(mut current) = app.state::<AppState>().last_screenshot_error.lock() {
+                *current = Some(error.clone());
+            }
             let _ = app.emit_to("screenshot_overlay", "screenshot-error", error);
         }
     }
@@ -1992,7 +2073,7 @@ fn activate_selection_bar(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
 }
 
 fn show_selection_webview(app: &tauri::AppHandle) -> bool {
-    let Some(window) = app.get_webview_window("selection") else {
+    let Some(window) = get_or_create_window(app, "selection") else {
         return false;
     };
     #[cfg(windows)]
@@ -2054,7 +2135,7 @@ fn show_input_webview(
     target_language: String,
     direction: String,
 ) -> bool {
-    let Some(window) = app.get_webview_window("input") else {
+    let Some(window) = get_or_create_window(app, "input") else {
         return false;
     };
 
@@ -2062,18 +2143,18 @@ fn show_input_webview(
     let _ = window.show();
     refresh_current_window_glass(app, &window);
     let _ = window.set_focus();
-    let _ = app.emit_to(
-        "input",
-        "input-ready",
-        InputReadyPayload {
-            status: "waiting".to_string(),
-            content: String::new(),
-            detail: String::new(),
-            source_language,
-            target_language,
-            direction,
-        },
-    );
+    let payload = InputReadyPayload {
+        status: "waiting".to_string(),
+        content: String::new(),
+        detail: String::new(),
+        source_language,
+        target_language,
+        direction,
+    };
+    if let Ok(mut current) = app.state::<AppState>().last_input_payload.lock() {
+        *current = Some(payload.clone());
+    }
+    let _ = app.emit_to("input", "input-ready", payload);
     true
 }
 
@@ -2201,18 +2282,18 @@ async fn request_input_translation(
         }
     };
 
-    let _ = app.emit_to(
-        "input",
-        "input-ready",
-        InputReadyPayload {
-            status,
-            content,
-            detail,
-            source_language,
-            target_language,
-            direction,
-        },
-    );
+    let payload = InputReadyPayload {
+        status,
+        content,
+        detail,
+        source_language,
+        target_language,
+        direction,
+    };
+    if let Ok(mut current) = app.state::<AppState>().last_input_payload.lock() {
+        *current = Some(payload.clone());
+    }
+    let _ = app.emit_to("input", "input-ready", payload);
 
     Ok(SelectionActionResult {
         message: "输入翻译已请求".to_string(),
@@ -2374,7 +2455,7 @@ fn show_native_result_popup(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
 }
 
 fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
-    let Some(window) = app.get_webview_window("result") else {
+    let Some(window) = get_or_create_window(app, "result") else {
         return;
     };
 

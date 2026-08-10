@@ -38,6 +38,24 @@ describe("WebView popup behavior", () => {
     mocks.startDragging.mockResolvedValue(undefined);
     mocks.setAlwaysOnTop.mockResolvedValue(undefined);
     mocks.listen.mockResolvedValue(() => undefined);
+    mocks.invoke.mockImplementation((command: string) => {
+      if (command === "get_result_snapshot") {
+        return Promise.resolve({
+          status: "success",
+          title: "文本翻译",
+          content: "",
+          detail: "",
+          sourceLanguage: "auto",
+          targetLanguage: "zh-Hans",
+          translationDirection: "right",
+          canSwitchLanguage: true,
+        });
+      }
+      if (command === "get_input_snapshot" || command === "get_screenshot_snapshot") {
+        return Promise.resolve(null);
+      }
+      return Promise.resolve({ message: "ok" });
+    });
     useInputStore.setState({
       text: "",
       result: "",
@@ -103,7 +121,11 @@ describe("WebView popup behavior", () => {
   });
 
   it("closes the input window on Escape and sends Ctrl+Enter translation", async () => {
-    mocks.invoke.mockResolvedValue({ message: "ok" });
+    mocks.invoke.mockImplementation((command: string) =>
+      command === "get_input_snapshot"
+        ? Promise.resolve(null)
+        : Promise.resolve({ message: "ok" }),
+    );
     render(<InputWindow />);
 
     fireEvent.keyDown(window, { key: "Escape" });
