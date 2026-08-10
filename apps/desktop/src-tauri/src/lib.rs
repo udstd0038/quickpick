@@ -1332,12 +1332,19 @@ fn apply_window_vibrancy(
         };
         window
             .set_effects(EffectsBuilder::new().effect(effect).build())
-            .map_err(|error| format!("Mica 窗口效果应用失败：{error}"))?;
+            .map_err(|error| {
+                localized_error::error_key_with_detail("windowEffect.micaFailed", &error.to_string())
+            })?;
         return Ok(());
     }
 
     window_vibrancy::apply_blur(window, None)
-        .map_err(|error| format!("Acrylic 窗口效果应用失败：{error}"))
+        .map_err(|error| {
+            localized_error::error_key_with_detail(
+                "windowEffect.acrylicFailed",
+                &error.to_string(),
+            )
+        })
 }
 
 fn refresh_current_window_glass(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
@@ -2126,7 +2133,7 @@ async fn run_input_translate_flow(app: tauri::AppHandle) -> Result<SelectionActi
         });
     }
 
-    Err("输入翻译 WebView 窗口不可用".to_string())
+    Err(error_key("input.windowUnavailable"))
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -2179,7 +2186,7 @@ async fn request_input_translation(
                 api_key.clear();
                 result
             }
-            Ok(None) => Err("输入模型 API Key 未配置，请先到设置中保存".to_string()),
+            Ok(None) => Err(error_key("input.apiKeyMissing")),
             Err(error) => Err(error),
         };
 
@@ -2226,7 +2233,7 @@ async fn request_result_translation(
     let text_payload = state
         .last_text_translation
         .lock()
-        .map_err(|_| "读取文本翻译上下文失败".to_string())?
+        .map_err(|_| error_key("result.readContextFailed"))?
         .clone();
 
     if let Some(payload) = text_payload {
@@ -2244,7 +2251,7 @@ async fn request_result_translation(
                 api_key.clear();
                 result
             }
-            Ok(None) => Err("文本模型 API Key 未配置，请先到设置中保存".to_string()),
+            Ok(None) => Err(error_key("ai.textApiKeyMissing")),
             Err(error) => Err(error),
         };
         let snapshot = match ai_result {
@@ -2277,7 +2284,7 @@ async fn request_result_translation(
     let image_payload = state
         .last_image_translation
         .lock()
-        .map_err(|_| "读取截图翻译上下文失败".to_string())?
+        .map_err(|_| error_key("screenshot.readContextFailed"))?
         .clone();
     if let Some(payload) = image_payload {
         let ai_result = match security::load_api_key(&app, "vision") {
@@ -2294,7 +2301,7 @@ async fn request_result_translation(
                 api_key.clear();
                 result
             }
-            Ok(None) => Err("截图模型 API Key 未配置，请先到设置中保存".to_string()),
+            Ok(None) => Err(error_key("screenshot.apiKeyMissing")),
             Err(error) => Err(error),
         };
         let snapshot = match ai_result {
@@ -2322,7 +2329,7 @@ async fn request_result_translation(
         });
     }
 
-    Err("当前结果不支持切换语言".to_string())
+    Err(error_key("result.languageSwitchUnsupported"))
 }
 
 fn refresh_selection_snapshot(
@@ -2397,7 +2404,8 @@ fn enable_autostart() -> Result<(), String> {
         },
     };
 
-    let current_exe = std::env::current_exe().map_err(|_| "无法定位当前程序路径".to_string())?;
+    let current_exe =
+        std::env::current_exe().map_err(|_| error_key("autostart.locateFailed"))?;
     let command = format!("\"{}\"", current_exe.to_string_lossy());
     let key_path = wide_null("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
     let value_name = wide_null("QuickPick");
@@ -2418,7 +2426,10 @@ fn enable_autostart() -> Result<(), String> {
         )
     };
     if create_status != ERROR_SUCCESS {
-        return Err(format!("打开启动项注册表失败：{create_status}"));
+        return Err(localized_error::error_key_with_detail(
+            "autostart.openFailed",
+            &create_status.to_string(),
+        ));
     }
 
     let set_status = unsafe {
@@ -2436,7 +2447,10 @@ fn enable_autostart() -> Result<(), String> {
     }
 
     if set_status != ERROR_SUCCESS {
-        return Err(format!("写入启动项注册表失败：{set_status}"));
+        return Err(localized_error::error_key_with_detail(
+            "autostart.writeFailed",
+            &set_status.to_string(),
+        ));
     }
 
     Ok(())
@@ -2475,7 +2489,10 @@ fn disable_autostart() -> Result<(), String> {
         )
     };
     if create_status != ERROR_SUCCESS {
-        return Err(format!("打开启动项注册表失败：{create_status}"));
+        return Err(localized_error::error_key_with_detail(
+            "autostart.openFailed",
+            &create_status.to_string(),
+        ));
     }
 
     let delete_status = unsafe { RegDeleteValueW(key, value_name.as_ptr()) };
@@ -2484,7 +2501,10 @@ fn disable_autostart() -> Result<(), String> {
     }
 
     if delete_status != ERROR_SUCCESS && delete_status != ERROR_FILE_NOT_FOUND {
-        return Err(format!("删除启动项注册表失败：{delete_status}"));
+        return Err(localized_error::error_key_with_detail(
+            "autostart.deleteFailed",
+            &delete_status.to_string(),
+        ));
     }
 
     Ok(())
