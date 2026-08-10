@@ -3346,9 +3346,11 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "tauri-plugin-frameless-window",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "tauri-plugin-window-controls",
  "tauri-plugin-window-state",
  "uiautomation",
  "window-vibrancy",
@@ -4483,6 +4485,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-frameless-window"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7debfa8dd0c587fdfcab5e8c66108eddbbeb079628b1f6fcb87d19e67294bfc7"
+dependencies = [
+ "block2",
+ "log",
+ "objc2",
+ "raw-window-handle",
+ "serde",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-window-controls",
+ "thiserror 2.0.19",
+ "tokio",
+ "url",
+ "uuid",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "tauri-plugin-global-shortcut"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4533,6 +4556,39 @@ dependencies = [
  "tracing",
  "windows-sys 0.60.2",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-system-symbols"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d805f5bcb435f500cb6638cde3654ac491390fa52e45c6de59847ab3afc45230"
+dependencies = [
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-core-text",
+ "serde",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.19",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
+ "windows-numerics 0.3.1",
+]
+
+[[package]]
+name = "tauri-plugin-window-controls"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45f23b337e72f6887ba128d48d94f55ed17fdef08baeab811fde592f875a9f46"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-system-symbols",
+ "thiserror 2.0.19",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

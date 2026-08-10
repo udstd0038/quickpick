@@ -20,6 +20,16 @@ function currentSystemTheme(): "light" | "dark" {
     : "light";
 }
 
+const appearanceAlphaVariables = [
+  "--qp-shell-alpha",
+  "--qp-panel-alpha",
+  "--qp-panel-strong-alpha",
+  "--qp-panel-soft-alpha",
+  "--qp-control-alpha",
+  "--qp-input-alpha",
+  "--qp-footer-alpha",
+];
+
 function applyGlobalAppearance(settings: AppSettings) {
   const root = document.documentElement;
   const resolvedThemeMode: string =
@@ -28,22 +38,21 @@ function applyGlobalAppearance(settings: AppSettings) {
     resolvedThemeMode === "dark" || resolvedThemeMode === "workbench"
       ? "workbench"
       : "light";
-  const panelOpacity =
-    Math.min(100, Math.max(30, Number(settings.panelOpacity) || 70)) / 100;
 
   root.dataset.theme = effectiveTheme;
   root.dataset.themePreference = settings.themeMode;
   root.dataset.windowEffect = settings.windowEffect;
   root.style.colorScheme = effectiveTheme === "light" ? "light" : "dark";
-  for (const name of [
-    "--qp-shell-alpha",
-    "--qp-panel-alpha",
-    "--qp-panel-strong-alpha",
-    "--qp-panel-soft-alpha",
-    "--qp-control-alpha",
-    "--qp-input-alpha",
-    "--qp-footer-alpha",
-  ]) {
+  if (settings.windowEffect === "mica") {
+    for (const name of appearanceAlphaVariables) {
+      root.style.removeProperty(name);
+    }
+    return;
+  }
+
+  const panelOpacity =
+    Math.min(100, Math.max(30, Number(settings.panelOpacity) || 70)) / 100;
+  for (const name of appearanceAlphaVariables) {
     root.style.setProperty(name, String(panelOpacity));
   }
 }

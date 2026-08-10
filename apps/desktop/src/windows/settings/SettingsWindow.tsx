@@ -335,26 +335,36 @@ function currentSystemTheme(): "light" | "dark" {
     : "light";
 }
 
+const appearanceAlphaVariables = [
+  "--qp-shell-alpha",
+  "--qp-panel-alpha",
+  "--qp-panel-strong-alpha",
+  "--qp-panel-soft-alpha",
+  "--qp-control-alpha",
+  "--qp-input-alpha",
+  "--qp-footer-alpha",
+];
+
 function applyDocumentAppearance(settings: AppSettings) {
   const root = document.documentElement;
   const themeMode =
     settings.themeMode === "system" ? currentSystemTheme() : settings.themeMode;
   const effectiveTheme = themeMode === "dark" ? "workbench" : themeMode;
-  const panelOpacity = Math.min(100, Math.max(30, Number(settings.panelOpacity) || 70)) / 100;
 
   root.dataset.theme = effectiveTheme;
   root.dataset.themePreference = settings.themeMode;
   root.style.colorScheme = effectiveTheme === "light" ? "light" : "dark";
   root.dataset.windowEffect = settings.windowEffect;
-  for (const name of [
-    "--qp-shell-alpha",
-    "--qp-panel-alpha",
-    "--qp-panel-strong-alpha",
-    "--qp-panel-soft-alpha",
-    "--qp-control-alpha",
-    "--qp-input-alpha",
-    "--qp-footer-alpha",
-  ]) {
+  if (settings.windowEffect === "mica") {
+    for (const name of appearanceAlphaVariables) {
+      root.style.removeProperty(name);
+    }
+    return;
+  }
+
+  const panelOpacity =
+    Math.min(100, Math.max(30, Number(settings.panelOpacity) || 70)) / 100;
+  for (const name of appearanceAlphaVariables) {
     root.style.setProperty(name, String(panelOpacity));
   }
 }
@@ -3054,6 +3064,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                   max={100}
                   step={5}
                   value={settings.panelOpacity}
+                  disabled={settings.windowEffect === "mica"}
                   onChange={(event) =>
                     updateSetting("panelOpacity", Number(event.currentTarget.value))
                   }

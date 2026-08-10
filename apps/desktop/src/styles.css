@@ -4520,6 +4520,11 @@ h3,
   accent-color: var(--qp-accent);
 }
 
+.opacity-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .opacity-slider-value {
   flex: 0 0 auto;
   min-width: 44px;

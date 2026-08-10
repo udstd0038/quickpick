@@ -12,7 +12,7 @@ use tauri::{
     image::Image,
     menu::{CheckMenuItem, Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    window::Color,
+    window::{Color, Effect, EffectsBuilder},
     Emitter, Manager, Theme, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -2048,6 +2048,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_window_controls::init())
+        .plugin(tauri_plugin_frameless_window::init())
         .invoke_handler(tauri::generate_handler![
             ping,
             get_main_diagnostics,
@@ -2337,12 +2339,13 @@ fn apply_window_vibrancy(
     let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
 
     if settings.window_effect.as_str() == "mica" {
-        let dark = match settings.theme_mode.as_str() {
-            "light" => Some(false),
-            "dark" | "workbench" => Some(true),
-            _ => None,
+        let effect = match settings.theme_mode.as_str() {
+            "light" => Effect::MicaLight,
+            "dark" | "workbench" => Effect::MicaDark,
+            _ => Effect::Mica,
         };
-        window_vibrancy::apply_mica(window, dark)
+        window
+            .set_effects(EffectsBuilder::new().effect(effect).build())
             .map_err(|error| format!("Mica 窗口效果应用失败：{error}"))?;
         return Ok(());
     }
