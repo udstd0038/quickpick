@@ -2313,12 +2313,7 @@ fn apply_window_appearance(
     };
     app.set_theme(theme);
 
-    for (label, effect) in [
-        ("main", mica_effect_for_theme(settings)),
-        ("selection", Effect::Acrylic),
-        ("result", Effect::Acrylic),
-        ("input", Effect::Acrylic),
-    ] {
+    for label in ["main", "selection", "result", "input"] {
         let Some(window) = app.get_webview_window(label) else {
             continue;
         };
@@ -2327,21 +2322,13 @@ fn apply_window_appearance(
             eprintln!("QuickPick {label} window theme sync skipped: {error}");
         }
         let _ = window.set_shadow(true);
-        let effects = Some(EffectsBuilder::new().effect(effect).build());
+        let effects = Some(EffectsBuilder::new().effect(Effect::Acrylic).build());
         if let Err(error) = window.set_effects(effects) {
             eprintln!("QuickPick {label} window effect sync skipped: {error}");
         }
     }
 
     Ok(())
-}
-
-fn mica_effect_for_theme(settings: &app_settings::AppSettings) -> Effect {
-    match settings.theme_mode.as_str() {
-        "light" => Effect::MicaLight,
-        "dark" | "workbench" => Effect::MicaDark,
-        _ => Effect::Mica,
-    }
 }
 
 fn shortcut_release_keys(shortcut: &Shortcut) -> Vec<i32> {
