@@ -2350,11 +2350,8 @@ fn apply_window_vibrancy(
         return Ok(());
     }
 
-    window_vibrancy::apply_acrylic(
-        window,
-        Some((18, 18, 18, settings.panel_opacity)),
-    )
-    .map_err(|error| format!("Acrylic 窗口效果应用失败：{error}"))
+    window_vibrancy::apply_blur(window, None)
+        .map_err(|error| format!("Acrylic 窗口效果应用失败：{error}"))
 }
 
 fn refresh_current_window_glass(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {

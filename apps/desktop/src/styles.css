@@ -61,7 +61,6 @@ textarea {
   border: 1px solid rgba(74, 89, 83, 0.18);
   background: rgba(255, 255, 255, 0.62);
   box-shadow: 0 18px 45px rgba(33, 45, 40, 0.08);
-  backdrop-filter: blur(22px);
 }
 
 .hero-band {
@@ -514,7 +513,6 @@ h3 {
     rgba(9, 15, 13, 0.42);
   background-size: 32px 32px;
   cursor: crosshair;
-  backdrop-filter: blur(1px);
   touch-action: none;
   user-select: none;
 }
@@ -580,7 +578,6 @@ h3 {
   color: #f4fbf8;
   background: rgba(17, 25, 22, 0.76);
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(18px);
   transform: translate(-50%, -50%);
 }
 
@@ -634,7 +631,6 @@ h3 {
   border-radius: 8px;
   background: rgba(249, 252, 250, 0.78);
   box-shadow: 0 18px 45px rgba(20, 33, 29, 0.18);
-  backdrop-filter: blur(24px);
 }
 
 .selection-status {
@@ -755,7 +751,6 @@ h3 {
   border: 1px solid rgba(74, 89, 83, 0.18);
   background: rgba(255, 255, 255, 0.62);
   box-shadow: 0 18px 45px rgba(33, 45, 40, 0.08);
-  backdrop-filter: blur(22px);
 }
 
 .settings-header h1 {
@@ -1614,8 +1609,6 @@ body,
 
 .app-shell {
   background: var(--qp-shell-gradient), var(--qp-shell-bg);
-  -webkit-backdrop-filter: var(--qp-shell-blur);
-  backdrop-filter: var(--qp-shell-blur);
 }
 
 .app-shell.settings-window {
@@ -1652,8 +1645,6 @@ body,
   background:
     linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
     rgba(var(--qp-accent-rgb), 0.04);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
   user-select: none;
 }
 
@@ -1799,8 +1790,6 @@ body,
   box-shadow:
     inset 0 1px 0 var(--qp-highlight),
     var(--qp-shadow-md);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 .settings-header,
@@ -1930,8 +1919,6 @@ h3,
   color: var(--qp-text-primary);
   background: var(--qp-control-bg);
   box-shadow: inset 0 1px 0 var(--qp-highlight);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
   transform: scale(1);
   transition:
     transform 120ms ease,
@@ -1985,8 +1972,6 @@ h3,
   color: var(--qp-text-primary);
   background: var(--qp-input-bg);
   box-shadow: inset 0 1px 0 var(--qp-highlight);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 .setting-input::placeholder {
@@ -2106,8 +2091,6 @@ h3,
   box-shadow:
     inset 0 1px 0 var(--qp-highlight),
     0 18px 52px rgba(18, 29, 48, 0.18);
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
-  backdrop-filter: blur(18px) saturate(1.12);
   transform-origin: top;
   animation: glass-select-enter 90ms ease-out;
 }
@@ -2301,8 +2284,6 @@ h3,
   box-shadow:
     inset 0 1px 0 var(--qp-highlight),
     var(--qp-shadow-md);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 .settings-savebar .settings-feedback {
@@ -4146,8 +4127,6 @@ h3,
   color: var(--qp-text-primary);
   background: var(--qp-shell-bg);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
-  -webkit-backdrop-filter: var(--qp-shell-blur);
-  backdrop-filter: var(--qp-shell-blur);
 }
 
 .selection-window {
@@ -4312,8 +4291,6 @@ h3,
   box-shadow:
     inset 0 1px 0 var(--qp-highlight),
     var(--qp-shadow-md);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 .popup-language-select .glass-select-trigger {
@@ -4337,8 +4314,6 @@ h3,
   box-shadow:
     inset 0 1px 0 var(--qp-highlight),
     var(--qp-shadow-lg);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 .screenshot-tool-button {
@@ -4459,8 +4434,6 @@ h3,
   background:
     linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
     var(--qp-panel-bg-strong);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 :root[data-theme="light"] .settings-savebar,
@@ -4470,8 +4443,6 @@ h3,
   background:
     linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
     var(--qp-footer-bg);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 :root[data-theme="light"] .app-shell.settings-window,
@@ -4481,8 +4452,6 @@ h3,
   background:
     linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
     var(--qp-shell-bg);
-  -webkit-backdrop-filter: var(--qp-shell-blur);
-  backdrop-filter: var(--qp-shell-blur);
 }
 
 :root[data-theme="light"] .settings-header,
@@ -4492,8 +4461,6 @@ h3,
   background:
     linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
     var(--qp-panel-bg-strong);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 :root[data-theme="light"] .settings-nav,
@@ -4503,8 +4470,6 @@ h3,
   background:
     linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
     var(--qp-panel-bg);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 :root[data-theme="light"] .settings-section,
@@ -4514,8 +4479,6 @@ h3,
   background:
     linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
     var(--qp-panel-bg);
-  -webkit-backdrop-filter: var(--qp-panel-blur);
-  backdrop-filter: var(--qp-panel-blur);
 }
 
 .opacity-slider-row {
