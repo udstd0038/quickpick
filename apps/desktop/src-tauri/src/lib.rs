@@ -1213,11 +1213,11 @@ fn replace_global_shortcuts(
         .hotkey_bindings
         .lock()
         .map(|bindings| bindings.clone())
-        .map_err(|_| "读取当前快捷键状态失败".to_string())?;
+        .map_err(|_| localized_error::error_key("hotkey.readStateFailed"))?;
 
     app.global_shortcut()
         .unregister_all()
-        .map_err(|_| "注销旧快捷键失败".to_string())?;
+        .map_err(|_| localized_error::error_key("hotkey.unregisterFailed"))?;
 
     let statuses = match register_hotkey_bindings(app, &next) {
         Ok(statuses) => statuses,
@@ -1244,7 +1244,7 @@ fn replace_global_shortcuts(
             *bindings = registered;
             statuses
         })
-        .map_err(|_| "更新快捷键状态失败".to_string())
+        .map_err(|_| localized_error::error_key("hotkey.updateStateFailed"))
 }
 
 fn register_hotkey_bindings(
@@ -1271,8 +1271,9 @@ fn register_hotkey_bindings(
                 });
             }
             Err(error) => {
-                return Err(format!(
-                    "{name} 快捷键注册失败，可能已被其他软件占用：{error}"
+                return Err(localized_error::error_key_with_detail(
+                    "hotkey.registerFailed",
+                    &format!("{name}:{error}"),
                 ));
             }
         }
