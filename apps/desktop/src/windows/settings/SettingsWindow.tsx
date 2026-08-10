@@ -2422,6 +2422,29 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
       });
   };
 
+  const resetDefaultSettings = () => {
+    if (settingsStatus.kind === "saving") {
+      return;
+    }
+
+    setSettingsStatus({ kind: "saving", message: "正在重置默认设置" });
+    const nextSettings = normalizeAppSettings(defaultAppSettings);
+    invoke<SelectionActionResult>("save_app_settings", {
+      settings: nextSettings,
+    })
+      .then((result) => {
+        setSettings(nextSettings);
+        setSettingsStatus({ kind: "success", message: result.message });
+      })
+      .catch((error) => {
+        setSettingsStatus({
+          kind: "error",
+          message:
+            typeof error === "string" ? error : "重置默认设置失败",
+        });
+      });
+  };
+
   const selectTextProvider = (providerId: string) => {
     setSettings((current) => applyTextAiProviderDefaults(current, providerId));
     markSettingsDirty("文本模型供应商默认值已填入，请保存设置");
@@ -2730,6 +2753,16 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
             onScroll={updateActiveSettingsSection}
           >
           <SettingsSection id="general" title="通用">
+            <SettingField label="重置默认设置">
+              <button
+                className="ghost-control"
+                type="button"
+                onClick={resetDefaultSettings}
+                disabled={settingsStatus.kind === "saving"}
+              >
+                重置默认设置
+              </button>
+            </SettingField>
             <SettingField label="开机自启">
               <label className="toggle-control">
                 <input
@@ -2742,7 +2775,6 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 <span>{settings.autostartEnabled ? "已启用" : "已关闭"}</span>
               </label>
             </SettingField>
-            <TextRow label="托盘常驻" value="已启用" />
             <SettingField label="语言">
               <GlassSelect
                 ariaLabel="语言"

@@ -232,6 +232,9 @@ const translations: Record<string, LocaleStrings> = {
   划词和截图: entry("劃詞和截圖", "Selection and screenshot", "선택 및 스크린샷", "選択とスクリーンショット", "Sélection et capture", "Auswahl und Screenshot", "Selección y captura"),
   截图和输入翻译: entry("截圖和輸入翻譯", "Screenshot and input translation", "스크린샷 및 입력 번역", "スクリーンショットと入力翻訳", "Capture et traduction de saisie", "Screenshot und Eingabeübersetzung", "Captura y traducción de entrada"),
   输入翻译和划词: entry("輸入翻譯和劃詞", "Input translation and selection", "입력 번역 및 선택", "入力翻訳と選択", "Traduction de saisie et sélection", "Eingabeübersetzung und Auswahl", "Traducción de entrada y selección"),
+  重置默认设置: entry("重設預設設定", "Reset Default Settings", "기본 설정 초기화", "既定設定にリセット", "Réinitialiser les paramètres", "Standardwerte zurücksetzen", "Restablecer configuración"),
+  正在重置默认设置: entry("正在重設預設設定", "Resetting Default Settings", "기본 설정을 초기화하는 중", "既定設定をリセット中", "Réinitialisation des paramètres", "Setze Standardwerte zurück", "Restableciendo configuración"),
+  重置默认设置失败: entry("重設預設設定失敗", "Failed to Reset Default Settings", "기본 설정 초기화 실패", "既定設定のリセットに失敗", "Échec de la réinitialisation", "Zurücksetzen fehlgeschlagen", "No se pudo restablecer"),
 };
 
 function languageLabelTranslation(value: string, locale: TranslationLanguage): string {
