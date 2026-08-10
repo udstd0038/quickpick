@@ -521,3 +521,22 @@ fn translation_source_instruction(code: &str) -> String {
         format!("将原文按{}理解", translation_language_label(code))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn image_translate_prompt_forbids_description_and_requests_direct_translation() {
+        let (system, user) = image_prompts("translate", "auto", "en").expect("prompts");
+
+        assert!(system.contains("禁止描述图片内容"));
+        assert!(user.contains("直接翻译这张截图中的文字"));
+        assert!(!user.contains("先提取这张截图中的文字"));
+    }
+
+    #[test]
+    fn traditional_chinese_label_is_supported() {
+        assert_eq!(translation_language_label("zh-Hant"), "繁体中文");
+    }
+}

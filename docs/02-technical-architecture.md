@@ -1,5 +1,16 @@
 # QuickPick 技术架构规范
 
+## 0. 当前架构快照（2026-08）
+
+- 设置页、划词、结果、输入、截图遮罩全部使用 Tauri/WebView 预创建窗口，`App.tsx` 根据窗口 label 渲染对应前端组件。
+- 截图链路只有一条：WebView 截图遮罩显示 xcap 捕获画面，前端用 `react-image-crop` 框选，Rust 通过 `capture_region_rect` 裁剪并写剪贴板或调用 AI。
+- `screenshot/mod.rs` 已移除旧原生 Win32 框选代码，只保留捕获、坐标换算、裁剪、剪贴板和 PNG/BMP 编码。
+- 前端设置模型唯一入口为 `lib/settingsTypes.ts`；`SettingsWindow.tsx` 不再保存重复的 `AppSettings`、默认值和归一化逻辑。
+- 界面语言使用 key-based `t()`，不扫描 DOM，不依赖 MutationObserver。
+- 快捷键保存会返回“已注册/已被占用”状态；未注册成功的设置热键不会进入运行状态。
+- `get_main_diagnostics` 和旧诊断面板代码已移除，不再作为开发入口。
+- `screenshot_preview` 窗口已冻结，不再进入窗口配置、capability 或前端路由；源文件待确认后删除。
+
 ## 1. 技术栈
 
 首版采用：

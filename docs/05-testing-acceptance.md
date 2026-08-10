@@ -1,5 +1,16 @@
 # QuickPick 测试与验收清单
 
+## 0. 当前架构验收基线（2026-08）
+
+- 所有用户窗口均为 Tauri/WebView 预创建窗口：`main`、`selection`、`result`、`input`、`screenshot_overlay`。
+- 设置页快捷键保存后必须展示每个快捷键的实际注册状态，包括“已注册”和“已被占用”。
+- 截图复制必须隐藏遮罩后再裁剪，裁剪结果不得包含预览框或功能条。
+- 再次呼出截图必须清空上一次框选，从新选区开始。
+- 截图功能条只在松开鼠标后显示，并定位到选框右下角。
+- 前端文案必须通过 key-based `t()` 渲染，不能依赖 DOM 自动翻译。
+- 设置模型默认值、归一化、供应商默认填充必须由 `lib/settingsTypes.ts` 提供。
+- 每个功能合入前至少跑：`pnpm build`、`pnpm test`、`cargo check`、`cargo test`、release 构建、`scripts/verify-hotkeys.ps1`。
+
 ## 1. 通用验收
 
 - 应用能在 Windows 11 x64 启动。

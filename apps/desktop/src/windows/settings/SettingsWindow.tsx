@@ -34,6 +34,10 @@ import {
   type AppSettings,
   type SettingsStatus,
 } from "../../lib/settingsTypes";
+import {
+  findHotkeyConflict,
+  type HotkeySettingKey,
+} from "../../lib/hotkeys";
 import { useSettingsStore } from "../../stores/settingsStore";
 
 type SelectionActionResult = {
@@ -43,12 +47,6 @@ type SelectionActionResult = {
     status: "registered" | "occupied" | "failed";
   }>;
 };
-
-type HotkeySettingKey =
-  | "settingsHotkey"
-  | "selectionHotkey"
-  | "screenshotHotkey"
-  | "inputTranslateHotkey";
 
 const modifierKeyNames = new Set([
   "Alt",
@@ -116,11 +114,6 @@ function shortcutFromKeyboardEvent(
   parts.push(keyName);
 
   return parts.join("+");
-}
-
-function sameShortcut(left: string, right: string): boolean {
-  return left.replace(/\s+/g, "").toLowerCase() ===
-    right.replace(/\s+/g, "").toLowerCase();
 }
 
 type GlassSelectOption<T extends string = string> = {
@@ -629,28 +622,20 @@ function SettingsWindow() {
       return;
     }
 
-    const conflictWith =
-      key === "settingsHotkey"
-        ? "settings.hotkeySettings"
-        : key === "selectionHotkey"
-        ? "settings.conflictSelectionScreenshot"
-        : key === "screenshotHotkey"
-          ? "settings.conflictScreenshotInput"
-          : "settings.conflictInputSelection";
-    if (
-      (key !== "settingsHotkey" &&
-        sameShortcut(shortcut, settings.settingsHotkey)) ||
-      (key !== "selectionHotkey" &&
-        sameShortcut(shortcut, settings.selectionHotkey)) ||
-      (key !== "screenshotHotkey" &&
-        sameShortcut(shortcut, settings.screenshotHotkey)) ||
-      (key !== "inputTranslateHotkey" &&
-        sameShortcut(shortcut, settings.inputTranslateHotkey))
-    ) {
+    const conflictKey = findHotkeyConflict(shortcut, settings, key);
+    if (conflictKey) {
+      const conflictLabelKey =
+        conflictKey === "settingsHotkey"
+          ? "settings.hotkeySettings"
+          : conflictKey === "selectionHotkey"
+            ? "settings.hotkeySelection"
+            : conflictKey === "screenshotHotkey"
+              ? "settings.hotkeyScreenshot"
+              : "settings.hotkeyInput";
       setSettingsStatus({
         kind: "error",
         message: t("settings.hotkeyConflict", {
-          conflict: t(conflictWith),
+          conflict: t(conflictLabelKey),
         }),
       });
       return;

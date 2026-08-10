@@ -204,7 +204,7 @@ export function normalizeAppSettings(current: Partial<AppSettings>): AppSettings
   const textProvider =
     textAiProviderOptions.find(
       (option) => option.id === current.textAiProvider,
-    ) || textAiProviderOptions[0];
+    ) || textAiProviderOptions[1];
   const visionProvider =
     visionAiProviderOptions.find(
       (option) => option.id === current.visionAiProvider,
@@ -212,7 +212,7 @@ export function normalizeAppSettings(current: Partial<AppSettings>): AppSettings
   const inputProvider =
     inputAiProviderOptions.find(
       (option) => option.id === current.inputAiProvider,
-    ) || inputAiProviderOptions[0];
+    ) || inputAiProviderOptions[1];
   const uiLanguage: UiLanguage = uiLanguageOptions.some(
     (option) => option.id === current.uiLanguage,
   )

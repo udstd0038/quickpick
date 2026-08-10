@@ -163,19 +163,13 @@ pub fn capture_selected_region(
         .or_else(|_| monitor.name())
         .unwrap_or_else(|_| "当前显示器".to_string());
 
-    let relative_x = u32::try_from(selection.screen_x - monitor_x)
-        .map_err(|_| "截图区域超出显示器范围".to_string())?;
-    let relative_y = u32::try_from(selection.screen_y - monitor_y)
-        .map_err(|_| "截图区域超出显示器范围".to_string())?;
-    let capture_width = selection
-        .width
-        .min(monitor_width.saturating_sub(relative_x));
-    let capture_height = selection
-        .height
-        .min(monitor_height.saturating_sub(relative_y));
-    if capture_width < MIN_REGION_SIZE as u32 || capture_height < MIN_REGION_SIZE as u32 {
-        return Err("截图区域过小，请重新框选".to_string());
-    }
+    let (relative_x, relative_y, capture_width, capture_height) = region_to_monitor_relative(
+        selection,
+        monitor_x,
+        monitor_y,
+        monitor_width,
+        monitor_height,
+    )?;
 
     let image = monitor
         .capture_region(relative_x, relative_y, capture_width, capture_height)
@@ -190,6 +184,30 @@ pub fn capture_selected_region(
         png_bytes,
         bmp_bytes,
     })
+}
+
+fn region_to_monitor_relative(
+    selection: RegionMenuSelection,
+    monitor_x: i32,
+    monitor_y: i32,
+    monitor_width: u32,
+    monitor_height: u32,
+) -> Result<(u32, u32, u32, u32), String> {
+    let relative_x = u32::try_from(selection.screen_x - monitor_x)
+        .map_err(|_| "截图区域超出显示器范围".to_string())?;
+    let relative_y = u32::try_from(selection.screen_y - monitor_y)
+        .map_err(|_| "截图区域超出显示器范围".to_string())?;
+    let capture_width = selection
+        .width
+        .min(monitor_width.saturating_sub(relative_x));
+    let capture_height = selection
+        .height
+        .min(monitor_height.saturating_sub(relative_y));
+    if capture_width < MIN_REGION_SIZE as u32 || capture_height < MIN_REGION_SIZE as u32 {
+        return Err("截图区域过小，请重新框选".to_string());
+    }
+
+    Ok((relative_x, relative_y, capture_width, capture_height))
 }
 
 pub fn copy_captured_region_to_clipboard(
@@ -307,6 +325,27 @@ fn rgba_image_to_png_bytes(image: &image::RgbaImage) -> Result<Vec<u8>, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn region_coordinates_are_converted_to_monitor_relative() {
+        let selection = RegionMenuSelection {
+            action: RegionMenuAction::Copy,
+            screen_x: 1920,
+            screen_y: 200,
+            width: 400,
+            height: 100,
+        };
+
+        let converted =
+            region_to_monitor_relative(selection, 1920, 0, 1920, 1080).expect("valid region");
+
+        assert_eq!(converted, (0, 200, 400, 100));
+
+        let clamped =
+            region_to_monitor_relative(selection, 1920, 0, 1920, 260).expect("valid region");
+
+        assert_eq!(clamped, (0, 200, 400, 60));
+    }
 
     #[test]
     fn rgba_image_is_encoded_as_bottom_up_bmp() {

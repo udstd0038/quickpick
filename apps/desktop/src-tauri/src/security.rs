@@ -96,16 +96,20 @@ pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<String>, Stri
 }
 
 fn api_key_path(app: &AppHandle, scope: &str) -> Result<PathBuf, String> {
-    let file_name = match normalize_scope(scope).as_str() {
-        "vision" => VISION_API_KEY_FILE_NAME,
-        "input" => INPUT_API_KEY_FILE_NAME,
-        _ => TEXT_API_KEY_FILE_NAME,
-    };
+    let file_name = api_key_file_name(scope);
     let dir = app
         .path()
         .app_config_dir()
         .map_err(|_| "定位应用密钥目录失败".to_string())?;
     Ok(dir.join(file_name))
+}
+
+fn api_key_file_name(scope: &str) -> &'static str {
+    match normalize_scope(scope).as_str() {
+        "vision" => VISION_API_KEY_FILE_NAME,
+        "input" => INPUT_API_KEY_FILE_NAME,
+        _ => TEXT_API_KEY_FILE_NAME,
+    }
 }
 
 fn legacy_api_key_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -126,6 +130,19 @@ fn normalize_scope(scope: &str) -> String {
 
 fn key_file_configured(path: &PathBuf) -> bool {
     path.exists() && path.metadata().map(|meta| meta.len()).unwrap_or(0) > 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_key_scope_maps_to_isolated_dpapi_files() {
+        assert_eq!(api_key_file_name("text"), "text_api_key.dpapi");
+        assert_eq!(api_key_file_name("vision"), "vision_api_key.dpapi");
+        assert_eq!(api_key_file_name("input"), "input_api_key.dpapi");
+        assert_eq!(api_key_file_name("unknown"), "text_api_key.dpapi");
+    }
 }
 
 #[cfg(windows)]
