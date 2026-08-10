@@ -2,6 +2,8 @@ use serde::Serialize;
 use std::{fs, path::PathBuf};
 use tauri::{AppHandle, Manager};
 
+use crate::localized_error::error_key;
+
 #[cfg(windows)]
 use windows::{
     core::w,
@@ -37,11 +39,11 @@ pub fn api_key_status(app: &AppHandle, scope: &str) -> Result<ApiKeyStatus, Stri
 pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), String> {
     let trimmed = api_key.trim();
     if trimmed.is_empty() {
-        return Err("API Key 不能为空".to_string());
+        return Err(error_key("security.apiKeyEmpty"));
     }
 
     if trimmed.len() > MAX_API_KEY_BYTES {
-        return Err("API Key 过长，请检查后重新输入".to_string());
+        return Err(error_key("security.apiKeyTooLong"));
     }
 
     let mut plaintext = trimmed.as_bytes().to_vec();
@@ -50,21 +52,21 @@ pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), S
 
     let path = api_key_path(app, scope)?;
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|_| "创建密钥目录失败".to_string())?;
+        fs::create_dir_all(parent).map_err(|_| error_key("security.createDirFailed"))?;
     }
 
-    fs::write(path, encrypted).map_err(|_| "保存 API Key 失败".to_string())
+    fs::write(path, encrypted).map_err(|_| error_key("security.saveFailed"))
 }
 
 pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
     let path = api_key_path(app, scope)?;
     if path.exists() {
-        fs::remove_file(path).map_err(|_| "清除 API Key 失败".to_string())?;
+        fs::remove_file(path).map_err(|_| error_key("security.clearFailed"))?;
     }
     if normalize_scope(scope) == "text" {
         let legacy_path = legacy_api_key_path(app)?;
         if legacy_path.exists() {
-            fs::remove_file(legacy_path).map_err(|_| "清除旧 API Key 失败".to_string())?;
+            fs::remove_file(legacy_path).map_err(|_| error_key("security.clearLegacyFailed"))?;
         }
     }
 
@@ -86,10 +88,10 @@ pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<String>, Stri
         return Ok(None);
     }
 
-    let encrypted = fs::read(path).map_err(|_| "读取 API Key 失败".to_string())?;
+    let encrypted = fs::read(path).map_err(|_| error_key("security.readFailed"))?;
     let mut plaintext = unprotect_data(&encrypted)?;
     let value =
-        String::from_utf8(plaintext.clone()).map_err(|_| "API Key 解密结果无效".to_string())?;
+        String::from_utf8(plaintext.clone()).map_err(|_| error_key("security.decryptInvalid"))?;
     plaintext.fill(0);
 
     Ok(Some(value))
@@ -100,7 +102,7 @@ fn api_key_path(app: &AppHandle, scope: &str) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_config_dir()
-        .map_err(|_| "定位应用密钥目录失败".to_string())?;
+        .map_err(|_| error_key("security.locateFailed"))?;
     Ok(dir.join(file_name))
 }
 
@@ -116,7 +118,7 @@ fn legacy_api_key_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_config_dir()
-        .map_err(|_| "定位应用密钥目录失败".to_string())?;
+        .map_err(|_| error_key("security.locateFailed"))?;
     Ok(dir.join(API_KEY_FILE_NAME))
 }
 
@@ -151,7 +153,7 @@ fn protect_data(data: &[u8]) -> Result<Vec<u8>, String> {
         cbData: data
             .len()
             .try_into()
-            .map_err(|_| "API Key 数据过长".to_string())?,
+            .map_err(|_| error_key("security.apiKeyDataTooLong"))?,
         pbData: data.as_ptr() as *mut u8,
     };
     let mut output = CRYPT_INTEGER_BLOB::default();
@@ -167,7 +169,7 @@ fn protect_data(data: &[u8]) -> Result<Vec<u8>, String> {
             CRYPTPROTECT_UI_FORBIDDEN,
             &mut output,
         )
-        .map_err(|_| "加密 API Key 失败".to_string())?;
+        .map_err(|_| error_key("security.encryptFailed"))?;
 
         copy_blob_and_free(output)
     }
@@ -179,7 +181,7 @@ fn unprotect_data(data: &[u8]) -> Result<Vec<u8>, String> {
         cbData: data
             .len()
             .try_into()
-            .map_err(|_| "API Key 数据过长".to_string())?,
+            .map_err(|_| error_key("security.apiKeyDataTooLong"))?,
         pbData: data.as_ptr() as *mut u8,
     };
     let mut output = CRYPT_INTEGER_BLOB::default();
@@ -195,7 +197,7 @@ fn unprotect_data(data: &[u8]) -> Result<Vec<u8>, String> {
             CRYPTPROTECT_UI_FORBIDDEN,
             &mut output,
         )
-        .map_err(|_| "解密 API Key 失败".to_string())?;
+        .map_err(|_| error_key("security.decryptFailed"))?;
 
         copy_blob_and_free(output)
     }
@@ -204,7 +206,7 @@ fn unprotect_data(data: &[u8]) -> Result<Vec<u8>, String> {
 #[cfg(windows)]
 unsafe fn copy_blob_and_free(blob: CRYPT_INTEGER_BLOB) -> Result<Vec<u8>, String> {
     if blob.pbData.is_null() || blob.cbData == 0 {
-        return Err("DPAPI 返回空数据".to_string());
+        return Err(error_key("security.dpapiEmpty"));
     }
 
     let bytes = unsafe { std::slice::from_raw_parts(blob.pbData, blob.cbData as usize) }.to_vec();
@@ -214,10 +216,10 @@ unsafe fn copy_blob_and_free(blob: CRYPT_INTEGER_BLOB) -> Result<Vec<u8>, String
 
 #[cfg(not(windows))]
 fn protect_data(_data: &[u8]) -> Result<Vec<u8>, String> {
-    Err("API Key 加密保存仅支持 Windows".to_string())
+    Err(error_key("security.unsupportedPlatform"))
 }
 
 #[cfg(not(windows))]
 fn unprotect_data(_data: &[u8]) -> Result<Vec<u8>, String> {
-    Err("API Key 解密仅支持 Windows".to_string())
+    Err(error_key("security.unsupportedPlatform"))
 }
