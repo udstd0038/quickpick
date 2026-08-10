@@ -4,7 +4,8 @@ export type AppSettings = {
   screenshotHotkey: string;
   inputTranslateHotkey: string;
   themeMode: "system" | "light" | "dark";
-  windowEffect: "acrylic";
+  windowEffect: "acrylic" | "mica";
+  panelOpacity: number;
   textAiProvider: string;
   textAiBaseUrl: string;
   textAiModel: string;
@@ -40,6 +41,7 @@ export const defaultAppSettings: AppSettings = {
   inputTranslateHotkey: "Alt+4",
   themeMode: "system",
   windowEffect: "acrylic",
+  panelOpacity: 70,
   textAiProvider: "deepseek",
   textAiBaseUrl: "",
   textAiModel: "",
@@ -67,6 +69,13 @@ export function normalizeAppSettings(current: Partial<AppSettings>): AppSettings
     screenshotHotkey: current.screenshotHotkey?.trim() || defaultAppSettings.screenshotHotkey,
     inputTranslateHotkey:
       current.inputTranslateHotkey?.trim() || defaultAppSettings.inputTranslateHotkey,
+    windowEffect: current.windowEffect === "mica" ? "mica" : "acrylic",
+    panelOpacity:
+      Number.isFinite(current.panelOpacity) &&
+      Number(current.panelOpacity) >= 30 &&
+      Number(current.panelOpacity) <= 100
+        ? Math.round(Number(current.panelOpacity))
+        : defaultAppSettings.panelOpacity,
     aiTimeoutSeconds:
       Number.isFinite(current.aiTimeoutSeconds) &&
       Number(current.aiTimeoutSeconds) >= 5 &&

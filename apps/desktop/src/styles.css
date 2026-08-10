@@ -4504,3 +4504,26 @@ h3,
   -webkit-backdrop-filter: var(--qp-panel-blur);
   backdrop-filter: var(--qp-panel-blur);
 }
+
+.opacity-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.opacity-slider {
+  flex: 1;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0;
+  accent-color: var(--qp-accent);
+}
+
+.opacity-slider-value {
+  flex: 0 0 auto;
+  min-width: 44px;
+  color: var(--qp-text-primary);
+  font-size: 13px;
+  text-align: right;
+}

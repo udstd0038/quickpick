@@ -28,11 +28,24 @@ function applyGlobalAppearance(settings: AppSettings) {
     resolvedThemeMode === "dark" || resolvedThemeMode === "workbench"
       ? "workbench"
       : "light";
+  const panelOpacity =
+    Math.min(100, Math.max(30, Number(settings.panelOpacity) || 70)) / 100;
 
   root.dataset.theme = effectiveTheme;
   root.dataset.themePreference = settings.themeMode;
   root.dataset.windowEffect = settings.windowEffect;
   root.style.colorScheme = effectiveTheme === "light" ? "light" : "dark";
+  for (const name of [
+    "--qp-shell-alpha",
+    "--qp-panel-alpha",
+    "--qp-panel-strong-alpha",
+    "--qp-panel-soft-alpha",
+    "--qp-control-alpha",
+    "--qp-input-alpha",
+    "--qp-footer-alpha",
+  ]) {
+    root.style.setProperty(name, String(panelOpacity));
+  }
 }
 
 export default function App() {

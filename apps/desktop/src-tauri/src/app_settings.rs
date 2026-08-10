@@ -20,6 +20,8 @@ pub struct AppSettings {
     pub theme_mode: String,
     #[serde(default = "default_window_effect")]
     pub window_effect: String,
+    #[serde(default = "default_panel_opacity")]
+    pub panel_opacity: u8,
     #[serde(default = "default_text_ai_provider")]
     pub text_ai_provider: String,
     #[serde(default)]
@@ -104,6 +106,10 @@ fn default_window_effect() -> String {
     "acrylic".to_string()
 }
 
+fn default_panel_opacity() -> u8 {
+    70
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -113,6 +119,7 @@ impl Default for AppSettings {
             input_translate_hotkey: default_input_translate_hotkey(),
             theme_mode: default_theme_mode(),
             window_effect: default_window_effect(),
+            panel_opacity: default_panel_opacity(),
             text_ai_provider: default_text_ai_provider(),
             text_ai_base_url: String::new(),
             text_ai_model: String::new(),
@@ -265,7 +272,11 @@ fn normalize_common_fields(settings: &mut AppSettings) {
         "workbench" => "dark".to_string(),
         _ => "system".to_string(),
     };
-    settings.window_effect = "acrylic".to_string();
+    settings.window_effect = match settings.window_effect.trim() {
+        "mica" => "mica".to_string(),
+        _ => "acrylic".to_string(),
+    };
+    settings.panel_opacity = settings.panel_opacity.clamp(30, 100);
 
     if settings.ai_timeout_seconds < 5 || settings.ai_timeout_seconds > 120 {
         settings.ai_timeout_seconds = AppSettings::default().ai_timeout_seconds;
@@ -359,8 +370,12 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
         return Err("主题模式无效".to_string());
     }
 
-    if settings.window_effect.as_str() != "acrylic" {
+    if !matches!(settings.window_effect.as_str(), "acrylic" | "mica") {
         return Err("窗口效果无效".to_string());
+    }
+
+    if !(30..=100).contains(&settings.panel_opacity) {
+        return Err("不透明度需在 30% 到 100% 之间".to_string());
     }
 
     validate_base_url(&settings.text_ai_base_url, "文本模型 Base URL")?;
@@ -530,14 +545,17 @@ mod tests {
 
         assert_eq!(settings.theme_mode, "system");
         assert_eq!(settings.window_effect, "acrylic");
+        assert_eq!(settings.panel_opacity, 70);
 
         let settings = AppSettings {
             theme_mode: "workbench".to_string(),
+            window_effect: "mica".to_string(),
             ..AppSettings::default()
         };
         let settings = normalize_settings_for_save(settings).unwrap();
 
         assert_eq!(settings.theme_mode, "dark");
+        assert_eq!(settings.window_effect, "mica");
     }
 
     #[test]

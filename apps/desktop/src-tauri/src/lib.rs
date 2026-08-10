@@ -2322,18 +2322,37 @@ fn apply_window_appearance(
             eprintln!("QuickPick {label} window theme sync skipped: {error}");
         }
         let _ = window.set_shadow(true);
-        refresh_acrylic_glass(&window);
+        refresh_window_glass(&window, selected_window_effect(settings));
     }
 
     Ok(())
 }
 
-fn refresh_acrylic_glass(window: &tauri::WebviewWindow) {
+fn selected_window_effect(settings: &app_settings::AppSettings) -> Effect {
+    if settings.window_effect.as_str() != "mica" {
+        return Effect::Acrylic;
+    }
+
+    match settings.theme_mode.as_str() {
+        "light" => Effect::MicaLight,
+        "dark" | "workbench" => Effect::MicaDark,
+        _ => Effect::Mica,
+    }
+}
+
+fn refresh_window_glass(window: &tauri::WebviewWindow, effect: Effect) {
     let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
-    let effects = Some(EffectsBuilder::new().effect(Effect::Acrylic).build());
+    let effects = Some(EffectsBuilder::new().effect(effect).build());
     if let Err(error) = window.set_effects(effects) {
         eprintln!("QuickPick window effect refresh skipped: {error}");
     }
+}
+
+fn refresh_current_window_glass(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+    let effect = app_settings::load_app_settings(app)
+        .map(|settings| selected_window_effect(&settings))
+        .unwrap_or(Effect::Acrylic);
+    refresh_window_glass(window, effect);
 }
 
 fn shortcut_release_keys(shortcut: &Shortcut) -> Vec<i32> {
@@ -2820,7 +2839,7 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
     }
     let _ = window.set_always_on_top(true);
     let _ = window.show();
-    refresh_acrylic_glass(&window);
+    refresh_current_window_glass(app, &window);
     #[cfg(windows)]
     {
         use windows_sys::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
@@ -2853,7 +2872,7 @@ fn show_input_webview(
 
     let _ = window.set_always_on_top(true);
     let _ = window.show();
-    refresh_acrylic_glass(&window);
+    refresh_current_window_glass(app, &window);
     let _ = window.set_focus();
     let _ = app.emit_to(
         "input",
@@ -3174,7 +3193,7 @@ fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapsho
     let _ = window.set_title(&snapshot.title);
     let _ = window.set_always_on_top(true);
     let _ = window.show();
-    refresh_acrylic_glass(&window);
+    refresh_current_window_glass(app, &window);
     let _ = window.set_focus();
     let _ = app.emit_to("result", "result-ready", snapshot.clone());
 }
@@ -3309,7 +3328,7 @@ fn show_settings_window(app: &tauri::AppHandle) {
         let _ = window.set_decorations(false);
         let _ = window.unminimize();
         let _ = window.show();
-        refresh_acrylic_glass(&window);
+        refresh_current_window_glass(app, &window);
         let _ = window.set_focus();
     }
 }

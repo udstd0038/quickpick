@@ -84,7 +84,8 @@ type AppSettings = {
   screenshotHotkey: string;
   inputTranslateHotkey: string;
   themeMode: "system" | "light" | "dark";
-  windowEffect: "acrylic";
+  windowEffect: "acrylic" | "mica";
+  panelOpacity: number;
   textAiProvider: string;
   textAiBaseUrl: string;
   textAiModel: string;
@@ -212,6 +213,7 @@ const defaultAppSettings: AppSettings = {
   inputTranslateHotkey: "Alt+4",
   themeMode: "system",
   windowEffect: "acrylic",
+  panelOpacity: 70,
   textAiProvider: "deepseek",
   textAiBaseUrl: "",
   textAiModel: "",
@@ -295,6 +297,11 @@ const themeModeOptions = [
   { id: "dark", label: "深色" },
 ] as const;
 
+const windowEffectOptions = [
+  { id: "acrylic", label: "Acrylic" },
+  { id: "mica", label: "Mica" },
+] as const;
+
 const translationLanguageOptions = [
   { id: "zh-Hans", label: "简体中文" },
   { id: "en", label: "英文" },
@@ -333,11 +340,23 @@ function applyDocumentAppearance(settings: AppSettings) {
   const themeMode =
     settings.themeMode === "system" ? currentSystemTheme() : settings.themeMode;
   const effectiveTheme = themeMode === "dark" ? "workbench" : themeMode;
+  const panelOpacity = Math.min(100, Math.max(30, Number(settings.panelOpacity) || 70)) / 100;
 
   root.dataset.theme = effectiveTheme;
   root.dataset.themePreference = settings.themeMode;
   root.style.colorScheme = effectiveTheme === "light" ? "light" : "dark";
   root.dataset.windowEffect = settings.windowEffect;
+  for (const name of [
+    "--qp-shell-alpha",
+    "--qp-panel-alpha",
+    "--qp-panel-strong-alpha",
+    "--qp-panel-soft-alpha",
+    "--qp-control-alpha",
+    "--qp-input-alpha",
+    "--qp-footer-alpha",
+  ]) {
+    root.style.setProperty(name, String(panelOpacity));
+  }
 }
 
 function applyTextAiProviderDefaults(
@@ -443,7 +462,13 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
       current.inputTranslateHotkey.trim() ||
       defaultAppSettings.inputTranslateHotkey,
     themeMode,
-    windowEffect: "acrylic",
+    windowEffect: current.windowEffect === "mica" ? "mica" : "acrylic",
+    panelOpacity:
+      Number.isFinite(Number(current.panelOpacity)) &&
+      Number(current.panelOpacity) >= 30 &&
+      Number(current.panelOpacity) <= 100
+        ? Math.round(Number(current.panelOpacity))
+        : defaultAppSettings.panelOpacity,
     textAiProvider: textProvider.id,
     textAiBaseUrl: current.textAiBaseUrl.trim() || textProvider.baseUrl,
     textAiModel: current.textAiModel.trim() || textProvider.textModel,
@@ -1593,7 +1618,7 @@ function MainAiConfigPanel() {
 
   useEffect(() => {
     applyDocumentAppearance(settings);
-  }, [settings.themeMode, settings.windowEffect]);
+  }, [settings.themeMode, settings.windowEffect, settings.panelOpacity]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2158,7 +2183,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     return () => {
       media.removeEventListener("change", updateAppearance);
     };
-  }, [settings.themeMode, settings.windowEffect]);
+  }, [settings.themeMode, settings.windowEffect, settings.panelOpacity]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2607,7 +2632,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
 
   useEffect(() => {
     moveSettingsNavIndicator(activeSettingsSection);
-  }, [activeSettingsSection, settings.themeMode, settings.windowEffect]);
+  }, [activeSettingsSection, settings.themeMode, settings.windowEffect, settings.panelOpacity]);
 
   useEffect(() => {
     const onResize = () => moveSettingsNavIndicator(activeSettingsSection);
@@ -3012,7 +3037,32 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
                 onChange={(value) => updateSetting("themeMode", value)}
               />
             </SettingField>
-            <TextRow label="窗口效果" value="Acrylic" />
+            <SettingField label="窗口效果">
+              <GlassSelect
+                ariaLabel="选择窗口效果"
+                value={settings.windowEffect}
+                options={windowEffectOptions}
+                onChange={(value) => updateSetting("windowEffect", value)}
+              />
+            </SettingField>
+            <SettingField label="不透明度">
+              <div className="opacity-slider-row">
+                <input
+                  className="setting-input opacity-slider"
+                  type="range"
+                  min={30}
+                  max={100}
+                  step={5}
+                  value={settings.panelOpacity}
+                  onChange={(event) =>
+                    updateSetting("panelOpacity", Number(event.currentTarget.value))
+                  }
+                />
+                <strong className="opacity-slider-value">
+                  {settings.panelOpacity}%
+                </strong>
+              </div>
+            </SettingField>
           </SettingsSection>
           <SettingsSection id="privacy" title="隐私">
             <TextRow label="内容历史" value="默认不保存文本、截图和 AI 结果" />
