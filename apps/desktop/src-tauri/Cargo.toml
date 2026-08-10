@@ -21,7 +21,7 @@ tauri-build = { version = "2", features = [] }
 base64 = "0.22"
 clipboard-win = "5.4"
 image = { version = "0.25", default-features = false, features = ["png"] }
-reqwest = { version = "0.13", features = ["json"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "system-proxy"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sys-locale = "0.3"
@@ -37,3 +37,8 @@ window-vibrancy = "0.7.1"
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_System_Registry", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
 xcap = { version = "0.9.7", default-features = false }
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1
