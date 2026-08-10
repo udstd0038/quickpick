@@ -4454,16 +4454,16 @@ h3,
   --qp-glass-saturation: 1.4;
   --qp-panel-blur-size: 26px;
   --qp-panel-saturation: 1.36;
-  --qp-shell-alpha: 0.5;
-  --qp-panel-alpha: 0.6;
-  --qp-panel-strong-alpha: 0.72;
-  --qp-panel-soft-alpha: 0.42;
-  --qp-control-alpha: 0.62;
-  --qp-input-alpha: 0.72;
+  --qp-shell-alpha: 0.3;
+  --qp-panel-alpha: 0.3;
+  --qp-panel-strong-alpha: 0.3;
+  --qp-panel-soft-alpha: 0.3;
+  --qp-control-alpha: 0.55;
+  --qp-input-alpha: 0.65;
   --qp-highlight-alpha: 0.92;
   --qp-border-alpha: 0.2;
   --qp-border-strong-alpha: 0.32;
-  --qp-footer-alpha: 0.42;
+  --qp-footer-alpha: 0.3;
   --qp-shell-blur: blur(var(--qp-glass-blur-size)) saturate(var(--qp-glass-saturation));
   --qp-panel-blur: blur(var(--qp-panel-blur-size)) saturate(var(--qp-panel-saturation));
   --qp-shell-bg: rgba(var(--qp-shell-rgb), var(--qp-shell-alpha));
@@ -4482,4 +4482,15 @@ h3,
   --qp-shadow-lg:
     0 28px 90px rgba(var(--qp-accent-rgb), 0.16),
     0 5px 18px rgba(18, 29, 48, 0.1);
+}
+
+:root[data-theme="light"] .settings-savebar,
+:root[data-theme="dark"] .settings-savebar,
+:root[data-theme="workbench"] .settings-savebar,
+.settings-savebar {
+  background:
+    linear-gradient(180deg, var(--qp-panel-top-glow), rgba(255, 255, 255, 0)),
+    var(--qp-footer-bg);
+  -webkit-backdrop-filter: var(--qp-panel-blur);
+  backdrop-filter: var(--qp-panel-blur);
 }
