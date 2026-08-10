@@ -1800,8 +1800,16 @@ fn get_or_create_window(
         return Some(window);
     }
 
+    let title = match label {
+        "selection" => "QuickPick 划词",
+        "result" => "QuickPick 结果",
+        "input" => "QuickPick 输入翻译",
+        "screenshot_overlay" => "QuickPick 截图",
+        _ => "QuickPick",
+    };
     let mut builder =
         WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
+            .title(title)
             .transparent(true)
             .decorations(false)
             .always_on_top(true)
