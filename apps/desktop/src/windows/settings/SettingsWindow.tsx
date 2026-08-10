@@ -87,6 +87,7 @@ type ResultSnapshot = {
 
 type AppSettings = {
   autostartEnabled: boolean;
+  settingsHotkey: string;
   selectionHotkey: string;
   screenshotHotkey: string;
   inputTranslateHotkey: string;
@@ -114,6 +115,7 @@ type AppSettings = {
 };
 
 type HotkeySettingKey =
+  | "settingsHotkey"
   | "selectionHotkey"
   | "screenshotHotkey"
   | "inputTranslateHotkey";
@@ -216,6 +218,7 @@ const minScreenshotSelectionSize = 8;
 
 const defaultAppSettings: AppSettings = {
   autostartEnabled: true,
+  settingsHotkey: "Alt+1",
   selectionHotkey: "Alt+2",
   screenshotHotkey: "Alt+3",
   inputTranslateHotkey: "Alt+4",
@@ -473,6 +476,8 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
 
   return {
     autostartEnabled: current.autostartEnabled,
+    settingsHotkey:
+      current.settingsHotkey.trim() || defaultAppSettings.settingsHotkey,
     selectionHotkey: current.selectionHotkey.trim() || defaultAppSettings.selectionHotkey,
     screenshotHotkey:
       current.screenshotHotkey.trim() || defaultAppSettings.screenshotHotkey,
@@ -2360,12 +2365,16 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     }
 
     const conflictWith =
-      key === "selectionHotkey"
+      key === "settingsHotkey"
+        ? "设置"
+        : key === "selectionHotkey"
         ? "划词和截图"
         : key === "screenshotHotkey"
           ? "截图和输入翻译"
           : "输入翻译和划词";
     if (
+      (key !== "settingsHotkey" &&
+        sameShortcut(shortcut, settings.settingsHotkey)) ||
       (key !== "selectionHotkey" &&
         sameShortcut(shortcut, settings.selectionHotkey)) ||
       (key !== "screenshotHotkey" &&
@@ -2759,6 +2768,17 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
             </SettingField>
           </SettingsSection>
           <SettingsSection id="hotkeys" title="快捷键">
+            <SettingField label="设置">
+              <HotkeyCaptureButton
+                label="设置"
+                value={settings.settingsHotkey}
+                placeholder="Alt+1"
+                active={capturingHotkey === "settingsHotkey"}
+                onStart={() => startHotkeyCapture("settingsHotkey")}
+                onCancel={() => finishHotkeyCapture("已取消快捷键录制")}
+                onKeyDown={(event) => captureHotkey("settingsHotkey", event)}
+              />
+            </SettingField>
             <SettingField label="划词菜单">
               <HotkeyCaptureButton
                 label="划词菜单"

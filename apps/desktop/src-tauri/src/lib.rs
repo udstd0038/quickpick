@@ -58,9 +58,11 @@ impl Default for AppState {
 
 #[derive(Clone)]
 struct HotkeyBindings {
+    settings_hotkey: String,
     selection_hotkey: String,
     screenshot_hotkey: String,
     input_translate_hotkey: String,
+    settings_id: u32,
     selection_id: u32,
     screenshot_id: u32,
     input_translate_id: u32,
@@ -68,15 +70,18 @@ struct HotkeyBindings {
 
 impl HotkeyBindings {
     fn from_settings(settings: &app_settings::AppSettings) -> Result<Self, String> {
+        let settings_hotkey = app_settings::parse_hotkey(&settings.settings_hotkey, "设置")?;
         let selection = app_settings::parse_hotkey(&settings.selection_hotkey, "划词菜单")?;
         let screenshot = app_settings::parse_hotkey(&settings.screenshot_hotkey, "区域截图")?;
         let input_translate =
             app_settings::parse_hotkey(&settings.input_translate_hotkey, "输入翻译")?;
 
         Ok(Self {
+            settings_hotkey: settings.settings_hotkey.clone(),
             selection_hotkey: settings.selection_hotkey.clone(),
             screenshot_hotkey: settings.screenshot_hotkey.clone(),
             input_translate_hotkey: settings.input_translate_hotkey.clone(),
+            settings_id: settings_hotkey.id(),
             selection_id: selection.id(),
             screenshot_id: screenshot.id(),
             input_translate_id: input_translate.id(),
@@ -85,6 +90,9 @@ impl HotkeyBindings {
 
     fn action_for(&self, shortcut: &Shortcut) -> Option<HotkeyAction> {
         let id = shortcut.id();
+        if id == self.settings_id {
+            return Some(HotkeyAction::Settings);
+        }
         if id == self.selection_id {
             return Some(HotkeyAction::Selection);
         }
@@ -107,6 +115,7 @@ impl Default for HotkeyBindings {
 
 #[derive(Clone, Copy)]
 enum HotkeyAction {
+    Settings,
     Selection,
     Screenshot,
     InputTranslate,
@@ -2233,6 +2242,7 @@ fn setup_global_shortcuts(
                     .and_then(|bindings| bindings.action_for(shortcut));
 
                 match action {
+                    Some(HotkeyAction::Settings) => show_settings_window(app),
                     Some(HotkeyAction::Selection) => {
                         activate_selection_bar(app, shortcut_release_keys(shortcut))
                     }
@@ -2291,6 +2301,7 @@ fn register_hotkey_bindings(
     bindings: &HotkeyBindings,
 ) -> Result<(), String> {
     for (name, shortcut) in [
+        ("设置", bindings.settings_hotkey.as_str()),
         ("划词菜单", bindings.selection_hotkey.as_str()),
         ("区域截图", bindings.screenshot_hotkey.as_str()),
         ("输入翻译", bindings.input_translate_hotkey.as_str()),
@@ -3525,7 +3536,12 @@ fn show_settings_window(app: &tauri::AppHandle) {
     }
 
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.set_title("QuickPick 设置");
+        let _ = window.set_title(&localized_window_title(
+            "main",
+            &app_settings::load_app_settings(app)
+                .map(|settings| settings.ui_language)
+                .unwrap_or_default(),
+        ));
         let _ = window.set_decorations(false);
         let _ = window.unminimize();
         let _ = window.show();

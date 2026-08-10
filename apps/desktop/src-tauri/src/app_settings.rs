@@ -10,6 +10,8 @@ const SETTINGS_FILE_NAME: &str = "settings.json";
 pub struct AppSettings {
     #[serde(default = "default_autostart_enabled")]
     pub autostart_enabled: bool,
+    #[serde(default = "default_settings_hotkey")]
+    pub settings_hotkey: String,
     #[serde(default = "default_selection_hotkey")]
     pub selection_hotkey: String,
     #[serde(default = "default_screenshot_hotkey")]
@@ -88,6 +90,10 @@ fn default_autostart_enabled() -> bool {
     true
 }
 
+fn default_settings_hotkey() -> String {
+    "Alt+1".to_string()
+}
+
 fn default_selection_hotkey() -> String {
     "Alt+2".to_string()
 }
@@ -151,6 +157,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             autostart_enabled: default_autostart_enabled(),
+            settings_hotkey: default_settings_hotkey(),
             selection_hotkey: default_selection_hotkey(),
             screenshot_hotkey: default_screenshot_hotkey(),
             input_translate_hotkey: default_input_translate_hotkey(),
@@ -206,6 +213,8 @@ pub fn save_app_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), 
 
 pub fn normalize_settings_for_save(mut settings: AppSettings) -> Result<AppSettings, String> {
     normalize_common_fields(&mut settings);
+    settings.settings_hotkey =
+        normalize_hotkey_for_save(&settings.settings_hotkey, "设置")?;
     settings.selection_hotkey = normalize_hotkey_for_save(&settings.selection_hotkey, "划词菜单")?;
     settings.screenshot_hotkey =
         normalize_hotkey_for_save(&settings.screenshot_hotkey, "区域截图")?;
@@ -226,6 +235,8 @@ fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn normalize_settings_for_load(mut settings: AppSettings) -> AppSettings {
     normalize_common_fields(&mut settings);
+    settings.settings_hotkey =
+        normalize_hotkey_for_load(&settings.settings_hotkey, &default_settings_hotkey());
     settings.selection_hotkey =
         normalize_hotkey_for_load(&settings.selection_hotkey, &default_selection_hotkey());
     settings.screenshot_hotkey =
@@ -235,10 +246,14 @@ fn normalize_settings_for_load(mut settings: AppSettings) -> AppSettings {
         &default_input_translate_hotkey(),
     );
 
-    if settings.selection_hotkey == settings.screenshot_hotkey
+    if settings.settings_hotkey == settings.selection_hotkey
+        || settings.settings_hotkey == settings.screenshot_hotkey
+        || settings.settings_hotkey == settings.input_translate_hotkey
+        || settings.selection_hotkey == settings.screenshot_hotkey
         || settings.selection_hotkey == settings.input_translate_hotkey
         || settings.screenshot_hotkey == settings.input_translate_hotkey
     {
+        settings.settings_hotkey = default_settings_hotkey();
         settings.selection_hotkey = default_selection_hotkey();
         settings.screenshot_hotkey = default_screenshot_hotkey();
         settings.input_translate_hotkey = default_input_translate_hotkey();
@@ -404,16 +419,23 @@ pub fn parse_hotkey(value: &str, label: &str) -> Result<Shortcut, String> {
 }
 
 fn validate_settings(settings: &AppSettings) -> Result<(), String> {
+    let settings_shortcut = parse_hotkey(&settings.settings_hotkey, "设置")?;
     let selection_shortcut = parse_hotkey(&settings.selection_hotkey, "划词菜单")?;
     let screenshot_shortcut = parse_hotkey(&settings.screenshot_hotkey, "区域截图")?;
+    if settings_shortcut.id() == selection_shortcut.id()
+        || settings_shortcut.id() == screenshot_shortcut.id()
+    {
+        return Err("设置快捷键不能和划词菜单或区域截图使用同一个快捷键".to_string());
+    }
     if selection_shortcut.id() == screenshot_shortcut.id() {
         return Err("划词菜单和区域截图不能使用同一个快捷键".to_string());
     }
     let input_shortcut = parse_hotkey(&settings.input_translate_hotkey, "输入翻译")?;
-    if input_shortcut.id() == selection_shortcut.id()
+    if input_shortcut.id() == settings_shortcut.id()
+        || input_shortcut.id() == selection_shortcut.id()
         || input_shortcut.id() == screenshot_shortcut.id()
     {
-        return Err("输入翻译不能和划词菜单或区域截图使用同一个快捷键".to_string());
+        return Err("输入翻译不能和其他功能使用同一个快捷键".to_string());
     }
 
     if !matches!(settings.theme_mode.as_str(), "system" | "light" | "dark") {
@@ -568,6 +590,24 @@ mod tests {
         assert_eq!(settings.selection_hotkey, "Alt+Q");
         assert_eq!(settings.screenshot_hotkey, "Ctrl+Alt+3");
         assert_eq!(settings.input_translate_hotkey, "Alt+4");
+    }
+
+    #[test]
+    fn settings_hotkey_is_normalized_and_duplicates_are_rejected() {
+        let settings = AppSettings {
+            settings_hotkey: " alt + 1 ".to_string(),
+            ..AppSettings::default()
+        };
+        let settings = normalize_settings_for_save(settings).unwrap();
+
+        assert_eq!(settings.settings_hotkey, "Alt+1");
+
+        let settings = AppSettings {
+            settings_hotkey: "Alt+2".to_string(),
+            ..AppSettings::default()
+        };
+
+        assert!(normalize_settings_for_save(settings).is_err());
     }
 
     #[test]

@@ -101,6 +101,19 @@ if ($settingsHwnd -ne [IntPtr]::Zero) {
   Start-Sleep -Milliseconds 300
 }
 
+Hide-QuickPickPopups
+Start-Sleep -Milliseconds 200
+
+# Alt+1 settings id: (Modifiers::ALT = 1) << 16 | Code::Digit1 = 6
+[QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65542, [IntPtr]0x00310000) | Out-Null
+Start-Sleep -Milliseconds 900
+$titles = Get-VisibleQuickPickTitles
+Write-Output ("Alt+1 visible titles: " + ($titles -join ", "))
+if ($titles -notcontains $settingsTitle) {
+  throw "Alt+1 event did not open the settings window"
+}
+Hide-QuickPickPopups
+
 # Alt+2 selection id: (Modifiers::ALT = 1) << 16 | Code::Digit2 = 7
 [QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65543, [IntPtr]0x00320000) | Out-Null
 Start-Sleep -Milliseconds 900
@@ -140,4 +153,4 @@ if (@($titles | Where-Object { $_ -like "QuickPick *" }).Count -eq 0) {
 }
 Hide-QuickPickPopups
 
-Write-Output "hotkey event chain verified: Alt+2 selection, Alt+4 input, Alt+3 screenshot"
+Write-Output "hotkey event chain verified: Alt+1 settings, Alt+2 selection, Alt+4 input, Alt+3 screenshot"

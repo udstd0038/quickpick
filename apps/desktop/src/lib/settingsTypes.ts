@@ -7,6 +7,7 @@ import {
 
 export type AppSettings = {
   autostartEnabled: boolean;
+  settingsHotkey: string;
   selectionHotkey: string;
   screenshotHotkey: string;
   inputTranslateHotkey: string;
@@ -44,6 +45,7 @@ export type ApiKeyStatus = {
 
 export const defaultAppSettings: AppSettings = {
   autostartEnabled: true,
+  settingsHotkey: "Alt+1",
   selectionHotkey: "Alt+2",
   screenshotHotkey: "Alt+3",
   inputTranslateHotkey: "Alt+4",
@@ -81,6 +83,8 @@ export function normalizeAppSettings(current: Partial<AppSettings>): AppSettings
     ...defaultAppSettings,
     ...current,
     uiLanguage,
+    settingsHotkey:
+      current.settingsHotkey?.trim() || defaultAppSettings.settingsHotkey,
     selectionHotkey: current.selectionHotkey?.trim() || defaultAppSettings.selectionHotkey,
     screenshotHotkey: current.screenshotHotkey?.trim() || defaultAppSettings.screenshotHotkey,
     inputTranslateHotkey:
