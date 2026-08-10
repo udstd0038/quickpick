@@ -173,7 +173,7 @@ export function applyInputAiProviderDefaults(
 
 export const defaultAppSettings: AppSettings = {
   autostartEnabled: true,
-  settingsHotkey: "Alt+1",
+  settingsHotkey: "Alt+0",
   selectionHotkey: "Alt+2",
   screenshotHotkey: "Alt+3",
   inputTranslateHotkey: "Alt+4",

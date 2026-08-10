@@ -93,7 +93,7 @@ fn default_autostart_enabled() -> bool {
 }
 
 fn default_settings_hotkey() -> String {
-    "Alt+1".to_string()
+    "Alt+0".to_string()
 }
 
 fn default_selection_hotkey() -> String {
@@ -598,12 +598,12 @@ mod tests {
     #[test]
     fn settings_hotkey_is_normalized_and_duplicates_are_rejected() {
         let settings = AppSettings {
-            settings_hotkey: " alt + 1 ".to_string(),
+            settings_hotkey: " alt + 0 ".to_string(),
             ..AppSettings::default()
         };
         let settings = normalize_settings_for_save(settings).unwrap();
 
-        assert_eq!(settings.settings_hotkey, "Alt+1");
+        assert_eq!(settings.settings_hotkey, "Alt+0");
 
         let settings = AppSettings {
             settings_hotkey: "Alt+2".to_string(),

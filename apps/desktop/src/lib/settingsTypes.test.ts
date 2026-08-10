@@ -8,7 +8,7 @@ describe("settingsTypes", () => {
   it("normalizes missing fields to defaults", () => {
     const settings = normalizeAppSettings({});
 
-    expect(settings.settingsHotkey).toBe("Alt+1");
+    expect(settings.settingsHotkey).toBe("Alt+0");
     expect(settings.selectionHotkey).toBe("Alt+2");
     expect(settings.panelOpacity).toBe(70);
     expect(settings.textAiProvider).toBe("deepseek");

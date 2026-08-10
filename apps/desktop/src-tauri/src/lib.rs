@@ -2555,7 +2555,7 @@ mod tests {
     #[test]
     fn settings_hotkey_maps_to_settings_action() {
         let bindings = HotkeyBindings::default();
-        let shortcut = app_settings::parse_hotkey("Alt+1", "设置").unwrap();
+        let shortcut = app_settings::parse_hotkey("Alt+0", "设置").unwrap();
 
         assert!(matches!(
             bindings.action_for(&shortcut),

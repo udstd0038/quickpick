@@ -104,13 +104,13 @@ if ($settingsHwnd -ne [IntPtr]::Zero) {
 Hide-QuickPickPopups
 Start-Sleep -Milliseconds 200
 
-# Alt+1 settings id: (Modifiers::ALT = 1) << 16 | Code::Digit1 = 6
-[QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65542, [IntPtr]0x00310000) | Out-Null
+# Alt+0 settings id: (Modifiers::ALT = 1) << 16 | Code::Digit0 = 5
+[QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65541, [IntPtr]0x00300000) | Out-Null
 Start-Sleep -Milliseconds 900
 $titles = Get-VisibleQuickPickTitles
-Write-Output ("Alt+1 visible titles: " + ($titles -join ", "))
+Write-Output ("Alt+0 visible titles: " + ($titles -join ", "))
 if ($titles -notcontains $settingsTitle) {
-  Write-Output "WARNING: Alt+1 is unavailable or already in use by another program; continuing."
+  Write-Output "WARNING: Alt+0 is unavailable or already in use by another program; continuing."
 }
 Hide-QuickPickPopups
 
@@ -153,4 +153,4 @@ if (@($titles | Where-Object { $_ -like "QuickPick *" }).Count -eq 0) {
 }
 Hide-QuickPickPopups
 
-Write-Output "hotkey event chain verified: Alt+1 settings, Alt+2 selection, Alt+4 input, Alt+3 screenshot"
+Write-Output "hotkey event chain verified: Alt+0 settings, Alt+2 selection, Alt+4 input, Alt+3 screenshot"

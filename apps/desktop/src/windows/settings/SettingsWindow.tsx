@@ -1079,7 +1079,7 @@ function SettingsWindow() {
                 <HotkeyCaptureButton
                   label={t("settings.hotkeySettings")}
                   value={settings.settingsHotkey}
-                  placeholder="Alt+1"
+                  placeholder="Alt+0"
                   active={capturingHotkey === "settingsHotkey"}
                   onStart={() => startHotkeyCapture("settingsHotkey")}
                   onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
