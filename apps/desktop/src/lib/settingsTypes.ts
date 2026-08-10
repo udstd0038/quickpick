@@ -1,8 +1,16 @@
+import {
+  targetLanguageForUiLanguage,
+  translationLanguageOptions,
+  uiLanguageOptions,
+  type UiLanguage,
+} from "./i18n";
+
 export type AppSettings = {
   autostartEnabled: boolean;
   selectionHotkey: string;
   screenshotHotkey: string;
   inputTranslateHotkey: string;
+  uiLanguage: UiLanguage;
   themeMode: "system" | "light" | "dark";
   windowEffect: "acrylic" | "mica";
   panelOpacity: number;
@@ -39,6 +47,7 @@ export const defaultAppSettings: AppSettings = {
   selectionHotkey: "Alt+2",
   screenshotHotkey: "Alt+3",
   inputTranslateHotkey: "Alt+4",
+  uiLanguage: "system",
   themeMode: "system",
   windowEffect: "acrylic",
   panelOpacity: 70,
@@ -62,13 +71,32 @@ export const defaultAppSettings: AppSettings = {
 };
 
 export function normalizeAppSettings(current: Partial<AppSettings>): AppSettings {
+  const uiLanguage: UiLanguage = uiLanguageOptions.some(
+    (option) => option.id === current.uiLanguage,
+  )
+    ? (current.uiLanguage as UiLanguage)
+    : defaultAppSettings.uiLanguage;
+  const defaultTargetLanguage = targetLanguageForUiLanguage(uiLanguage);
   return {
     ...defaultAppSettings,
     ...current,
+    uiLanguage,
     selectionHotkey: current.selectionHotkey?.trim() || defaultAppSettings.selectionHotkey,
     screenshotHotkey: current.screenshotHotkey?.trim() || defaultAppSettings.screenshotHotkey,
     inputTranslateHotkey:
       current.inputTranslateHotkey?.trim() || defaultAppSettings.inputTranslateHotkey,
+    translationTargetLanguage:
+      uiLanguage === "system" || !translationLanguageOptions.some(
+        (option) => option.id === current.translationTargetLanguage,
+      )
+        ? defaultTargetLanguage
+        : (current.translationTargetLanguage as string),
+    inputTranslateTargetLanguage:
+      uiLanguage === "system" || !translationLanguageOptions.some(
+        (option) => option.id === current.inputTranslateTargetLanguage,
+      )
+        ? defaultTargetLanguage
+        : (current.inputTranslateTargetLanguage as string),
     windowEffect: current.windowEffect === "mica" ? "mica" : "acrylic",
     panelOpacity:
       Number.isFinite(current.panelOpacity) &&

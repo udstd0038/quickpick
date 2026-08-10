@@ -16,6 +16,8 @@ pub struct AppSettings {
     pub screenshot_hotkey: String,
     #[serde(default = "default_input_translate_hotkey")]
     pub input_translate_hotkey: String,
+    #[serde(default = "default_ui_language")]
+    pub ui_language: String,
     #[serde(default = "default_theme_mode")]
     pub theme_mode: String,
     #[serde(default = "default_window_effect")]
@@ -98,6 +100,41 @@ fn default_input_translate_hotkey() -> String {
     "Alt+4".to_string()
 }
 
+fn default_ui_language() -> String {
+    "system".to_string()
+}
+
+fn system_translation_language() -> String {
+    let Some(locale) = sys_locale::get_locale() else {
+        return "zh-Hans".to_string();
+    };
+    let locale = locale.to_ascii_lowercase();
+    if locale.starts_with("zh") {
+        if locale.starts_with("zh-tw")
+            || locale.starts_with("zh-hk")
+            || locale.starts_with("zh-mo")
+        {
+            "zh-Hant".to_string()
+        } else {
+            "zh-Hans".to_string()
+        }
+    } else if locale.starts_with("en") {
+        "en".to_string()
+    } else if locale.starts_with("ko") {
+        "ko".to_string()
+    } else if locale.starts_with("ja") {
+        "ja".to_string()
+    } else if locale.starts_with("fr") {
+        "fr".to_string()
+    } else if locale.starts_with("de") {
+        "de".to_string()
+    } else if locale.starts_with("es") {
+        "es".to_string()
+    } else {
+        "zh-Hans".to_string()
+    }
+}
+
 fn default_theme_mode() -> String {
     "system".to_string()
 }
@@ -117,6 +154,7 @@ impl Default for AppSettings {
             selection_hotkey: default_selection_hotkey(),
             screenshot_hotkey: default_screenshot_hotkey(),
             input_translate_hotkey: default_input_translate_hotkey(),
+            ui_language: default_ui_language(),
             theme_mode: default_theme_mode(),
             window_effect: default_window_effect(),
             panel_opacity: default_panel_opacity(),
@@ -254,6 +292,17 @@ fn normalize_common_fields(settings: &mut AppSettings) {
         normalize_translation_source_language(&settings.input_translate_source_language);
     settings.input_translate_target_language =
         normalize_translation_language(&settings.input_translate_target_language);
+    settings.ui_language = match settings.ui_language.trim() {
+        "zh-Hans" | "zh-Hant" | "en" | "ko" | "ja" | "fr" | "de" | "es" => {
+            settings.ui_language.trim().to_string()
+        }
+        _ => default_ui_language(),
+    };
+    if settings.ui_language == "system" {
+        let target = system_translation_language();
+        settings.translation_target_language = target.clone();
+        settings.input_translate_target_language = target;
+    }
     settings.ai_provider = match settings.ai_provider.trim() {
         "deepseek" => "deepseek".to_string(),
         "xiaomi_mimo" => "xiaomi_mimo".to_string(),
@@ -311,6 +360,7 @@ fn normalize_vision_provider(value: &str) -> String {
 fn normalize_translation_language(value: &str) -> String {
     match value.trim() {
         "zh-Hans" => "zh-Hans".to_string(),
+        "zh-Hant" => "zh-Hant".to_string(),
         "en" => "en".to_string(),
         "ja" => "ja".to_string(),
         "ko" => "ko".to_string(),
@@ -368,6 +418,13 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
 
     if !matches!(settings.theme_mode.as_str(), "system" | "light" | "dark") {
         return Err("主题模式无效".to_string());
+    }
+
+    if !matches!(
+        settings.ui_language.as_str(),
+        "system" | "zh-Hans" | "zh-Hant" | "en" | "ko" | "ja" | "fr" | "de" | "es"
+    ) {
+        return Err("界面语言无效".to_string());
     }
 
     if !matches!(settings.window_effect.as_str(), "acrylic" | "mica") {
@@ -556,6 +613,21 @@ mod tests {
 
         assert_eq!(settings.theme_mode, "dark");
         assert_eq!(settings.window_effect, "mica");
+    }
+
+    #[test]
+    fn ui_language_and_traditional_chinese_target_are_normalized() {
+        let settings = AppSettings {
+            ui_language: "en".to_string(),
+            translation_target_language: "zh-Hant".to_string(),
+            input_translate_target_language: "zh-Hant".to_string(),
+            ..AppSettings::default()
+        };
+        let settings = normalize_settings_for_save(settings).unwrap();
+
+        assert_eq!(settings.ui_language, "en");
+        assert_eq!(settings.translation_target_language, "zh-Hant");
+        assert_eq!(settings.input_translate_target_language, "zh-Hant");
     }
 
     #[test]

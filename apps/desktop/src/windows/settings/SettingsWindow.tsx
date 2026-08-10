@@ -10,6 +10,13 @@ import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  applyDocumentTranslation,
+  targetLanguageForUiLanguage,
+  translationLanguageOptions,
+  uiLanguageOptions,
+  type UiLanguage,
+} from "../../lib/i18n";
 import { useSettingsStore } from "../../stores/settingsStore";
 
 type WindowKind =
@@ -83,6 +90,7 @@ type AppSettings = {
   selectionHotkey: string;
   screenshotHotkey: string;
   inputTranslateHotkey: string;
+  uiLanguage: UiLanguage;
   themeMode: "system" | "light" | "dark";
   windowEffect: "acrylic" | "mica";
   panelOpacity: number;
@@ -211,6 +219,7 @@ const defaultAppSettings: AppSettings = {
   selectionHotkey: "Alt+2",
   screenshotHotkey: "Alt+3",
   inputTranslateHotkey: "Alt+4",
+  uiLanguage: "system",
   themeMode: "system",
   windowEffect: "acrylic",
   panelOpacity: 70,
@@ -302,16 +311,6 @@ const windowEffectOptions = [
   { id: "mica", label: "Mica" },
 ] as const;
 
-const translationLanguageOptions = [
-  { id: "zh-Hans", label: "简体中文" },
-  { id: "en", label: "英文" },
-  { id: "ja", label: "日文" },
-  { id: "ko", label: "韩文" },
-  { id: "fr", label: "法文" },
-  { id: "de", label: "德文" },
-  { id: "es", label: "西班牙文" },
-] as const;
-
 type GlassSelectOption<T extends string = string> = {
   id: T;
   label: string;
@@ -347,6 +346,7 @@ const appearanceAlphaVariables = [
 
 function applyDocumentAppearance(settings: AppSettings) {
   const root = document.documentElement;
+  applyDocumentTranslation(settings.uiLanguage);
   const themeMode =
     settings.themeMode === "system" ? currentSystemTheme() : settings.themeMode;
   const effectiveTheme = themeMode === "dark" ? "workbench" : themeMode;
@@ -444,11 +444,18 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
     : themeModeOptions.some((option) => option.id === rawThemeMode)
       ? (rawThemeMode as AppSettings["themeMode"])
       : defaultAppSettings.themeMode;
-  const translationTargetLanguage = translationLanguageOptions.some(
-    (option) => option.id === current.translationTargetLanguage,
+  const uiLanguage: UiLanguage = uiLanguageOptions.some(
+    (option) => option.id === current.uiLanguage,
   )
-    ? current.translationTargetLanguage
-    : defaultAppSettings.translationTargetLanguage;
+    ? (current.uiLanguage as UiLanguage)
+    : defaultAppSettings.uiLanguage;
+  const defaultTargetLanguage = targetLanguageForUiLanguage(uiLanguage);
+  const translationTargetLanguage =
+    uiLanguage === "system" || !translationLanguageOptions.some(
+      (option) => option.id === current.translationTargetLanguage,
+    )
+      ? defaultTargetLanguage
+      : current.translationTargetLanguage;
   const inputTranslateSourceLanguage =
     current.inputTranslateSourceLanguage === "auto" ||
     translationLanguageOptions.some(
@@ -456,11 +463,12 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
     )
       ? current.inputTranslateSourceLanguage
       : defaultAppSettings.inputTranslateSourceLanguage;
-  const inputTranslateTargetLanguage = translationLanguageOptions.some(
-    (option) => option.id === current.inputTranslateTargetLanguage,
-  )
-    ? current.inputTranslateTargetLanguage
-    : defaultAppSettings.inputTranslateTargetLanguage;
+  const inputTranslateTargetLanguage =
+    uiLanguage === "system" || !translationLanguageOptions.some(
+      (option) => option.id === current.inputTranslateTargetLanguage,
+    )
+      ? defaultTargetLanguage
+      : current.inputTranslateTargetLanguage;
   const timeout = Number(current.aiTimeoutSeconds);
 
   return {
@@ -471,6 +479,7 @@ function normalizeAppSettings(current: AppSettings): AppSettings {
     inputTranslateHotkey:
       current.inputTranslateHotkey.trim() ||
       defaultAppSettings.inputTranslateHotkey,
+    uiLanguage,
     themeMode,
     windowEffect: current.windowEffect === "mica" ? "mica" : "acrylic",
     panelOpacity:
@@ -2283,6 +2292,17 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
     markSettingsDirty();
   };
 
+  const updateUiLanguage = (value: UiLanguage) => {
+    const target = targetLanguageForUiLanguage(value);
+    setSettings((current) => ({
+      ...current,
+      uiLanguage: value,
+      translationTargetLanguage: target,
+      inputTranslateTargetLanguage: target,
+    }));
+    markSettingsDirty();
+  };
+
   const setHotkeyCaptureMode = (enabled: boolean) => {
     invoke<SelectionActionResult>("set_hotkey_capture_mode", { enabled }).catch(
       () => {},
@@ -2714,14 +2734,12 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               </label>
             </SettingField>
             <TextRow label="托盘常驻" value="已启用" />
-            <SettingField label="翻译语言">
+            <SettingField label="语言">
               <GlassSelect
-                ariaLabel="选择翻译目标语言"
-                value={settings.translationTargetLanguage}
-                options={translationLanguageOptions}
-                onChange={(value) =>
-                  updateSetting("translationTargetLanguage", value)
-                }
+                ariaLabel="语言"
+                value={settings.uiLanguage}
+                options={uiLanguageOptions}
+                onChange={(value) => updateUiLanguage(value as UiLanguage)}
               />
             </SettingField>
             <SettingField label="AI 请求超时">

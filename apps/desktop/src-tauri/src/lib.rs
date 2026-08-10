@@ -1695,6 +1695,11 @@ fn save_app_settings(
     }
     apply_autostart_setting(settings.autostart_enabled)?;
     sync_window_appearance(&app, &settings);
+    if let Some(tray) = app.tray_by_id("main") {
+        if let Ok(menu) = build_tray_menu(&app, settings.autostart_enabled, &settings.ui_language) {
+            let _ = tray.set_menu(Some(menu));
+        }
+    }
     let _ = app.emit("app-settings-changed", settings.clone());
 
     Ok(SelectionActionResult {
@@ -2320,6 +2325,7 @@ fn apply_window_appearance(
             continue;
         };
         let _ = window.set_decorations(false);
+        let _ = window.set_title(&localized_window_title(label, &settings.ui_language));
         if let Err(error) = window.set_theme(theme) {
             eprintln!("QuickPick {label} window theme sync skipped: {error}");
         }
@@ -2450,7 +2456,7 @@ fn shortcut_key_virtual_code(code: Code) -> Option<i32> {
 fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let icon = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
     let settings = app_settings::load_app_settings(app).unwrap_or_default();
-    let tray_menu = build_tray_menu(app, settings.autostart_enabled)?;
+    let tray_menu = build_tray_menu(app, settings.autostart_enabled, &settings.ui_language)?;
 
     let tray = TrayIconBuilder::new()
         .tooltip("QuickPick")
@@ -2486,17 +2492,42 @@ fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
 fn build_tray_menu(
     app: &tauri::AppHandle,
     autostart_enabled: bool,
+    ui_language: &str,
 ) -> tauri::Result<Menu<tauri::Wry>> {
     use tauri::menu::PredefinedMenuItem;
 
-    let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
-    let selection = MenuItem::with_id(app, "selection", "划词菜单", true, None::<&str>)?;
-    let screenshot = MenuItem::with_id(app, "screenshot", "区域截图", true, None::<&str>)?;
-    let input = MenuItem::with_id(app, "input", "输入翻译", true, None::<&str>)?;
+    let settings = MenuItem::with_id(
+        app,
+        "settings",
+        localized_label(ui_language, "settings"),
+        true,
+        None::<&str>,
+    )?;
+    let selection = MenuItem::with_id(
+        app,
+        "selection",
+        localized_label(ui_language, "selection_menu"),
+        true,
+        None::<&str>,
+    )?;
+    let screenshot = MenuItem::with_id(
+        app,
+        "screenshot",
+        localized_label(ui_language, "region_screenshot"),
+        true,
+        None::<&str>,
+    )?;
+    let input = MenuItem::with_id(
+        app,
+        "input",
+        localized_label(ui_language, "input_translation"),
+        true,
+        None::<&str>,
+    )?;
     let autostart = CheckMenuItem::with_id(
         app,
         "autostart",
-        "自启动",
+        localized_label(ui_language, "start_on_boot"),
         true,
         autostart_enabled,
         None::<&str>,
@@ -2504,11 +2535,17 @@ fn build_tray_menu(
     let reset_hotkeys = MenuItem::with_id(
         app,
         "reset-hotkeys",
-        "重置快捷键",
+        localized_label(ui_language, "reset_hotkeys"),
         true,
         None::<&str>,
     )?;
-    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let quit = MenuItem::with_id(
+        app,
+        "quit",
+        localized_label(ui_language, "quit"),
+        true,
+        None::<&str>,
+    )?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(
         app,
@@ -2526,6 +2563,162 @@ fn build_tray_menu(
         ],
     )?;
     Ok(menu)
+}
+
+fn localized_label<'a>(language: &'a str, key: &'a str) -> &'a str {
+    let resolved = resolved_ui_language(language);
+    match resolved.as_str() {
+        "zh-Hant" => match key {
+            "settings" => "設定",
+            "selection_menu" => "劃詞選單",
+            "region_screenshot" => "區域截圖",
+            "input_translation" => "輸入翻譯",
+            "start_on_boot" => "開機自啟",
+            "reset_hotkeys" => "重設快捷鍵",
+            "quit" => "結束",
+            "selection" => "劃詞",
+            "result" => "結果",
+            "input" => "輸入翻譯",
+            _ => key,
+        },
+        "en" => match key {
+            "settings" => "Settings",
+            "selection_menu" => "Selection Menu",
+            "region_screenshot" => "Region Screenshot",
+            "input_translation" => "Input Translation",
+            "start_on_boot" => "Start on Boot",
+            "reset_hotkeys" => "Reset Hotkeys",
+            "quit" => "Quit",
+            "selection" => "Selection",
+            "result" => "Result",
+            "input" => "Input Translation",
+            _ => key,
+        },
+        "ko" => match key {
+            "settings" => "설정",
+            "selection_menu" => "선택 메뉴",
+            "region_screenshot" => "영역 캡처",
+            "input_translation" => "입력 번역",
+            "start_on_boot" => "부팅 시 시작",
+            "reset_hotkeys" => "단축키 초기화",
+            "quit" => "종료",
+            "selection" => "선택",
+            "result" => "결과",
+            "input" => "입력 번역",
+            _ => key,
+        },
+        "ja" => match key {
+            "settings" => "設定",
+            "selection_menu" => "選択メニュー",
+            "region_screenshot" => "領域スクリーンショット",
+            "input_translation" => "入力翻訳",
+            "start_on_boot" => "起動時に開始",
+            "reset_hotkeys" => "ショートカットをリセット",
+            "quit" => "終了",
+            "selection" => "選択",
+            "result" => "結果",
+            "input" => "入力翻訳",
+            _ => key,
+        },
+        "fr" => match key {
+            "settings" => "Paramètres",
+            "selection_menu" => "Menu de sélection",
+            "region_screenshot" => "Capture de région",
+            "input_translation" => "Traduction de saisie",
+            "start_on_boot" => "Démarrage automatique",
+            "reset_hotkeys" => "Réinitialiser les raccourcis",
+            "quit" => "Quitter",
+            "selection" => "Sélection",
+            "result" => "Résultat",
+            "input" => "Traduction de saisie",
+            _ => key,
+        },
+        "de" => match key {
+            "settings" => "Einstellungen",
+            "selection_menu" => "Auswahlmenü",
+            "region_screenshot" => "Bereichs-Screenshot",
+            "input_translation" => "Eingabeübersetzung",
+            "start_on_boot" => "Beim Start ausführen",
+            "reset_hotkeys" => "Tastenkürzel zurücksetzen",
+            "quit" => "Beenden",
+            "selection" => "Auswahl",
+            "result" => "Ergebnis",
+            "input" => "Eingabeübersetzung",
+            _ => key,
+        },
+        "es" => match key {
+            "settings" => "Configuración",
+            "selection_menu" => "Menú de selección",
+            "region_screenshot" => "Captura de región",
+            "input_translation" => "Traducción de entrada",
+            "start_on_boot" => "Iniciar con el sistema",
+            "reset_hotkeys" => "Restablecer atajos",
+            "quit" => "Salir",
+            "selection" => "Selección",
+            "result" => "Resultado",
+            "input" => "Traducción de entrada",
+            _ => key,
+        },
+        _ => match key {
+            "settings" => "设置",
+            "selection_menu" => "划词菜单",
+            "region_screenshot" => "区域截图",
+            "input_translation" => "输入翻译",
+            "start_on_boot" => "自启动",
+            "reset_hotkeys" => "重置快捷键",
+            "quit" => "退出",
+            "selection" => "划词",
+            "result" => "结果",
+            "input" => "输入翻译",
+            _ => key,
+        },
+    }
+}
+
+fn localized_window_title(label: &str, language: &str) -> String {
+    let resolved = resolved_ui_language(language);
+    match label {
+        "main" => format!("QuickPick {}", localized_label(&resolved, "settings")),
+        "selection" => format!("QuickPick {}", localized_label(&resolved, "selection")),
+        "result" => format!("QuickPick {}", localized_label(&resolved, "result")),
+        "input" => format!("QuickPick {}", localized_label(&resolved, "input")),
+        _ => format!("QuickPick {label}"),
+    }
+}
+
+fn resolved_ui_language(language: &str) -> String {
+    if language != "system" {
+        return language.to_string();
+    }
+
+    let Some(locale) = sys_locale::get_locale() else {
+        return "zh-Hans".to_string();
+    };
+    let locale = locale.to_ascii_lowercase();
+    if locale.starts_with("zh") {
+        if locale.starts_with("zh-tw")
+            || locale.starts_with("zh-hk")
+            || locale.starts_with("zh-mo")
+        {
+            "zh-Hant".to_string()
+        } else {
+            "zh-Hans".to_string()
+        }
+    } else if locale.starts_with("en") {
+        "en".to_string()
+    } else if locale.starts_with("ko") {
+        "ko".to_string()
+    } else if locale.starts_with("ja") {
+        "ja".to_string()
+    } else if locale.starts_with("fr") {
+        "fr".to_string()
+    } else if locale.starts_with("de") {
+        "de".to_string()
+    } else if locale.starts_with("es") {
+        "es".to_string()
+    } else {
+        "zh-Hans".to_string()
+    }
 }
 
 fn reset_global_hotkeys_from_tray(app: &tauri::AppHandle) {
@@ -2554,7 +2747,9 @@ fn toggle_autostart_from_tray(app: &tauri::AppHandle) {
     {
         Ok(()) => {
             if let Some(tray) = app.tray_by_id("main") {
-                if let Ok(menu) = build_tray_menu(app, settings.autostart_enabled) {
+                if let Ok(menu) =
+                    build_tray_menu(app, settings.autostart_enabled, &settings.ui_language)
+                {
                     let _ = tray.set_menu(Some(menu));
                 }
             }

@@ -503,6 +503,7 @@ fn map_image_http_status(status: u16) -> String {
 pub fn translation_language_label(code: &str) -> &'static str {
     match code {
         "auto" => "自动检测的语言",
+        "zh-Hant" => "繁体中文",
         "en" => "英文",
         "ja" => "日文",
         "ko" => "韩文",
