@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import {
-  applyDocumentTranslation,
   createTranslator,
   targetLanguageForUiLanguage,
   translateText,
@@ -27,17 +26,4 @@ describe("i18n", () => {
     expect(t("input.placeholder")).toBe("Enter text to translate");
   });
 
-  it("applies translations to rendered DOM and attributes", () => {
-    document.body.innerHTML = `
-      <button>复制</button>
-      <input placeholder="输入要翻译的文本" />
-    `;
-
-    applyDocumentTranslation("en");
-
-    expect(document.body.querySelector("button")?.textContent).toBe("Copy");
-    expect(
-      document.body.querySelector("input")?.getAttribute("placeholder"),
-    ).toBe("Enter text to translate");
-  });
 });

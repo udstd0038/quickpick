@@ -6,14 +6,14 @@ describe("settingsStore", () => {
   beforeEach(() => {
     useSettingsStore.setState({
       settings: defaultAppSettings,
-      status: { kind: "idle", message: "设置已载入" },
+      status: { kind: "idle", message: "settings.loaded" },
     });
   });
 
   it("updates a setting and marks it dirty", () => {
     useSettingsStore.getState().updateSetting("aiTimeoutSeconds", 45);
     expect(useSettingsStore.getState().settings.aiTimeoutSeconds).toBe(45);
-    expect(useSettingsStore.getState().status.message).toBe("有未保存的修改");
+    expect(useSettingsStore.getState().status.message).toBe("settings.unsaved");
   });
 
   it("supports functional setter updates", () => {

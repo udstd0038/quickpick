@@ -26,7 +26,7 @@ interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   settings: defaultAppSettings,
-  status: { kind: "idle", message: "设置已载入" },
+  status: { kind: "idle", message: "settings.loaded" },
   setSettings: (settings) => {
     set((state) => ({
       settings:
@@ -44,26 +44,26 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   updateSetting: (key, value) => {
     set((state) => ({
       settings: { ...state.settings, [key]: value },
-      status: { kind: "idle", message: "有未保存的修改" },
+      status: { kind: "idle", message: "settings.unsaved" },
     }));
   },
-  markDirty: (message = "有未保存的修改") => {
+  markDirty: (message = "settings.unsaved") => {
     set({ status: { kind: "idle", message } });
   },
   saveSettings: async () => {
     const settings = normalizeAppSettings(get().settings);
-    set({ status: { kind: "saving", message: "正在保存" } });
+    set({ status: { kind: "saving", message: "settings.saving" } });
     try {
       await invoke("save_app_settings", { settings });
       set({
         settings,
-        status: { kind: "success", message: "设置已保存" },
+        status: { kind: "success", message: "settings.saved" },
       });
     } catch (error) {
       set({
         status: {
           kind: "error",
-          message: typeof error === "string" ? error : "保存设置失败",
+          message: typeof error === "string" ? error : "settings.saveFailed",
         },
       });
     }

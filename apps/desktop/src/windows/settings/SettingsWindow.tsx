@@ -12,7 +12,6 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { RotateCcw } from "lucide-react";
 import {
-  applyDocumentTranslation,
   setI18nLanguage,
   targetLanguageForUiLanguage,
   translationLanguageOptions,
@@ -155,7 +154,6 @@ const appearanceAlphaVariables = [
 
 function applyDocumentAppearance(settings: AppSettings) {
   const root = document.documentElement;
-  applyDocumentTranslation(settings.uiLanguage);
   setI18nLanguage(settings.uiLanguage);
   const themeMode =
     settings.themeMode === "system" ? currentSystemTheme() : settings.themeMode;
@@ -359,7 +357,7 @@ function GlassSelect<T extends string>({
   );
 }
 
-function SettingsWindow({ coreStatus }: { coreStatus: string }) {
+function SettingsWindow() {
   const t = useI18n();
   const localizedUiLanguageOptions = uiLanguageOptions.map((option) => ({
     id: option.id,
@@ -1214,7 +1212,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               <span
                 className={`settings-feedback settings-feedback-${textApiKeyStatus.kind}`}
               >
-                {textApiKeyStatus.message}
+                {t(textApiKeyStatus.message)}
               </span>
             </div>
           </SettingsSection>
@@ -1305,7 +1303,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               <span
                 className={`settings-feedback settings-feedback-${visionApiKeyStatus.kind}`}
               >
-                {visionApiKeyStatus.message}
+                {t(visionApiKeyStatus.message)}
               </span>
             </div>
           </SettingsSection>
@@ -1396,7 +1394,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
               <span
                 className={`settings-feedback settings-feedback-${inputApiKeyStatus.kind}`}
               >
-                {inputApiKeyStatus.message}
+                {t(inputApiKeyStatus.message)}
               </span>
             </div>
           </SettingsSection>
@@ -1454,7 +1452,7 @@ function SettingsWindow({ coreStatus }: { coreStatus: string }) {
           className={`settings-feedback settings-feedback-${settingsStatus.kind}`}
           aria-live="polite"
         >
-          {settingsStatus.message}
+          {t(settingsStatus.message)}
         </span>
         <button
           className="primary-action settings-save-button"

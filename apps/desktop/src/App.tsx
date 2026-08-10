@@ -8,7 +8,6 @@ import {
   type AppSettings,
 } from "./lib/settingsTypes";
 import {
-  applyDocumentTranslation,
   setI18nLanguage,
 } from "./lib/i18n";
 import { SettingsWindow } from "./windows/settings/SettingsWindow";
@@ -16,7 +15,6 @@ import { SelectionWindow } from "./windows/selection/SelectionWindow";
 import { ResultWindow } from "./windows/result/ResultWindow";
 import { InputWindow } from "./windows/input/InputWindow";
 import { ScreenshotOverlay } from "./windows/screenshot/ScreenshotOverlay";
-import { ScreenshotPreview } from "./windows/screenshot/ScreenshotPreview";
 
 function currentSystemTheme(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -36,7 +34,6 @@ const appearanceAlphaVariables = [
 
 function applyGlobalAppearance(settings: AppSettings) {
   const root = document.documentElement;
-  applyDocumentTranslation(settings.uiLanguage);
   setI18nLanguage(settings.uiLanguage);
   const resolvedThemeMode: string =
     settings.themeMode === "system" ? currentSystemTheme() : settings.themeMode;
@@ -64,27 +61,7 @@ function applyGlobalAppearance(settings: AppSettings) {
 }
 
 export default function App() {
-  const [coreStatus, setCoreStatus] = useState("正在检查核心连接");
   const [windowKind, setWindowKind] = useState("main");
-
-  useEffect(() => {
-    let mounted = true;
-    invoke<string>("ping")
-      .then((value) => {
-        if (mounted) {
-          setCoreStatus(value);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setCoreStatus("前端预览模式");
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -115,7 +92,6 @@ export default function App() {
       "result",
       "input",
       "screenshot_overlay",
-      "screenshot_preview",
     ]);
     setWindowKind(knownLabels.has(label) ? label : "main");
   }, []);
@@ -129,9 +105,7 @@ export default function App() {
       return <InputWindow />;
     case "screenshot_overlay":
       return <ScreenshotOverlay />;
-    case "screenshot_preview":
-      return <ScreenshotPreview />;
     default:
-      return <SettingsWindow coreStatus={coreStatus} />;
+      return <SettingsWindow />;
   }
 }
