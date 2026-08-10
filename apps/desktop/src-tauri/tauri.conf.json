@@ -23,10 +23,7 @@
         "transparent": true,
         "backgroundColor": [0, 0, 0, 0],
         "decorations": false,
-        "visible": false,
-        "windowEffects": {
-          "effects": ["acrylic"]
-        }
+        "visible": false
       },
       {
         "label": "selection",
@@ -39,10 +36,7 @@
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "visible": false,
-        "windowEffects": {
-          "effects": ["acrylic"]
-        }
+        "visible": false
       },
       {
         "label": "result",
@@ -55,10 +49,7 @@
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "visible": false,
-        "windowEffects": {
-          "effects": ["acrylic"]
-        }
+        "visible": false
       },
       {
         "label": "input",
@@ -71,10 +62,7 @@
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "visible": false,
-        "windowEffects": {
-          "effects": ["acrylic"]
-        }
+        "visible": false
       },
       {
         "label": "screenshot_overlay",

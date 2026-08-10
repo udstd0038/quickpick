@@ -12,7 +12,7 @@ use tauri::{
     image::Image,
     menu::{CheckMenuItem, Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    window::{Color, Effect, EffectsBuilder},
+    window::Color,
     Emitter, Manager, Theme, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -2322,37 +2322,43 @@ fn apply_window_appearance(
             eprintln!("QuickPick {label} window theme sync skipped: {error}");
         }
         let _ = window.set_shadow(true);
-        refresh_window_glass(&window, selected_window_effect(settings));
+        if let Err(error) = apply_window_vibrancy(&window, settings) {
+            eprintln!("QuickPick {label} window vibrancy sync skipped: {error}");
+        }
     }
 
     Ok(())
 }
 
-fn selected_window_effect(settings: &app_settings::AppSettings) -> Effect {
-    if settings.window_effect.as_str() != "mica" {
-        return Effect::Acrylic;
-    }
-
-    match settings.theme_mode.as_str() {
-        "light" => Effect::MicaLight,
-        "dark" | "workbench" => Effect::MicaDark,
-        _ => Effect::Mica,
-    }
-}
-
-fn refresh_window_glass(window: &tauri::WebviewWindow, effect: Effect) {
+fn apply_window_vibrancy(
+    window: &tauri::WebviewWindow,
+    settings: &app_settings::AppSettings,
+) -> Result<(), String> {
     let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
-    let effects = Some(EffectsBuilder::new().effect(effect).build());
-    if let Err(error) = window.set_effects(effects) {
-        eprintln!("QuickPick window effect refresh skipped: {error}");
+
+    if settings.window_effect.as_str() == "mica" {
+        let dark = match settings.theme_mode.as_str() {
+            "light" => Some(false),
+            "dark" | "workbench" => Some(true),
+            _ => None,
+        };
+        window_vibrancy::apply_mica(window, dark)
+            .map_err(|error| format!("Mica 窗口效果应用失败：{error}"))?;
+        return Ok(());
     }
+
+    window_vibrancy::apply_acrylic(
+        window,
+        Some((18, 18, 18, settings.panel_opacity)),
+    )
+    .map_err(|error| format!("Acrylic 窗口效果应用失败：{error}"))
 }
 
 fn refresh_current_window_glass(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
-    let effect = app_settings::load_app_settings(app)
-        .map(|settings| selected_window_effect(&settings))
-        .unwrap_or(Effect::Acrylic);
-    refresh_window_glass(window, effect);
+    let settings = app_settings::load_app_settings(app).unwrap_or_default();
+    if let Err(error) = apply_window_vibrancy(window, &settings) {
+        eprintln!("QuickPick window vibrancy refresh skipped: {error}");
+    }
 }
 
 fn shortcut_release_keys(shortcut: &Shortcut) -> Vec<i32> {
