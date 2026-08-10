@@ -114,6 +114,12 @@ if ($titles -notcontains $settingsTitle) {
 }
 Hide-QuickPickPopups
 
+if ($settingsHwnd -ne [IntPtr]::Zero) {
+  [QuickPickHotkeyVerifier]::ShowWindow($settingsHwnd, 5) | Out-Null
+  [QuickPickHotkeyVerifier]::SetForegroundWindow($settingsHwnd) | Out-Null
+  Start-Sleep -Milliseconds 300
+}
+
 # Alt+2 selection id: (Modifiers::ALT = 1) << 16 | Code::Digit2 = 7
 [QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65543, [IntPtr]0x00320000) | Out-Null
 Start-Sleep -Milliseconds 900
