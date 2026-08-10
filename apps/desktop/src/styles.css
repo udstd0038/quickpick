@@ -4409,13 +4409,6 @@ h3,
   --qp-glass-saturation: 1.4;
   --qp-panel-blur-size: 26px;
   --qp-panel-saturation: 1.36;
-  --qp-shell-gradient: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.74),
-    rgba(214, 231, 255, 0.38) 42%,
-    rgba(188, 216, 255, 0.28)
-  );
-  --qp-panel-top-glow: rgba(255, 255, 255, 0.9);
   --qp-shell-alpha: 0.7;
   --qp-panel-alpha: 0.7;
   --qp-panel-strong-alpha: 0.7;
@@ -4466,9 +4459,6 @@ h3,
     var(--qp-footer-bg);
   -webkit-backdrop-filter: var(--qp-panel-blur);
   backdrop-filter: var(--qp-panel-blur);
-  box-shadow:
-    inset 0 1px 0 var(--qp-highlight),
-    var(--qp-shadow-md);
 }
 
 :root[data-theme="light"] .app-shell.settings-window,
@@ -4480,9 +4470,6 @@ h3,
     var(--qp-shell-bg);
   -webkit-backdrop-filter: var(--qp-shell-blur);
   backdrop-filter: var(--qp-shell-blur);
-  box-shadow:
-    inset 0 1px 0 var(--qp-highlight),
-    var(--qp-shadow-lg);
 }
 
 :root[data-theme="light"] .settings-header,
@@ -4494,9 +4481,6 @@ h3,
     var(--qp-panel-bg-strong);
   -webkit-backdrop-filter: var(--qp-panel-blur);
   backdrop-filter: var(--qp-panel-blur);
-  box-shadow:
-    inset 0 1px 0 var(--qp-highlight),
-    var(--qp-shadow-lg);
 }
 
 :root[data-theme="light"] .settings-nav,
@@ -4508,9 +4492,6 @@ h3,
     var(--qp-panel-bg);
   -webkit-backdrop-filter: var(--qp-panel-blur);
   backdrop-filter: var(--qp-panel-blur);
-  box-shadow:
-    inset 0 1px 0 var(--qp-highlight),
-    var(--qp-shadow-md);
 }
 
 :root[data-theme="light"] .settings-section,
@@ -4522,9 +4503,6 @@ h3,
     var(--qp-panel-bg);
   -webkit-backdrop-filter: var(--qp-panel-blur);
   backdrop-filter: var(--qp-panel-blur);
-  box-shadow:
-    inset 0 1px 0 var(--qp-highlight),
-    var(--qp-shadow-md);
 }
 
 .opacity-slider-row {
