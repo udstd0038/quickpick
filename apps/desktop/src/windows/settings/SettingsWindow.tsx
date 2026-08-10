@@ -398,6 +398,8 @@ function SettingsWindow() {
   const [hotkeyStatuses, setHotkeyStatuses] = useState<
     NonNullable<SelectionActionResult["hotkeyStatuses"]>
   >([]);
+  const hotkeyStatusByName = (name: string) =>
+    hotkeyStatuses.find((item) => item.name === name)?.status;
   const [textApiKeyInput, setTextApiKeyInput] = useState("");
   const [visionApiKeyInput, setVisionApiKeyInput] = useState("");
   const [textApiKeyConfigured, setTextApiKeyConfigured] = useState(false);
@@ -1070,69 +1072,81 @@ function SettingsWindow() {
                 }
               />
             </SettingField>
-            {hotkeyStatuses.length > 0 && (
-              <div
-                className="settings-hotkey-statuses"
-                aria-label={t("settings.hotkeyStatus")}
-              >
-                {hotkeyStatuses.map((item) => (
-                  <div
-                    key={item.name}
-                    className={`settings-hotkey-status settings-hotkey-status-${item.status}`}
-                  >
-                    <span>{t(item.name)}</span>
-                    <strong>{t(`hotkey.status.${item.status}`)}</strong>
-                  </div>
-                ))}
-              </div>
-            )}
           </SettingsSection>
           <SettingsSection id="hotkeys" title={t("settings.hotkeys")}>
             <SettingField label={t("settings.hotkeySettings")}>
-              <HotkeyCaptureButton
-                label={t("settings.hotkeySettings")}
-                value={settings.settingsHotkey}
-                placeholder="Alt+1"
-                active={capturingHotkey === "settingsHotkey"}
-                onStart={() => startHotkeyCapture("settingsHotkey")}
-                onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
-                onKeyDown={(event) => captureHotkey("settingsHotkey", event)}
-              />
+              <div className="hotkey-capture-row">
+                <HotkeyCaptureButton
+                  label={t("settings.hotkeySettings")}
+                  value={settings.settingsHotkey}
+                  placeholder="Alt+1"
+                  active={capturingHotkey === "settingsHotkey"}
+                  onStart={() => startHotkeyCapture("settingsHotkey")}
+                  onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
+                  onKeyDown={(event) => captureHotkey("settingsHotkey", event)}
+                />
+                {hotkeyStatusByName("设置") && (
+                  <span className={`hotkey-status-badge hotkey-status-${hotkeyStatusByName("设置")}`}>
+                    {t(`hotkey.status.${hotkeyStatusByName("设置")}`)}
+                  </span>
+                )}
+              </div>
             </SettingField>
             <SettingField label={t("settings.hotkeySelection")}>
-              <HotkeyCaptureButton
-                label={t("settings.hotkeySelection")}
-                value={settings.selectionHotkey}
-                placeholder="Alt+2"
-                active={capturingHotkey === "selectionHotkey"}
-                onStart={() => startHotkeyCapture("selectionHotkey")}
-                onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
-                onKeyDown={(event) => captureHotkey("selectionHotkey", event)}
-              />
+              <div className="hotkey-capture-row">
+                <HotkeyCaptureButton
+                  label={t("settings.hotkeySelection")}
+                  value={settings.selectionHotkey}
+                  placeholder="Alt+2"
+                  active={capturingHotkey === "selectionHotkey"}
+                  onStart={() => startHotkeyCapture("selectionHotkey")}
+                  onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
+                  onKeyDown={(event) => captureHotkey("selectionHotkey", event)}
+                />
+                {hotkeyStatusByName("划词菜单") && (
+                  <span className={`hotkey-status-badge hotkey-status-${hotkeyStatusByName("划词菜单")}`}>
+                    {t(`hotkey.status.${hotkeyStatusByName("划词菜单")}`)}
+                  </span>
+                )}
+              </div>
             </SettingField>
             <SettingField label={t("settings.hotkeyScreenshot")}>
-              <HotkeyCaptureButton
-                label={t("settings.hotkeyScreenshot")}
-                value={settings.screenshotHotkey}
-                placeholder="Alt+3"
-                active={capturingHotkey === "screenshotHotkey"}
-                onStart={() => startHotkeyCapture("screenshotHotkey")}
-                onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
-                onKeyDown={(event) => captureHotkey("screenshotHotkey", event)}
-              />
+              <div className="hotkey-capture-row">
+                <HotkeyCaptureButton
+                  label={t("settings.hotkeyScreenshot")}
+                  value={settings.screenshotHotkey}
+                  placeholder="Alt+3"
+                  active={capturingHotkey === "screenshotHotkey"}
+                  onStart={() => startHotkeyCapture("screenshotHotkey")}
+                  onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
+                  onKeyDown={(event) => captureHotkey("screenshotHotkey", event)}
+                />
+                {hotkeyStatusByName("区域截图") && (
+                  <span className={`hotkey-status-badge hotkey-status-${hotkeyStatusByName("区域截图")}`}>
+                    {t(`hotkey.status.${hotkeyStatusByName("区域截图")}`)}
+                  </span>
+                )}
+              </div>
             </SettingField>
             <SettingField label={t("settings.hotkeyInput")}>
-              <HotkeyCaptureButton
-                label={t("settings.hotkeyInput")}
-                value={settings.inputTranslateHotkey}
-                placeholder="Alt+4"
-                active={capturingHotkey === "inputTranslateHotkey"}
-                onStart={() => startHotkeyCapture("inputTranslateHotkey")}
-                onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
-                onKeyDown={(event) =>
-                  captureHotkey("inputTranslateHotkey", event)
-                }
-              />
+              <div className="hotkey-capture-row">
+                <HotkeyCaptureButton
+                  label={t("settings.hotkeyInput")}
+                  value={settings.inputTranslateHotkey}
+                  placeholder="Alt+4"
+                  active={capturingHotkey === "inputTranslateHotkey"}
+                  onStart={() => startHotkeyCapture("inputTranslateHotkey")}
+                  onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
+                  onKeyDown={(event) =>
+                    captureHotkey("inputTranslateHotkey", event)
+                  }
+                />
+                {hotkeyStatusByName("输入翻译") && (
+                  <span className={`hotkey-status-badge hotkey-status-${hotkeyStatusByName("输入翻译")}`}>
+                    {t(`hotkey.status.${hotkeyStatusByName("输入翻译")}`)}
+                  </span>
+                )}
+              </div>
             </SettingField>
           </SettingsSection>
           <SettingsSection id="ai-selection" title={t("settings.aiSelection")}>
