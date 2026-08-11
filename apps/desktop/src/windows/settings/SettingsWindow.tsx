@@ -1025,18 +1025,6 @@ function SettingsWindow() {
             onScroll={updateActiveSettingsSection}
           >
           <SettingsSection id="general" title={t("settings.general")}>
-            <SettingField label={t("settings.reset")}>
-              <button
-                className="ghost-control popup-icon-button"
-                type="button"
-                onClick={resetDefaultSettings}
-                disabled={settingsStatus.kind === "saving"}
-                aria-label={t("settings.reset")}
-                title={t("settings.reset")}
-              >
-                <RotateCcw size={15} />
-              </button>
-            </SettingField>
             <SettingField label={t("settings.autostart")}>
               <label className="toggle-control">
                 <input
@@ -1052,6 +1040,14 @@ function SettingsWindow() {
                     : t("settings.disabled")}
                 </span>
               </label>
+            </SettingField>
+            <SettingField label={t("settings.language")}>
+              <GlassSelect
+                ariaLabel={t("settings.language")}
+                value={settings.uiLanguage}
+                options={localizedUiLanguageOptions}
+                onChange={(value) => updateUiLanguage(value as UiLanguage)}
+              />
             </SettingField>
             <SettingField label={t("settings.allowClipboardFallback")}>
               <label className="toggle-control">
@@ -1075,14 +1071,6 @@ function SettingsWindow() {
                 {t("settings.allowClipboardFallbackDescription")}
               </p>
             </SettingField>
-            <SettingField label={t("settings.language")}>
-              <GlassSelect
-                ariaLabel={t("settings.language")}
-                value={settings.uiLanguage}
-                options={localizedUiLanguageOptions}
-                onChange={(value) => updateUiLanguage(value as UiLanguage)}
-              />
-            </SettingField>
             <SettingField label={t("settings.aiTimeout")}>
               <input
                 className="setting-input setting-input-number"
@@ -1097,6 +1085,18 @@ function SettingsWindow() {
                   )
                 }
               />
+            </SettingField>
+            <SettingField label={t("settings.reset")}>
+              <button
+                className="ghost-control popup-icon-button"
+                type="button"
+                onClick={resetDefaultSettings}
+                disabled={settingsStatus.kind === "saving"}
+                aria-label={t("settings.reset")}
+                title={t("settings.reset")}
+              >
+                <RotateCcw size={15} />
+              </button>
             </SettingField>
           </SettingsSection>
           <SettingsSection id="hotkeys" title={t("settings.hotkeys")}>

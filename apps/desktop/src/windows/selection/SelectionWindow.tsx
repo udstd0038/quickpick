@@ -135,12 +135,13 @@ export function SelectionWindow() {
         <ActionButton
           key={action.key}
           type="button"
+          className="screenshot-tool-button"
           disabled={busy}
           onClick={() => run(action.command, "args" in action ? action.args : undefined)}
           style={{
             width: "100%",
-            minHeight: 30,
-            padding: "0 10px",
+            minHeight: 32,
+            padding: "0 14px",
             cursor: busy ? "wait" : "pointer",
             whiteSpace: "nowrap",
           }}
