@@ -174,7 +174,7 @@ export function applyInputAiProviderDefaults(
 
 export const defaultAppSettings: AppSettings = {
   autostartEnabled: true,
-  allowClipboardFallback: false,
+  allowClipboardFallback: true,
   settingsHotkey: "Alt+0",
   selectionHotkey: "Alt+2",
   screenshotHotkey: "Alt+3",

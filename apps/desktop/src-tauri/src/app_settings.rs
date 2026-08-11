@@ -95,7 +95,7 @@ fn default_autostart_enabled() -> bool {
 }
 
 fn default_allow_clipboard_fallback() -> bool {
-    false
+    true
 }
 
 fn default_settings_hotkey() -> String {
@@ -701,7 +701,7 @@ mod tests {
         assert_eq!(settings.theme_mode, "system");
         assert_eq!(settings.window_effect, "acrylic");
         assert_eq!(settings.panel_opacity, 70);
-        assert!(!settings.allow_clipboard_fallback);
+        assert!(settings.allow_clipboard_fallback);
 
         let settings = AppSettings {
             theme_mode: "workbench".to_string(),
