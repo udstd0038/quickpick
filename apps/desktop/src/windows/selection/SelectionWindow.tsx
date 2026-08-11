@@ -124,7 +124,7 @@ export function SelectionWindow() {
         alignItems: "center",
         width: "100vw",
         height: "100vh",
-        padding: 8,
+        padding: "8px",
         boxSizing: "border-box",
         cursor: "grab",
         userSelect: "none",
@@ -141,7 +141,7 @@ export function SelectionWindow() {
           style={{
             width: "100%",
             minHeight: 32,
-            padding: "0 14px",
+            padding: "8px",
             cursor: busy ? "wait" : "pointer",
             whiteSpace: "nowrap",
           }}
