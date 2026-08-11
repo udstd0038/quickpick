@@ -1,8 +1,10 @@
 import {
   useEffect,
+  useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   clearPopupState,
@@ -32,6 +34,7 @@ export function SelectionWindow() {
   const t = useI18n();
   const [snapshot, setSnapshot] = useState<SelectionSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
+  const toolbarRef = useRef<HTMLElement | null>(null);
 
   const clearSelection = () => {
     setSnapshot(null);
@@ -77,6 +80,20 @@ export function SelectionWindow() {
     };
   }, []);
 
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const element = toolbarRef.current;
+      if (!element) {
+        return;
+      }
+      const width = Math.ceil(element.getBoundingClientRect().width);
+      const height = Math.ceil(element.getBoundingClientRect().height);
+      void getCurrentWindow().setSize(new LogicalSize(width, height));
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   const run = async (
     command: string,
     args?: Record<string, unknown>,
@@ -115,6 +132,7 @@ export function SelectionWindow() {
 
   return (
     <main
+      ref={toolbarRef}
       className="popup-window selection-window"
       onPointerDown={startDrag}
       style={{

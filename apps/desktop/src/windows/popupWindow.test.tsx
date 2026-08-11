@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   setFocus: vi.fn(),
   startDragging: vi.fn(),
   setAlwaysOnTop: vi.fn(),
+  setSize: vi.fn(),
   invoke: vi.fn(),
   listen: vi.fn(),
 }));
@@ -37,6 +38,7 @@ describe("WebView popup behavior", () => {
     mocks.setFocus.mockResolvedValue(undefined);
     mocks.startDragging.mockResolvedValue(undefined);
     mocks.setAlwaysOnTop.mockResolvedValue(undefined);
+    mocks.setSize.mockResolvedValue(undefined);
     mocks.listen.mockResolvedValue(() => undefined);
     mocks.invoke.mockImplementation((command: string) => {
       if (command === "get_result_snapshot") {
