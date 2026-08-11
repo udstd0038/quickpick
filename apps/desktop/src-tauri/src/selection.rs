@@ -107,9 +107,12 @@ pub fn current_foreground_window() -> ForegroundWindow {
 pub fn capture_selected_text_for_window(
     foreground_window: ForegroundWindow,
     hotkey_keys: Vec<i32>,
+    allow_clipboard_fallback: bool,
 ) -> SelectionSnapshot {
-    match thread::spawn(move || capture_selected_text_with_fallback(foreground_window, hotkey_keys))
-        .join()
+    match thread::spawn(move || {
+        capture_selected_text_with_fallback(foreground_window, hotkey_keys, allow_clipboard_fallback)
+    })
+    .join()
     {
         Ok(snapshot) => snapshot,
         Err(_) => SelectionSnapshot::error("读取选区时发生内部错误，请重新选择后再试"),
@@ -119,6 +122,7 @@ pub fn capture_selected_text_for_window(
 fn capture_selected_text_with_fallback(
     foreground_window: ForegroundWindow,
     hotkey_keys: Vec<i32>,
+    allow_clipboard_fallback: bool,
 ) -> SelectionSnapshot {
     wait_for_selection_hotkey_release(&hotkey_keys);
     restore_foreground_window(foreground_window);
@@ -128,10 +132,18 @@ fn capture_selected_text_with_fallback(
     if matches!(&direct_snapshot.status, SelectionStatus::Captured) {
         return direct_snapshot;
     }
+    if !allow_clipboard_fallback {
+        return direct_snapshot;
+    }
 
     match capture_selected_text_from_clipboard(foreground_window) {
-        Some(text) => {
-            SelectionSnapshot::captured_from(text, "clipboard", "已通过剪贴板兜底读取选中文本")
+        Some((text, restored)) => {
+            let message = if restored {
+                "已通过剪贴板兜底读取选中文本"
+            } else {
+                "已通过剪贴板兜底读取选中文本，但恢复原剪贴板失败"
+            };
+            SelectionSnapshot::captured_from(text, "clipboard", message)
         }
         None => direct_snapshot,
     }
@@ -186,7 +198,9 @@ struct ClipboardFormatSnapshot {
     data: Vec<u8>,
 }
 
-fn capture_selected_text_from_clipboard(foreground_window: ForegroundWindow) -> Option<String> {
+fn capture_selected_text_from_clipboard(
+    foreground_window: ForegroundWindow,
+) -> Option<(String, bool)> {
     let before_seq = clipboard_win::seq_num().map(|value| value.get());
     let clipboard_snapshot = snapshot_clipboard_formats();
 
@@ -199,8 +213,8 @@ fn capture_selected_text_from_clipboard(foreground_window: ForegroundWindow) -> 
     }
 
     let copied = wait_for_copied_text(before_seq);
-    restore_clipboard_formats(clipboard_snapshot);
-    copied
+    let restored = restore_clipboard_formats(clipboard_snapshot);
+    copied.map(|text| (text, restored))
 }
 
 fn snapshot_clipboard_formats() -> Vec<ClipboardFormatSnapshot> {
@@ -220,23 +234,27 @@ fn snapshot_clipboard_formats() -> Vec<ClipboardFormatSnapshot> {
         .collect()
 }
 
-fn restore_clipboard_formats(snapshot: Vec<ClipboardFormatSnapshot>) {
+fn restore_clipboard_formats(snapshot: Vec<ClipboardFormatSnapshot>) -> bool {
     if snapshot.is_empty() {
-        return;
+        return true;
     }
 
     let _clipboard = match clipboard_win::Clipboard::new_attempts(10) {
         Ok(clipboard) => clipboard,
-        Err(_) => return,
+        Err(_) => return false,
     };
 
     if clipboard_win::raw::empty().is_err() {
-        return;
+        return false;
     }
 
+    let mut restored = true;
     for item in snapshot {
-        let _ = clipboard_win::raw::set_without_clear(item.format, &item.data);
+        if clipboard_win::raw::set_without_clear(item.format, &item.data).is_err() {
+            restored = false;
+        }
     }
+    restored
 }
 
 fn wait_for_copied_text(before_seq: Option<u32>) -> Option<String> {

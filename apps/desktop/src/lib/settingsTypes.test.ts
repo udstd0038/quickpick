@@ -10,8 +10,17 @@ describe("settingsTypes", () => {
 
     expect(settings.settingsHotkey).toBe("Alt+0");
     expect(settings.selectionHotkey).toBe("Alt+2");
+    expect(settings.allowClipboardFallback).toBe(false);
     expect(settings.panelOpacity).toBe(70);
     expect(settings.textAiProvider).toBe("deepseek");
+  });
+
+  it("preserves clipboard fallback opt-in", () => {
+    const settings = normalizeAppSettings({
+      allowClipboardFallback: true,
+    });
+
+    expect(settings.allowClipboardFallback).toBe(true);
   });
 
   it("fills provider defaults when base url or model is empty", () => {

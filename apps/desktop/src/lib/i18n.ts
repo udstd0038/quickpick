@@ -629,6 +629,7 @@ const keyToSource: Record<string, string> = {
   "settings.modelTooLong": "模型名称过长，请缩短后保存",
   "settings.baseUrlInvalid": "Base URL 必须以 http:// 或 https:// 开头",
   "settings.baseUrlInsecure": "外部 AI 服务必须使用 HTTPS，HTTP 仅允许本地或私有网络地址",
+  "settings.baseUrlHttpWarning": "当前使用 HTTP，请仅用于本地或私有网络",
   "ai.textTooLong": "选中文本过长，请缩短到 12000 字以内后再试",
   "ai.clientInitFailed": "初始化 AI 请求客户端失败",
   "ai.emptyResponse": "AI 返回为空，请稍后重试或检查模型配置",

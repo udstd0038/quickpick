@@ -157,6 +157,12 @@
   accent-color: var(--qp-accent);
 }.setting-field .toggle-control span{
   color: inherit;
+}.setting-hint{
+  grid-column: 2;
+  margin: -4px 0 0;
+  color: var(--qp-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
 }.setting-input{
   width: 100%;
   min-height: 38px;

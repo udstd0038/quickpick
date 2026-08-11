@@ -174,6 +174,10 @@ function applyDocumentAppearance(settings: AppSettings) {
   }
 }
 
+function isHttpBaseUrl(value: string) {
+  return value.trim().startsWith("http://");
+}
+
 function SettingsTitlebar() {
   const t = useI18n();
   useEffect(() => {
@@ -1049,6 +1053,28 @@ function SettingsWindow() {
                 </span>
               </label>
             </SettingField>
+            <SettingField label={t("settings.allowClipboardFallback")}>
+              <label className="toggle-control">
+                <input
+                  type="checkbox"
+                  checked={settings.allowClipboardFallback}
+                  onChange={(event) =>
+                    updateSetting(
+                      "allowClipboardFallback",
+                      event.currentTarget.checked,
+                    )
+                  }
+                />
+                <span>
+                  {settings.allowClipboardFallback
+                    ? t("settings.enabled")
+                    : t("settings.disabled")}
+                </span>
+              </label>
+              <p className="setting-hint">
+                {t("settings.allowClipboardFallbackDescription")}
+              </p>
+            </SettingField>
             <SettingField label={t("settings.language")}>
               <GlassSelect
                 ariaLabel={t("settings.language")}
@@ -1169,6 +1195,9 @@ function SettingsWindow() {
                   updateSetting("textAiBaseUrl", event.currentTarget.value)
                 }
               />
+              {isHttpBaseUrl(settings.textAiBaseUrl) && (
+                <p className="setting-hint">{t("settings.baseUrlHttpWarning")}</p>
+              )}
             </SettingField>
             <SettingField label={t("settings.textModel")}>
               <input
@@ -1260,6 +1289,9 @@ function SettingsWindow() {
                   updateSetting("visionAiBaseUrl", event.currentTarget.value)
                 }
               />
+              {isHttpBaseUrl(settings.visionAiBaseUrl) && (
+                <p className="setting-hint">{t("settings.baseUrlHttpWarning")}</p>
+              )}
             </SettingField>
             <SettingField label={t("settings.visionModel")}>
               <input
@@ -1351,6 +1383,9 @@ function SettingsWindow() {
                   updateSetting("inputAiBaseUrl", event.currentTarget.value)
                 }
               />
+              {isHttpBaseUrl(settings.inputAiBaseUrl) && (
+                <p className="setting-hint">{t("settings.baseUrlHttpWarning")}</p>
+              )}
             </SettingField>
             <SettingField label={t("settings.inputModel")}>
               <input

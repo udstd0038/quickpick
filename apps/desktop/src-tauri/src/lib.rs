@@ -826,14 +826,8 @@ fn search_selection_text_from_state(state: &AppState) -> Result<SelectionActionR
         encode_query_component(&text)
     );
 
-    if tauri_plugin_opener::open_url(url.clone(), None::<&str>).is_err() {
-        let fallback = std::process::Command::new("cmd")
-            .args(["/C", "start", "", url.as_str()])
-            .spawn()
-            .and_then(|mut child| child.wait());
-        if fallback.is_err() {
-            return Err(error_key("search.browserFailed"));
-        }
+    if tauri_plugin_opener::open_url(url, None::<&str>).is_err() {
+        return Err(error_key("search.browserFailed"));
     }
 
     Ok(SelectionActionResult {
@@ -2429,7 +2423,14 @@ fn refresh_selection_snapshot(
     foreground_window: selection::ForegroundWindow,
     hotkey_keys: Vec<i32>,
 ) {
-    let snapshot = selection::capture_selected_text_for_window(foreground_window, hotkey_keys);
+    let allow_clipboard_fallback = app_settings::load_app_settings(app)
+        .map(|settings| settings.allow_clipboard_fallback)
+        .unwrap_or(false);
+    let snapshot = selection::capture_selected_text_for_window(
+        foreground_window,
+        hotkey_keys,
+        allow_clipboard_fallback,
+    );
     let state = app.state::<AppState>();
 
     if let Ok(mut current) = state.selection_snapshot.lock() {

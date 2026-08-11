@@ -15,6 +15,7 @@ const capabilityPath = path.join(
   "default.json",
 );
 const tauriConfigPath = path.join(desktopRoot, "src-tauri", "tauri.conf.json");
+const libSourcePath = path.join(desktopRoot, "src-tauri", "src", "lib.rs");
 
 describe("security baseline", () => {
   it("does not grant the broad core:default permission set", async () => {
@@ -39,6 +40,12 @@ describe("security baseline", () => {
 
     expect(config.app.security.csp).toBeTruthy();
     expect(config.app.security.csp).toContain("default-src 'self'");
+  });
+
+  it("does not open URLs through a cmd shell fallback", async () => {
+    const source = await readFile(libSourcePath, "utf8");
+
+    expect(source).not.toContain('Command::new("cmd")');
   });
 
   it("does not store settings or API keys in browser storage", async () => {

@@ -12,6 +12,8 @@ const SETTINGS_FILE_NAME: &str = "settings.json";
 pub struct AppSettings {
     #[serde(default = "default_autostart_enabled")]
     pub autostart_enabled: bool,
+    #[serde(default = "default_allow_clipboard_fallback")]
+    pub allow_clipboard_fallback: bool,
     #[serde(default = "default_settings_hotkey")]
     pub settings_hotkey: String,
     #[serde(default = "default_selection_hotkey")]
@@ -92,6 +94,10 @@ fn default_autostart_enabled() -> bool {
     true
 }
 
+fn default_allow_clipboard_fallback() -> bool {
+    false
+}
+
 fn default_settings_hotkey() -> String {
     "Alt+0".to_string()
 }
@@ -159,6 +165,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             autostart_enabled: default_autostart_enabled(),
+            allow_clipboard_fallback: default_allow_clipboard_fallback(),
             settings_hotkey: default_settings_hotkey(),
             selection_hotkey: default_selection_hotkey(),
             screenshot_hotkey: default_screenshot_hotkey(),
@@ -694,6 +701,7 @@ mod tests {
         assert_eq!(settings.theme_mode, "system");
         assert_eq!(settings.window_effect, "acrylic");
         assert_eq!(settings.panel_opacity, 70);
+        assert!(!settings.allow_clipboard_fallback);
 
         let settings = AppSettings {
             theme_mode: "workbench".to_string(),

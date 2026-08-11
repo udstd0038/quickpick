@@ -7,6 +7,7 @@ import {
 
 export type AppSettings = {
   autostartEnabled: boolean;
+  allowClipboardFallback: boolean;
   settingsHotkey: string;
   selectionHotkey: string;
   screenshotHotkey: string;
@@ -173,6 +174,7 @@ export function applyInputAiProviderDefaults(
 
 export const defaultAppSettings: AppSettings = {
   autostartEnabled: true,
+  allowClipboardFallback: false,
   settingsHotkey: "Alt+0",
   selectionHotkey: "Alt+2",
   screenshotHotkey: "Alt+3",
