@@ -140,8 +140,12 @@ export function SelectionWindow() {
           onClick={() => run(action.command, "args" in action ? action.args : undefined)}
           style={{
             width: "100%",
+            height: 32,
             minHeight: 32,
-            padding: "8px",
+            paddingTop: "8px",
+            paddingRight: "8px",
+            paddingBottom: "8px",
+            paddingLeft: "8px",
             cursor: busy ? "wait" : "pointer",
             whiteSpace: "nowrap",
           }}
