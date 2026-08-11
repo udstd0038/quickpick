@@ -135,7 +135,7 @@ export function SelectionWindow() {
         <ActionButton
           key={action.key}
           type="button"
-          className="screenshot-tool-button"
+          className="selection-tool-button"
           disabled={busy}
           onClick={() => run(action.command, "args" in action ? action.args : undefined)}
           style={{

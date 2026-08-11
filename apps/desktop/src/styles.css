@@ -1487,6 +1487,7 @@
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
 }.selection-window{
   cursor: grab;
+  padding: 8px;
 }.popup-button, .popup-textarea, .popup-result-box{
   box-sizing: border-box;
   border: 1px solid var(--qp-border);
@@ -1574,6 +1575,9 @@
 }.screenshot-tool-button{
   min-height: 32px;
   padding: 0 14px;
+}.selection-tool-button{
+  min-height: 32px;
+  padding: 8px;
 }:root, :root[data-theme="light"]{
   --qp-footer-bg: rgba(255, 255, 255, 0.42);
 }:root[data-theme="dark"], :root[data-theme="workbench"]{
