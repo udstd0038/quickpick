@@ -479,14 +479,62 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
 }
 
 fn validate_base_url(value: &str, _label: &str) -> Result<(), String> {
+    validate_ai_base_url(value)
+}
+
+pub fn validate_ai_base_url(value: &str) -> Result<(), String> {
     let base_url = value.trim();
-    if !base_url.is_empty()
-        && !(base_url.starts_with("https://") || base_url.starts_with("http://"))
-    {
-        return Err(error_key("settings.baseUrlInvalid"));
+    if base_url.is_empty() {
+        return Ok(());
     }
 
-    Ok(())
+    if base_url.starts_with("https://") {
+        return Ok(());
+    }
+    if !base_url.starts_with("http://") {
+        return Err(error_key("settings.baseUrlInvalid"));
+    }
+    if is_http_host_allowed(base_url) {
+        return Ok(());
+    }
+
+    Err(error_key("settings.baseUrlInsecure"))
+}
+
+fn is_http_host_allowed(base_url: &str) -> bool {
+    let rest = &base_url["http://".len()..];
+    let rest = rest.split('/').next().unwrap_or("");
+    let rest = rest.split('?').next().unwrap_or("");
+    let rest = rest.split('#').next().unwrap_or("");
+    let host_with_port = rest.rsplit('@').next().unwrap_or("");
+
+    let host = if host_with_port.starts_with('[') {
+        host_with_port
+            .split_once(']')
+            .map(|(host, _)| &host[1..])
+            .unwrap_or("")
+    } else {
+        host_with_port.split(':').next().unwrap_or("")
+    };
+
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        return match ip {
+            std::net::IpAddr::V4(v4) => {
+                let octets = v4.octets();
+                v4.is_loopback()
+                    || octets[0] == 10
+                    || (octets[0] == 172 && (16..=31).contains(&octets[1]))
+                    || (octets[0] == 192 && octets[1] == 168)
+            }
+            std::net::IpAddr::V6(v6) => v6.is_loopback(),
+        };
+    }
+
+    false
 }
 
 fn format_shortcut(shortcut: Shortcut) -> String {
@@ -722,5 +770,29 @@ mod tests {
         assert_eq!(settings.vision_ai_provider, "xiaomi_mimo");
         assert_eq!(settings.text_ai_model, "deepseek-v4-flash");
         assert_eq!(settings.vision_ai_model, "");
+    }
+
+    #[test]
+    fn external_http_base_url_is_rejected() {
+        assert!(validate_ai_base_url("http://example.com/v1").is_err());
+        assert!(normalize_settings_for_save(AppSettings {
+            text_ai_base_url: "http://example.com/v1".to_string(),
+            ..AppSettings::default()
+        })
+        .is_err());
+    }
+
+    #[test]
+    fn loopback_and_private_http_base_urls_are_allowed() {
+        for url in [
+            "http://localhost:11434/v1",
+            "http://127.0.0.1:11434/v1",
+            "http://[::1]:11434/v1",
+            "http://10.0.0.5:8080/v1",
+            "http://172.16.1.5:8080/v1",
+            "http://192.168.1.10:8080/v1",
+        ] {
+            assert!(validate_ai_base_url(url).is_ok(), "expected {url} to be allowed");
+        }
     }
 }

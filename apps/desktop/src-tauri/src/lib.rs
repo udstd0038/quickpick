@@ -9,6 +9,7 @@ use selection::SelectionSnapshot;
 use localized_error::error_key;
 use serde::Serialize;
 use std::sync::Mutex;
+use zeroize::Zeroize;
 use tauri::{
     image::Image,
     menu::{CheckMenuItem, Menu, MenuItem},
@@ -700,11 +701,13 @@ fn get_api_key_status(
 #[tauri::command]
 fn save_api_key(
     app: tauri::AppHandle,
-    api_key: String,
+    mut api_key: String,
     scope: Option<String>,
 ) -> Result<SelectionActionResult, String> {
     let scope = scope.unwrap_or_else(|| "text".to_string());
-    security::save_api_key(&app, &scope, &api_key)?;
+    let result = security::save_api_key(&app, &scope, &api_key);
+    api_key.zeroize();
+    result?;
 
     Ok(SelectionActionResult {
         message: if scope == "vision" {
@@ -927,7 +930,7 @@ async fn run_text_ai_action_inner(
                 &target_language,
             )
             .await;
-            api_key.clear();
+            api_key.zeroize();
             result
         }
         Ok(None) => Err(error_key("ai.textApiKeyMissing")),
@@ -1967,7 +1970,7 @@ async fn run_screenshot_ai_action(
                 &target_language,
             )
             .await;
-            api_key.clear();
+            api_key.zeroize();
             result
         }
         Ok(None) => Err("视觉模型 API Key 未配置，请先保存".to_string()),
@@ -2216,7 +2219,7 @@ async fn request_input_translation(
                     &request_target_language,
                 )
                 .await;
-                api_key.clear();
+                api_key.zeroize();
                 result
             }
             Ok(None) => Err(error_key("input.apiKeyMissing")),
@@ -2281,7 +2284,7 @@ async fn request_result_translation(
                     &request_target_language,
                 )
                 .await;
-                api_key.clear();
+                api_key.zeroize();
                 result
             }
             Ok(None) => Err(error_key("ai.textApiKeyMissing")),
@@ -2331,7 +2334,7 @@ async fn request_result_translation(
                     &request_target_language,
                 )
                 .await;
-                api_key.clear();
+                api_key.zeroize();
                 result
             }
             Ok(None) => Err(error_key("screenshot.apiKeyMissing")),

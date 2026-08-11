@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::{fs, path::PathBuf};
 use tauri::{AppHandle, Manager};
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::localized_error::error_key;
 
@@ -46,9 +47,9 @@ pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), S
         return Err(error_key("security.apiKeyTooLong"));
     }
 
-    let mut plaintext = trimmed.as_bytes().to_vec();
+    let mut plaintext = Zeroizing::new(trimmed.as_bytes().to_vec());
     let encrypted = protect_data(&plaintext)?;
-    plaintext.fill(0);
+    plaintext.zeroize();
 
     let path = api_key_path(app, scope)?;
     if let Some(parent) = path.parent() {
@@ -73,8 +74,7 @@ pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[allow(dead_code)]
-pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<String>, String> {
+pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<Zeroizing<String>>, String> {
     let path = api_key_path(app, scope)?;
     let legacy_path = legacy_api_key_path(app)?;
     let path = if path.exists() {
@@ -89,10 +89,15 @@ pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<String>, Stri
     }
 
     let encrypted = fs::read(path).map_err(|_| error_key("security.readFailed"))?;
-    let mut plaintext = unprotect_data(&encrypted)?;
-    let value =
-        String::from_utf8(plaintext.clone()).map_err(|_| error_key("security.decryptInvalid"))?;
-    plaintext.fill(0);
+    let plaintext = unprotect_data(&encrypted)?;
+    let value = match String::from_utf8(plaintext) {
+        Ok(value) => Zeroizing::new(value),
+        Err(error) => {
+            let mut bytes = error.into_bytes();
+            bytes.zeroize();
+            return Err(error_key("security.decryptInvalid"));
+        }
+    };
 
     Ok(Some(value))
 }

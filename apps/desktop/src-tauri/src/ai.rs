@@ -7,6 +7,7 @@ use std::time::Duration;
 const MAX_TEXT_INPUT_CHARS: usize = 12_000;
 const MAX_IMAGE_INPUT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_IMAGE_OUTPUT_TOKENS: u16 = 4096;
+const MAX_AI_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 const PROVIDER_OPENAI_COMPATIBLE: &str = "openai_compatible";
 const PROVIDER_DEEPSEEK: &str = "deepseek";
 const PROVIDER_XIAOMI_MIMO: &str = "xiaomi_mimo";
@@ -28,6 +29,30 @@ struct ChatChoice {
 #[derive(Deserialize)]
 struct ChatChoiceMessage {
     content: Option<String>,
+}
+
+async fn read_chat_completion_response_body(
+    response: reqwest::Response,
+) -> Result<Vec<u8>, String> {
+    if let Some(length) = response.content_length() {
+        ensure_response_within_limit(Some(length), 0)?;
+    }
+
+    let bytes = response.bytes().await.map_err(|_| error_key("ai.requestFailed"))?;
+    ensure_response_within_limit(None, bytes.len())?;
+    Ok(bytes.to_vec())
+}
+
+fn ensure_response_within_limit(content_length: Option<u64>, body_len: usize) -> Result<(), String> {
+    if content_length
+        .map(|length| length > MAX_AI_RESPONSE_BYTES as u64)
+        .unwrap_or(false)
+        || body_len > MAX_AI_RESPONSE_BYTES
+    {
+        return Err(error_key("ai.responseTooLarge"));
+    }
+
+    Ok(())
 }
 
 pub async fn run_text_action(
@@ -66,13 +91,10 @@ pub async fn run_text_action(
         return Err(map_http_status(status.as_u16()));
     }
 
-    let body = response
-        .json::<ChatCompletionResponse>()
-        .await
-        .map_err(|_| {
-            "AI 返回格式无法解析，请检查 Base URL 和模型是否兼容 OpenAI chat/completions"
-                .to_string()
-        })?;
+    let bytes = read_chat_completion_response_body(response).await?;
+    let body = serde_json::from_slice::<ChatCompletionResponse>(&bytes).map_err(|_| {
+        "AI 返回格式无法解析，请检查 Base URL 和模型是否兼容 OpenAI chat/completions".to_string()
+    })?;
 
     body.choices
         .into_iter()
@@ -124,13 +146,11 @@ pub async fn run_input_text_action(
         return Err(map_http_status(status.as_u16()));
     }
 
-    let body = response
-        .json::<ChatCompletionResponse>()
-        .await
-        .map_err(|_| {
-            "AI 返回格式无法解析，请检查输入模型 Base URL 和模型是否兼容 OpenAI chat/completions"
-                .to_string()
-        })?;
+    let bytes = read_chat_completion_response_body(response).await?;
+    let body = serde_json::from_slice::<ChatCompletionResponse>(&bytes).map_err(|_| {
+        "AI 返回格式无法解析，请检查输入模型 Base URL 和模型是否兼容 OpenAI chat/completions"
+            .to_string()
+    })?;
 
     body.choices
         .into_iter()
@@ -205,13 +225,11 @@ pub async fn run_image_action(
         return Err(map_image_http_status(status.as_u16()));
     }
 
-    let body = response
-        .json::<ChatCompletionResponse>()
-        .await
-        .map_err(|_| {
-            "AI 返回格式无法解析，请检查 Base URL 和视觉模型是否兼容 OpenAI chat/completions"
-                .to_string()
-        })?;
+    let bytes = read_chat_completion_response_body(response).await?;
+    let body = serde_json::from_slice::<ChatCompletionResponse>(&bytes).map_err(|_| {
+        "AI 返回格式无法解析，请检查 Base URL 和视觉模型是否兼容 OpenAI chat/completions"
+            .to_string()
+    })?;
 
     body.choices
         .into_iter()
@@ -318,9 +336,7 @@ fn chat_completions_endpoint(
         return Err(error_key("ai.baseUrlMissing"));
     }
 
-    if !(trimmed.starts_with("https://") || trimmed.starts_with("http://")) {
-        return Err(error_key("ai.baseUrlInvalid"));
-    }
+    crate::app_settings::validate_ai_base_url(&trimmed)?;
 
     Ok(format!("{trimmed}/chat/completions"))
 }
@@ -537,5 +553,30 @@ mod tests {
     #[test]
     fn traditional_chinese_label_is_supported() {
         assert_eq!(translation_language_label("zh-Hant"), "繁体中文");
+    }
+
+    #[test]
+    fn ai_response_size_limit_rejects_oversized_body() {
+        assert!(ensure_response_within_limit(Some(MAX_AI_RESPONSE_BYTES as u64 + 1), 0).is_err());
+        assert!(ensure_response_within_limit(None, MAX_AI_RESPONSE_BYTES + 1).is_err());
+        assert!(ensure_response_within_limit(None, MAX_AI_RESPONSE_BYTES).is_ok());
+    }
+
+    #[test]
+    fn ai_endpoint_rejects_external_http() {
+        let settings = AppSettings {
+            text_ai_base_url: "http://example.com/v1".to_string(),
+            ..AppSettings::default()
+        };
+        assert!(chat_completions_endpoint(&settings, "test", AiModelKind::Text).is_err());
+    }
+
+    #[test]
+    fn ai_endpoint_allows_loopback_http() {
+        let settings = AppSettings {
+            text_ai_base_url: "http://127.0.0.1:11434/v1".to_string(),
+            ..AppSettings::default()
+        };
+        assert!(chat_completions_endpoint(&settings, "test", AiModelKind::Text).is_ok());
     }
 }
