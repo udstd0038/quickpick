@@ -1,0 +1,28 @@
+name: security-audit
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1"
+
+jobs:
+  security-audit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit npm dependencies
+        run: pnpm --filter quickpick-desktop audit --prod
+      - name: Audit Rust dependencies
+        working-directory: apps/desktop/src-tauri
+        run: cargo audit

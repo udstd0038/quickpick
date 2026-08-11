@@ -112,7 +112,28 @@
 
 不要把多个核心能力混在一次开发里。
 
-## 8. 收尾说明
+## 8. 安全审计
+
+发布前必须执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\security-audit.ps1
+```
+
+脚本会依次执行：
+
+- `pnpm --filter quickpick-desktop audit --prod`
+- `cargo audit`
+
+如果本机未安装 `cargo-audit`，先执行：
+
+```powershell
+cargo install cargo-audit
+```
+
+仓库同时提供 `.github/workflows/security-audit.yml`，在 push、PR 和每周计划任务中运行 npm 与 Rust 依赖审计。高危漏洞不允许进入 release。
+
+## 9. 收尾说明
 
 每次回复用户时应简要说明：
 
