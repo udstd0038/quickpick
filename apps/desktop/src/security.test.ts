@@ -14,6 +14,7 @@ const capabilityPath = path.join(
   "capabilities",
   "default.json",
 );
+const tauriConfigPath = path.join(desktopRoot, "src-tauri", "tauri.conf.json");
 
 describe("security baseline", () => {
   it("does not grant the broad core:default permission set", async () => {
@@ -24,9 +25,20 @@ describe("security baseline", () => {
     };
 
     expect(capability.permissions).not.toContain("core:default");
+    expect(capability.permissions).not.toContain("core:window:default");
     expect(capability.permissions).toContain("core:event:allow-listen");
     expect(capability.permissions).toContain("core:event:allow-unlisten");
     expect(capability.permissions).toContain("core:window:allow-start-dragging");
+    expect(capability.permissions).toContain("core:window:allow-set-decorations");
+  });
+
+  it("enables a non-null WebView CSP", async () => {
+    const config = JSON.parse(await readFile(tauriConfigPath, "utf8")) as {
+      app: { security: { csp: string | null } };
+    };
+
+    expect(config.app.security.csp).toBeTruthy();
+    expect(config.app.security.csp).toContain("default-src 'self'");
   });
 
   it("does not store settings or API keys in browser storage", async () => {
