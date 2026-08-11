@@ -118,8 +118,7 @@ export function SelectionWindow() {
       className="popup-window selection-window"
       onPointerDown={startDrag}
       style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        display: "flex",
         gap: 8,
         alignItems: "center",
         width: "100vw",
@@ -139,7 +138,6 @@ export function SelectionWindow() {
           disabled={busy}
           onClick={() => run(action.command, "args" in action ? action.args : undefined)}
           style={{
-            width: "100%",
             minHeight: 32,
             padding: "0 14px",
             cursor: busy ? "wait" : "pointer",
