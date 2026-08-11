@@ -736,6 +736,61 @@ fn clear_api_key(
 }
 
 #[tauri::command]
+fn clear_popup_state(
+    app: tauri::AppHandle,
+    window: String,
+) -> Result<SelectionActionResult, String> {
+    clear_popup_state_internal(&app, &window);
+
+    Ok(SelectionActionResult {
+        message: "弹窗状态已清理".to_string(),
+    })
+}
+
+fn clear_popup_state_internal(app: &tauri::AppHandle, window: &str) {
+    let state = app.state::<AppState>();
+    clear_popup_state_from_state(&state, window);
+}
+
+fn clear_popup_state_from_state(state: &AppState, window: &str) {
+    match window {
+        "result" => {
+            if let Ok(mut current) = state.result_snapshot.lock() {
+                *current = ResultSnapshot::default();
+            }
+            if let Ok(mut current) = state.last_text_translation.lock() {
+                *current = None;
+            }
+            if let Ok(mut current) = state.last_image_translation.lock() {
+                *current = None;
+            }
+        }
+        "input" => {
+            if let Ok(mut current) = state.last_input_result.lock() {
+                *current = None;
+            }
+            if let Ok(mut current) = state.last_input_payload.lock() {
+                *current = None;
+            }
+        }
+        "screenshot_overlay" => {
+            if let Ok(mut current) = state.last_screenshot_payload.lock() {
+                *current = None;
+            }
+            if let Ok(mut current) = state.last_screenshot_error.lock() {
+                *current = None;
+            }
+        }
+        "selection" => {
+            if let Ok(mut current) = state.selection_snapshot.lock() {
+                *current = SelectionSnapshot::default();
+            }
+        }
+        _ => {}
+    }
+}
+
+#[tauri::command]
 fn copy_selection_text(state: tauri::State<'_, AppState>) -> Result<SelectionActionResult, String> {
     copy_selection_text_from_state(&state)
 }
@@ -1003,6 +1058,7 @@ pub fn run() {
             get_api_key_status,
             save_api_key,
             clear_api_key,
+            clear_popup_state,
             copy_selection_text,
             search_selection_text,
             copy_result_content,
@@ -1044,15 +1100,12 @@ pub fn run() {
             }
             WindowEvent::CloseRequested { api, .. } if window.label() == "screenshot_overlay" => {
                 api.prevent_close();
+                clear_popup_state_internal(window.app_handle(), "screenshot_overlay");
                 let _ = window.hide();
             }
             WindowEvent::CloseRequested { api, .. } if window.label() == "result" => {
                 api.prevent_close();
-                if let Some(app) = window.app_handle().try_state::<AppState>() {
-                    if let Ok(mut current) = app.result_snapshot.lock() {
-                        *current = ResultSnapshot::default();
-                    }
-                }
+                clear_popup_state_internal(window.app_handle(), "result");
                 let _ = window.hide();
             }
             WindowEvent::CloseRequested { api, .. }
@@ -1062,12 +1115,14 @@ pub fn run() {
                 ) =>
             {
                 api.prevent_close();
+                clear_popup_state_internal(window.app_handle(), window.label());
                 let _ = window.hide();
             }
             WindowEvent::Focused(false) if window.label() == "selection_bar" => {
                 let _ = window.hide();
             }
             WindowEvent::Focused(false) if window.label() == "selection" => {
+                clear_popup_state_internal(window.app_handle(), "selection");
                 let _ = window.hide();
             }
             _ => {}
@@ -2093,6 +2148,7 @@ fn show_input_webview(
     let Some(window) = get_or_create_window(app, "input") else {
         return false;
     };
+    clear_popup_state_internal(app, "input");
 
     let _ = window.set_always_on_top(true);
     let _ = window.show();
@@ -2607,5 +2663,51 @@ mod tests {
         assert!(keys.contains(&0x11));
         assert!(keys.contains(&0x12));
         assert!(keys.contains(&0x51));
+    }
+
+    #[test]
+    fn clear_popup_state_clears_sensitive_payloads() {
+        let state = AppState::default();
+        {
+            let mut current = state.result_snapshot.lock().unwrap();
+            *current = ResultSnapshot {
+                status: "success".to_string(),
+                content: "secret result".to_string(),
+                ..ResultSnapshot::default()
+            };
+        }
+        {
+            let mut current = state.last_text_translation.lock().unwrap();
+            *current = Some(LastTextTranslation {
+                action: "translate".to_string(),
+                text: "secret text".to_string(),
+                source_preview: "secret preview".to_string(),
+                source_char_count: 12,
+            });
+        }
+        {
+            let mut current = state.last_input_result.lock().unwrap();
+            *current = Some("secret input".to_string());
+        }
+        {
+            let mut current = state.last_screenshot_payload.lock().unwrap();
+            *current = Some(screenshot::MonitorScreenshotPayload {
+                width: 1920,
+                height: 1080,
+                monitor_x: 0,
+                monitor_y: 0,
+                monitor_name: "test".to_string(),
+                png_data_url: "data:image/png;base64,secret".to_string(),
+            });
+        }
+
+        clear_popup_state_from_state(&state, "result");
+        clear_popup_state_from_state(&state, "input");
+        clear_popup_state_from_state(&state, "screenshot_overlay");
+
+        assert_eq!(state.result_snapshot.lock().unwrap().status, "empty");
+        assert!(state.last_text_translation.lock().unwrap().is_none());
+        assert!(state.last_input_result.lock().unwrap().is_none());
+        assert!(state.last_screenshot_payload.lock().unwrap().is_none());
     }
 }

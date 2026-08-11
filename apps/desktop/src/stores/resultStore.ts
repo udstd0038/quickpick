@@ -16,6 +16,7 @@ interface ResultState {
     direction: "left" | "right",
   ) => void;
   setPinned: (pinned: boolean) => void;
+  reset: () => void;
 }
 
 export const useResultStore = create<ResultState>((set) => ({
@@ -31,4 +32,14 @@ export const useResultStore = create<ResultState>((set) => ({
   setLanguages: (sourceLanguage, targetLanguage, direction) =>
     set({ sourceLanguage, targetLanguage, direction }),
   setPinned: (pinned) => set({ pinned }),
+  reset: () =>
+    set({
+      content: "",
+      detail: "",
+      status: "empty",
+      sourceLanguage: "auto",
+      targetLanguage: "zh-Hans",
+      direction: "right",
+      pinned: false,
+    }),
 }));

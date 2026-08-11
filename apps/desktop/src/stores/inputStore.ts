@@ -15,6 +15,7 @@ interface InputState {
     targetLanguage: string,
     direction: "left" | "right",
   ) => void;
+  reset: () => void;
 }
 
 export const useInputStore = create<InputState>((set) => ({
@@ -29,4 +30,13 @@ export const useInputStore = create<InputState>((set) => ({
   setStatus: (status) => set({ status }),
   setLanguages: (sourceLanguage, targetLanguage, direction) =>
     set({ sourceLanguage, targetLanguage, direction }),
+  reset: () =>
+    set({
+      text: "",
+      result: "",
+      status: "waiting",
+      sourceLanguage: "auto",
+      targetLanguage: "zh-Hans",
+      direction: "right",
+    }),
 }));

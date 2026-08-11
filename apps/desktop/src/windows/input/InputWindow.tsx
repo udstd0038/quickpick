@@ -9,6 +9,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Pin, PinOff, X } from "lucide-react";
 import {
+  clearPopupState,
   copyInputResult,
   getInputSnapshot,
   requestInputTranslation,
@@ -51,6 +52,12 @@ export function InputWindow() {
   const [busy, setBusy] = useState(false);
   const [pinned, setPinned] = useState(false);
 
+  const closeInput = () => {
+    void clearPopupState("input");
+    useInputStore.getState().reset();
+    void getCurrentWindow().hide();
+  };
+
   const languageLabel = (value: string) => {
     const option = languageOptions.find((item) => item.value === value);
     return option ? t(option.key) : value;
@@ -91,7 +98,7 @@ export function InputWindow() {
 
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        void getCurrentWindow().hide();
+        closeInput();
       }
     };
     window.addEventListener("keydown", closeOnEscape);
@@ -145,10 +152,6 @@ export function InputWindow() {
       void getCurrentWindow().setAlwaysOnTop(next);
       return next;
     });
-  };
-
-  const close = () => {
-    void getCurrentWindow().hide();
   };
 
   const copy = async () => {
@@ -207,7 +210,7 @@ export function InputWindow() {
         <button
           className="popup-button popup-icon-button"
           type="button"
-          onClick={close}
+          onClick={closeInput}
           aria-label={t("common.close")}
           title={t("common.close")}
         >

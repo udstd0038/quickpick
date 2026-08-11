@@ -8,6 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Pin, PinOff, X } from "lucide-react";
 import {
+  clearPopupState,
   copyResultContent,
   getResultSnapshot,
   requestResultTranslation,
@@ -58,6 +59,12 @@ export function ResultWindow() {
   const setPinned = useResultStore((state) => state.setPinned);
   const [busy, setBusy] = useState(false);
 
+  const closeResult = () => {
+    void clearPopupState("result");
+    useResultStore.getState().reset();
+    void getCurrentWindow().hide();
+  };
+
   useEffect(() => {
     let unlisten: (() => void) | undefined;
 
@@ -90,7 +97,7 @@ export function ResultWindow() {
 
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        void getCurrentWindow().hide();
+        closeResult();
       }
     };
     window.addEventListener("keydown", closeOnEscape);
@@ -115,10 +122,6 @@ export function ResultWindow() {
     } catch (error) {
       console.error("copy result failed", error);
     }
-  };
-
-  const close = () => {
-    void getCurrentWindow().hide();
   };
 
   const togglePinned = () => {
@@ -200,7 +203,7 @@ export function ResultWindow() {
         <button
           className="popup-button popup-icon-button"
           type="button"
-          onClick={close}
+          onClick={closeResult}
           aria-label={t("common.close")}
           title={t("common.close")}
         >

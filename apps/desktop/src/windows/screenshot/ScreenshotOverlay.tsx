@@ -8,6 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   captureRegionRect,
+  clearPopupState,
   getScreenshotSnapshot,
   type MonitorScreenshotPayload,
 } from "../../services/invoke";
@@ -95,8 +96,11 @@ export function ScreenshotOverlay() {
   }, []);
 
   const closeOverlay = () => {
+    setScreenshot(null);
     setCrop(undefined);
     setPixelCrop(null);
+    setError("");
+    void clearPopupState("screenshot_overlay");
     void getCurrentWindow().hide();
   };
 
@@ -109,6 +113,9 @@ export function ScreenshotOverlay() {
     const scaleY = screenshot.height / window.innerHeight;
     setBusy(true);
     await getCurrentWindow().hide();
+    setScreenshot(null);
+    setError("");
+    void clearPopupState("screenshot_overlay");
     try {
       await captureRegionRect({
         screenX: screenshot.monitorX + Math.round(pixelCrop.x * scaleX),

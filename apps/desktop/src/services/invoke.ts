@@ -49,6 +49,10 @@ export function getScreenshotSnapshot() {
   return invoke<MonitorScreenshotPayload | null>("get_screenshot_snapshot");
 }
 
+export function clearPopupState(window: string) {
+  return invoke<SelectionActionResult>("clear_popup_state", { window });
+}
+
 export function requestInputTranslation(input: {
   inputText: string;
   sourceLanguage: string;

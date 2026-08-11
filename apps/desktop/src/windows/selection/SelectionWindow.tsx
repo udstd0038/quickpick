@@ -5,6 +5,7 @@ import {
 } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  clearPopupState,
   getSelectionSnapshot,
   runSelectionAction,
   type SelectionSnapshot,
@@ -32,6 +33,11 @@ export function SelectionWindow() {
   const [snapshot, setSnapshot] = useState<SelectionSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const clearSelection = () => {
+    setSnapshot(null);
+    void clearPopupState("selection");
+  };
+
   useEffect(() => {
     const currentWindow = getCurrentWindow();
     let disposed = false;
@@ -49,10 +55,12 @@ export function SelectionWindow() {
       });
 
     const closeOnBlur = () => {
+      clearSelection();
       void currentWindow.hide();
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        clearSelection();
         void currentWindow.hide();
       }
     };
@@ -92,6 +100,7 @@ export function SelectionWindow() {
       console.error("selection action failed", error);
     } finally {
       setBusy(false);
+      clearSelection();
       await getCurrentWindow().hide();
     }
   };
