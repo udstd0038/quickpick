@@ -124,7 +124,7 @@ export function SelectionWindow() {
         alignItems: "center",
         width: "100vw",
         height: "100vh",
-        padding: "8px",
+        padding: 8,
         boxSizing: "border-box",
         cursor: "grab",
         userSelect: "none",
@@ -135,17 +135,13 @@ export function SelectionWindow() {
         <ActionButton
           key={action.key}
           type="button"
-          className="selection-tool-button"
+          className="screenshot-tool-button"
           disabled={busy}
           onClick={() => run(action.command, "args" in action ? action.args : undefined)}
           style={{
             width: "100%",
-            height: 32,
             minHeight: 32,
-            paddingTop: "8px",
-            paddingRight: "8px",
-            paddingBottom: "8px",
-            paddingLeft: "8px",
+            padding: "0 14px",
             cursor: busy ? "wait" : "pointer",
             whiteSpace: "nowrap",
           }}
