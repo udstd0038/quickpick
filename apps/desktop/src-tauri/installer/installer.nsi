@@ -79,6 +79,7 @@ Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+Var QPDefaultProgramFilesRoot
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -503,22 +504,7 @@ Function .onInit
   !insertmacro SetContext
 
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
-    ; Set default install location
-    !if "${INSTALLMODE}" == "perMachine"
-      ${If} ${RunningX64}
-        !if "${ARCH}" == "x64"
-          StrCpy $INSTDIR "$PROGRAMFILES64\${PRODUCTNAME}"
-        !else if "${ARCH}" == "arm64"
-          StrCpy $INSTDIR "$PROGRAMFILES64\${PRODUCTNAME}"
-        !else
-          StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
-        !endif
-      ${Else}
-        StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
-      ${EndIf}
-    !else if "${INSTALLMODE}" == "currentUser"
-      StrCpy $INSTDIR "$LOCALAPPDATA\${PRODUCTNAME}"
-    !endif
+    Call SelectQuickPickDefaultInstallDir
 
     Call RestorePreviousInstallLocation
   ${EndIf}
@@ -908,6 +894,34 @@ Function RestorePreviousInstallLocation
   ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
   StrCmp $4 "" +2 0
     StrCpy $INSTDIR $4
+FunctionEnd
+
+Function FindQuickPickDefaultProgramFiles
+  StrCpy $R0 $9 1 0
+  StrCpy $R1 "$PROGRAMFILES64" 1 0
+
+  ${If} $R0 == "D"
+  ${AndIf} $R0 != $R1
+    StrCpy $QPDefaultProgramFilesRoot "$9Program Files"
+    StrCpy $9 "StopGetDrives"
+    Return
+  ${EndIf}
+
+  ${If} $QPDefaultProgramFilesRoot == ""
+  ${AndIf} $R0 != $R1
+    StrCpy $QPDefaultProgramFilesRoot "$9Program Files"
+  ${EndIf}
+FunctionEnd
+
+Function SelectQuickPickDefaultInstallDir
+  StrCpy $QPDefaultProgramFilesRoot ""
+  ${GetDrives} "HDD" "FindQuickPickDefaultProgramFiles"
+
+  ${If} $QPDefaultProgramFilesRoot == ""
+    StrCpy $QPDefaultProgramFilesRoot "$PROGRAMFILES64"
+  ${EndIf}
+
+  StrCpy $INSTDIR "$QPDefaultProgramFilesRoot\${PRODUCTNAME}"
 FunctionEnd
 
 Function Skip
