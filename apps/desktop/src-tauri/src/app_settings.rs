@@ -158,7 +158,7 @@ fn default_window_effect() -> String {
 }
 
 fn default_panel_opacity() -> u8 {
-    70
+    100
 }
 
 impl Default for AppSettings {
@@ -700,7 +700,7 @@ mod tests {
 
         assert_eq!(settings.theme_mode, "system");
         assert_eq!(settings.window_effect, "acrylic");
-        assert_eq!(settings.panel_opacity, 70);
+        assert_eq!(settings.panel_opacity, 100);
         assert!(settings.allow_clipboard_fallback);
 
         let settings = AppSettings {

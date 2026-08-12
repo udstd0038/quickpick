@@ -182,7 +182,7 @@ export const defaultAppSettings: AppSettings = {
   uiLanguage: "system",
   themeMode: "system",
   windowEffect: "acrylic",
-  panelOpacity: 70,
+  panelOpacity: 100,
   textAiProvider: "deepseek",
   textAiBaseUrl: "https://api.deepseek.com",
   textAiModel: "deepseek-v4-flash",

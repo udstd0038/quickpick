@@ -69,7 +69,7 @@ function applyGlobalAppearance(settings: AppSettings) {
   }
 
   const panelOpacity =
-    Math.min(100, Math.max(30, Number(settings.panelOpacity) || 70)) / 100;
+    Math.min(100, Math.max(30, Number(settings.panelOpacity) || 100)) / 100;
   for (const name of appearanceAlphaVariables) {
     root.style.setProperty(name, String(panelOpacity));
   }

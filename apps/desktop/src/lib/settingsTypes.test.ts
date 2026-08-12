@@ -11,7 +11,7 @@ describe("settingsTypes", () => {
     expect(settings.settingsHotkey).toBe("Alt+0");
     expect(settings.selectionHotkey).toBe("Alt+2");
     expect(settings.allowClipboardFallback).toBe(true);
-    expect(settings.panelOpacity).toBe(70);
+    expect(settings.panelOpacity).toBe(100);
     expect(settings.textAiProvider).toBe("deepseek");
   });
 
