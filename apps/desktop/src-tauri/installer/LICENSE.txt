@@ -1,0 +1,5 @@
+QuickPick License Agreement
+
+This installer includes placeholder license text. Replace this file with the final terms before public release.
+
+本安装程序包含占位许可文本。正式发布前请替换为最终许可条款。

@@ -39,9 +39,31 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "licenseFile": "installer/LICENSE.txt",
     "icon": [
       "icons/icon.ico",
       "icons/icon.png"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "template": "installer/installer.nsi",
+        "installerHooks": "installer/shortcuts.nsh",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "installer/installer-header.bmp",
+        "sidebarImage": "installer/installer-sidebar.bmp",
+        "installMode": "currentUser",
+        "languages": [
+          "English",
+          "SimpChinese",
+          "TradChinese",
+          "Korean",
+          "Japanese",
+          "French",
+          "German",
+          "Spanish"
+        ],
+        "displayLanguageSelector": true
+      }
+    }
   }
 }

@@ -37,6 +37,7 @@ xcap = { version = "0.9.7", default-features = false }
 zeroize = "1"
 
 [profile.release]
+opt-level = "z"
 strip = true
 lto = "thin"
 codegen-units = 1
