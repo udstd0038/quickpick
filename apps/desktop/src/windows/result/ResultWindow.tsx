@@ -280,7 +280,7 @@ export function ResultWindow() {
           disabled={status !== "success"}
           style={actionButtonStyle}
         >
-          {t("result.copy")}
+          {t("common.copy")}
         </ActionButton>
       </footer>
     </main>
