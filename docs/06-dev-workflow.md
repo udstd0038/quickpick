@@ -4,7 +4,7 @@
 
 必须先做：
 
-- 阅读 `CLAUDE.md`。
+- 阅读 `AGENT.md`。
 - 阅读与本次任务相关的 `docs/` 文件。
 - 查看当天开发日志是否存在。
 - 确认本次只做一个小阶段或一个明确子任务。
@@ -91,7 +91,7 @@
 发生冲突时按以下顺序判断：
 
 1. 用户最新明确要求。
-2. `CLAUDE.md` 工作说明。
+2. `AGENT.md` 工作说明。
 3. `docs/00-product-requirements.md`。
 4. `docs/04-security-privacy-spec.md`。
 5. 其他 `docs/` 标准文件。

@@ -96,7 +96,7 @@ QuickPick 是运行在 Windows 11 上的轻量划词与截图 AI 工具。
 发生冲突时按以下顺序处理：
 
 1. 用户最新明确要求。
-2. 本 `CLAUDE.md`。
+2. 本 `AGENT.md`。
 3. `docs/00-product-requirements.md`。
 4. `docs/04-security-privacy-spec.md`。
 5. 其他 `docs/` 文件。
