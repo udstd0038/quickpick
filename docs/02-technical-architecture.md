@@ -151,7 +151,7 @@ Rust 侧建议模块：
 - `text_ai_provider`：`openai_compatible`、`deepseek`、`xiaomi_mimo`、`kimi`、`glm`、`minimax`、`qwen`。
 - `text_ai_base_url`。
 - `text_ai_model`。
-- `vision_ai_provider`：`openai_compatible`、`xiaomi_mimo`、`kimi`、`glm`、`minimax`、`qwen`；DeepSeek 不作为视觉供应商。
+- `vision_ai_provider`：`openai_compatible`、`deepseek`、`xiaomi_mimo`、`kimi`、`glm`、`minimax`、`qwen`。
 - `vision_ai_base_url`。
 - `vision_ai_model`。
 - `translation_target_language`：默认 `zh-Hans`，可切换简体中文、英文、日文、韩文、法文、德文、西班牙文。
@@ -173,7 +173,7 @@ AI 接口按 OpenAI 兼容格式设计。
 供应商适配：
 
 - 通用 OpenAI 兼容：用户自定义 Base URL、文本模型和视觉模型，适合 OpenAI、OpenRouter、阿里百炼兼容模式等。
-- DeepSeek：仅作为文本模型供应商使用；默认 Base URL 为 `https://api.deepseek.com`，默认文本模型为 `deepseek-v4-flash`，请求走 `/chat/completions`，文本请求附加关闭思考模式的 `thinking` 参数。
+- DeepSeek：默认 Base URL 为 `https://api.deepseek.com`，默认文本模型为 `deepseek-v4-flash`，默认视觉模型为 `deepseek-v4-flash-vision-exp`；请求走 `/chat/completions`，文本请求附加关闭思考模式的 `thinking` 参数。
 - 小米 MiMo：默认 Base URL 为 `https://api.xiaomimimo.com/v1`，`tp-` Key 且未手动填写 Base URL 时自动切换到 `https://token-plan-cn.xiaomimimo.com/v1`，默认文本和视觉模型为 `mimo-v2.5`。
 - Kimi：默认 Base URL 为 `https://api.moonshot.cn/v1`，默认文本和视觉模型为 `kimi-k2.6`。
 - GLM：默认 Base URL 为 `https://open.bigmodel.cn/api/paas/v4`，默认文本模型为 `glm-5.2`，默认视觉模型为 `glm-4.5v`。

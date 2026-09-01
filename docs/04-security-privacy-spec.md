@@ -134,10 +134,10 @@ AI 请求必须：
 - 文本模型和视觉模型分别保存供应商、Base URL、模型名称和 API Key。
 - 输入模型独立保存供应商、Base URL、模型名称和 API Key；输入翻译只使用输入模型配置，不复用或回退到文本模型/视觉模型配置。
 - 选择 DeepSeek、小米 MiMo、Kimi、GLM、MiniMax 或 Qwen 作为文本模型时，应用可以提供默认 Base URL 和默认模型，减少手动配置错误。
-- 选择小米 MiMo、Kimi、GLM、MiniMax 或 Qwen 作为视觉模型时，应用可以提供默认 Base URL 和默认模型；DeepSeek 不作为视觉模型供应商。
+- 选择 DeepSeek、小米 MiMo、Kimi、GLM、MiniMax 或 Qwen 作为视觉模型时，应用可以提供默认 Base URL 和默认模型。
 - 用户手动填写 Base URL 后必须以用户填写值为准。
 - 小米 MiMo 的 `tp-` Key 在未手动填写 Base URL 时可自动使用 Token Plan 默认地址。
-- 旧版单 API Key 只兼容迁移为文本模型 Key；视觉模型 Key 需要单独保存，避免误用 DeepSeek Key 调用多模态接口。
+- 旧版单 API Key 只兼容迁移为文本模型 Key；视觉模型 Key 需要单独保存，避免旧文本模型配置直接调用视觉接口。
 - AI 响应体上限为 2 MiB，超过上限立即停止解析。
 
 ## 8. 权限与系统集成

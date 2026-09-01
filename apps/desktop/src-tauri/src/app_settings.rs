@@ -279,7 +279,7 @@ fn normalize_common_fields(settings: &mut AppSettings) {
     }
     if settings.vision_ai_provider.trim().is_empty() && !settings.ai_provider.trim().is_empty() {
         settings.vision_ai_provider = match legacy_provider.as_str() {
-            "deepseek" => default_vision_ai_provider(),
+            "deepseek" => "deepseek".to_string(),
             value => value.to_string(),
         };
     }
@@ -295,7 +295,9 @@ fn normalize_common_fields(settings: &mut AppSettings) {
     if settings.text_ai_model.trim().is_empty() && !settings.ai_text_model.trim().is_empty() {
         settings.text_ai_model = settings.ai_text_model.trim().to_string();
     }
-    if legacy_provider != "deepseek"
+    if legacy_provider == "deepseek" && settings.vision_ai_model.trim().is_empty() {
+        settings.vision_ai_model = "deepseek-v4-flash-vision-exp".to_string();
+    } else if legacy_provider != "deepseek"
         && settings.vision_ai_model.trim().is_empty()
         && !settings.ai_vision_model.trim().is_empty()
     {
@@ -373,6 +375,7 @@ fn normalize_text_provider(value: &str) -> String {
 fn normalize_vision_provider(value: &str) -> String {
     match value.trim() {
         "openai_compatible" => "openai_compatible".to_string(),
+        "deepseek" => "deepseek".to_string(),
         "xiaomi_mimo" => "xiaomi_mimo".to_string(),
         "kimi" => "kimi".to_string(),
         "glm" => "glm".to_string(),
@@ -751,14 +754,14 @@ mod tests {
     }
 
     #[test]
-    fn vision_provider_does_not_keep_deepseek() {
+    fn vision_provider_keeps_deepseek() {
         let settings = AppSettings {
             vision_ai_provider: "deepseek".to_string(),
             ..AppSettings::default()
         };
         let settings = normalize_settings_for_save(settings).unwrap();
 
-        assert_eq!(settings.vision_ai_provider, "xiaomi_mimo");
+        assert_eq!(settings.vision_ai_provider, "deepseek");
     }
 
     #[test]
@@ -775,9 +778,9 @@ mod tests {
         let settings = normalize_settings_for_save(settings).unwrap();
 
         assert_eq!(settings.text_ai_provider, "deepseek");
-        assert_eq!(settings.vision_ai_provider, "xiaomi_mimo");
+        assert_eq!(settings.vision_ai_provider, "deepseek");
         assert_eq!(settings.text_ai_model, "deepseek-v4-flash");
-        assert_eq!(settings.vision_ai_model, "");
+        assert_eq!(settings.vision_ai_model, "deepseek-v4-flash-vision-exp");
     }
 
     #[test]

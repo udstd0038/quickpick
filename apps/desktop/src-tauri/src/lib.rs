@@ -179,6 +179,7 @@ fn provider_id(settings: &app_settings::AppSettings) -> &str {
 
 fn vision_provider_id(settings: &app_settings::AppSettings) -> &str {
     match settings.vision_ai_provider.trim() {
+        "deepseek" => "deepseek",
         "xiaomi_mimo" => "xiaomi_mimo",
         "kimi" => "kimi",
         "glm" => "glm",

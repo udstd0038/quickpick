@@ -196,7 +196,7 @@
 
 - 选择通用 OpenAI 兼容供应商。
 - 文本模型选择 DeepSeek 供应商。
-- 视觉模型选择小米 MiMo、Kimi、GLM、MiniMax、Qwen 任一多模态供应商。
+- 视觉模型选择 DeepSeek、小米 MiMo、Kimi、GLM、MiniMax、Qwen 任一多模态供应商。
 - 分别未填写文本模型 API Key 和视觉模型 API Key。
 - API Key 错误。
 - Base URL 错误。
@@ -212,9 +212,9 @@
 - 错误不会覆盖剪贴板。
 - AI 配置在托盘触发的设置页内保存，不打开独立 `settings` 子窗口。
 - 文本模型和视觉模型必须分别设置供应商、Base URL、模型名称和 API Key，并在设置页中显示为两个独立卡片。
-- 选择 DeepSeek 后，仅文本 AI 使用默认 Base URL 和 `deepseek-v4-flash`；截图“提取/翻译”必须使用视觉模型配置。
+- 选择 DeepSeek 后，文本 AI 默认使用 `deepseek-v4-flash`，截图模型默认使用 `deepseek-v4-flash-vision-exp`，Base URL 默认填入 `https://api.deepseek.com`。
 - 选择小米 MiMo 作为视觉模型后，Base URL 和模型默认值能自动填入；`tp-` Key 未手动填写 Base URL 时走 Token Plan 默认地址。
-- 选择 Kimi、GLM、MiniMax、Qwen 后，对应 Base URL、文本模型或视觉模型默认值能自动填入，用户仍可手动覆盖。
+- 选择 DeepSeek、Kimi、GLM、MiniMax、Qwen 后，对应 Base URL、文本模型或视觉模型默认值能自动填入，用户仍可手动覆盖。
 - 选择通用 OpenAI 兼容后，用户可手动填写任意兼容 Base URL 和模型。
 - 在设置页点击“保存设置”或保存任一 Key 时，都必须先同步保存当前文本模型、视觉模型、翻译语言和超时设置。
 - 切换供应商或修改 AI 配置后，设置页必须提示存在未保存修改，避免误以为只保存 Key 就完成全部配置。

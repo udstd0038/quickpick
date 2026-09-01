@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultAppSettings,
   normalizeAppSettings,
+  visionAiProviderOptions,
 } from "./settingsTypes";
 
 describe("settingsTypes", () => {
@@ -21,6 +22,24 @@ describe("settingsTypes", () => {
     });
 
     expect(settings.allowClipboardFallback).toBe(true);
+  });
+
+  it("keeps deepseek in screenshot model providers with vision default", () => {
+    const provider = visionAiProviderOptions.find(
+      (option) => option.id === "deepseek",
+    );
+
+    expect(provider?.visionModel).toBe("deepseek-v4-flash-vision-exp");
+
+    const settings = normalizeAppSettings({
+      visionAiProvider: "deepseek",
+      visionAiBaseUrl: "",
+      visionAiModel: "",
+    });
+
+    expect(settings.visionAiProvider).toBe("deepseek");
+    expect(settings.visionAiBaseUrl).toBe("https://api.deepseek.com");
+    expect(settings.visionAiModel).toBe("deepseek-v4-flash-vision-exp");
   });
 
   it("fills provider defaults when base url or model is empty", () => {

@@ -128,8 +128,8 @@
 - 点击“复制”后能把所选区域图片粘贴到画图、微信或文档。
 - 点击“提取”或“翻译”后，配置不完整时独立原生结果弹窗显示明确提示，不读取截图或发起 AI 请求。
 - AI 配置完整时，点击“提取”或“翻译”会在独立原生结果弹窗显示 OCR/翻译结果。
-- 主窗口 AI 配置拆分为文本模型和视觉模型两组：文本模型支持通用 OpenAI 兼容、DeepSeek、小米 MiMo、Kimi、GLM、MiniMax 和 Qwen；视觉模型支持通用 OpenAI 兼容、小米 MiMo、Kimi、GLM、MiniMax 和 Qwen。
-- DeepSeek 恢复为仅负责文本模型；截图 OCR/翻译使用独立视觉模型配置和独立 API Key。
+- 主窗口 AI 配置拆分为文本模型和视觉模型两组：文本模型支持通用 OpenAI 兼容、DeepSeek、小米 MiMo、Kimi、GLM、MiniMax 和 Qwen；视觉模型支持通用 OpenAI 兼容、DeepSeek、小米 MiMo、Kimi、GLM、MiniMax 和 Qwen。
+- DeepSeek 文本模型默认使用 `deepseek-v4-flash`，视觉模型默认使用 `deepseek-v4-flash-vision-exp`；截图 OCR/翻译使用独立视觉模型配置和独立 API Key。
 - Esc、右键或 60 秒超时能退出原生框选层。
 - 点击复制后可以粘贴到微信、画图或文档。
 

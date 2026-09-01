@@ -65,7 +65,7 @@ export const textAiProviderOptions: AiProviderOption[] = [
     label: "DeepSeek",
     baseUrl: "https://api.deepseek.com",
     textModel: "deepseek-v4-flash",
-    visionModel: "deepseek-v4-flash",
+    visionModel: "deepseek-v4-flash-vision-exp",
   },
   {
     id: "xiaomi_mimo",
@@ -104,9 +104,7 @@ export const textAiProviderOptions: AiProviderOption[] = [
   },
 ];
 
-export const visionAiProviderOptions = textAiProviderOptions.filter(
-  (option) => option.id !== "deepseek",
-);
+export const visionAiProviderOptions = textAiProviderOptions;
 export const inputAiProviderOptions = textAiProviderOptions;
 
 export const themeModeOptions = [

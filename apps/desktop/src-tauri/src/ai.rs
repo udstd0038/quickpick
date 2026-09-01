@@ -368,6 +368,7 @@ fn effective_vision_base_url(settings: &AppSettings, api_key: &str) -> String {
     }
 
     match vision_provider_id(settings) {
+        PROVIDER_DEEPSEEK => "https://api.deepseek.com".to_string(),
         PROVIDER_XIAOMI_MIMO if api_key.trim().starts_with("tp-") => {
             "https://token-plan-cn.xiaomimimo.com/v1".to_string()
         }
@@ -424,6 +425,7 @@ fn effective_vision_model(settings: &AppSettings) -> Result<String, String> {
     }
 
     match vision_provider_id(settings) {
+        PROVIDER_DEEPSEEK => Ok("deepseek-v4-flash-vision-exp".to_string()),
         PROVIDER_XIAOMI_MIMO => Ok("mimo-v2.5".to_string()),
         PROVIDER_KIMI => Ok("kimi-k2.6".to_string()),
         PROVIDER_GLM => Ok("glm-4.5v".to_string()),
@@ -464,6 +466,7 @@ fn text_provider_id(settings: &AppSettings) -> &str {
 
 fn vision_provider_id(settings: &AppSettings) -> &str {
     match settings.vision_ai_provider.trim() {
+        PROVIDER_DEEPSEEK => PROVIDER_DEEPSEEK,
         PROVIDER_XIAOMI_MIMO => PROVIDER_XIAOMI_MIMO,
         PROVIDER_KIMI => PROVIDER_KIMI,
         PROVIDER_GLM => PROVIDER_GLM,
