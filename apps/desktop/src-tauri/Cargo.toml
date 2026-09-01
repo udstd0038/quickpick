@@ -1,6 +1,6 @@
 [package]
 name = "quickpick"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lightweight Windows 11 text selection and screenshot AI tool"
 authors = ["QuickPick"]
 edition = "2021"
