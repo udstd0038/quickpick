@@ -8,7 +8,9 @@ mod selection;
 use selection::SelectionSnapshot;
 use localized_error::error_key;
 use serde::Serialize;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 use tauri::{
     image::Image,
@@ -30,6 +32,14 @@ struct AppState {
     last_screenshot_error: Mutex<Option<String>>,
     hotkey_bindings: Mutex<HotkeyBindings>,
     hotkey_capture_mode: Mutex<bool>,
+    drag_effects: Mutex<DragEffectState>,
+}
+
+#[derive(Default)]
+struct DragEffectState {
+    suspended: HashSet<String>,
+    last_moved_at: HashMap<String, Instant>,
+    watchdogs: HashSet<String>,
 }
 
 #[derive(Clone)]
@@ -60,6 +70,7 @@ impl Default for AppState {
             last_screenshot_error: Mutex::new(None),
             hotkey_bindings: Mutex::new(HotkeyBindings::default()),
             hotkey_capture_mode: Mutex::new(false),
+            drag_effects: Mutex::new(DragEffectState::default()),
         }
     }
 }
@@ -1120,6 +1131,9 @@ pub fn run() {
                 clear_popup_state_internal(window.app_handle(), "selection");
                 let _ = window.hide();
             }
+            WindowEvent::Moved(_) => {
+                suspend_window_effect_while_dragging(window);
+            }
             _ => {}
         })
         .run(tauri::generate_context!())
@@ -1386,6 +1400,89 @@ fn refresh_current_window_glass(app: &tauri::AppHandle, window: &tauri::WebviewW
     if let Err(error) = apply_window_vibrancy(window, &settings) {
         eprintln!("QuickPick window vibrancy refresh skipped: {error}");
     }
+}
+
+const DRAG_EFFECT_RESTORE_IDLE: Duration = Duration::from_millis(180);
+
+fn is_drag_effect_window(label: &str) -> bool {
+    matches!(label, "main" | "selection" | "result" | "input")
+}
+
+fn suspend_window_effect_while_dragging(window: &tauri::Window) {
+    let label = window.label().to_string();
+    if !is_drag_effect_window(&label) {
+        return;
+    }
+
+    let (should_clear, start_watchdog) = {
+        let app = window.app_handle();
+        let app_state = app.state::<AppState>();
+        let Ok(mut state) = app_state.drag_effects.lock() else {
+            return;
+        };
+
+        state.last_moved_at.insert(label.clone(), Instant::now());
+        let should_clear = !state.suspended.contains(&label);
+        if should_clear {
+            state.suspended.insert(label.clone());
+        }
+        let start_watchdog = if state.watchdogs.contains(&label) {
+            false
+        } else {
+            state.watchdogs.insert(label.clone());
+            true
+        };
+        (should_clear, start_watchdog)
+    };
+
+    if should_clear {
+        if let Some(webview_window) = window.app_handle().get_webview_window(&label) {
+            if let Err(error) = webview_window.set_effects(None) {
+                eprintln!("QuickPick {label} drag effect suspend skipped: {error}");
+            }
+        }
+    }
+
+    if start_watchdog {
+        spawn_drag_effect_watchdog(window.app_handle().clone(), label);
+    }
+}
+
+fn spawn_drag_effect_watchdog(app: tauri::AppHandle, label: String) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_millis(50));
+
+        let should_restore = {
+            let app_state = app.state::<AppState>();
+            let Ok(mut state) = app_state.drag_effects.lock() else {
+                return;
+            };
+            if !state.suspended.contains(&label) {
+                let _ = state.watchdogs.remove(&label);
+                return;
+            }
+            match state.last_moved_at.get(&label) {
+                None => true,
+                Some(moved_at) => moved_at.elapsed() >= DRAG_EFFECT_RESTORE_IDLE,
+            }
+        };
+
+        if !should_restore {
+            continue;
+        }
+
+        if let Some(window) = app.get_webview_window(&label) {
+            refresh_current_window_glass(&app, &window);
+        }
+
+        let app_state = app.state::<AppState>();
+        let Ok(mut state) = app_state.drag_effects.lock() else {
+            return;
+        };
+        state.suspended.remove(&label);
+        state.watchdogs.remove(&label);
+        return;
+    });
 }
 
 fn shortcut_release_keys(shortcut: &Shortcut) -> Vec<i32> {
