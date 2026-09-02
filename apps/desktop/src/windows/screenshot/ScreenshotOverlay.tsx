@@ -13,6 +13,7 @@ import {
   type MonitorScreenshotPayload,
 } from "../../services/invoke";
 import { ActionButton } from "../../components/ActionButton";
+import { SkeletonScreen } from "../../components/LoadingSkeleton";
 import { useI18n } from "../../lib/i18n";
 
 const SCREENSHOT_TOOLBAR_WIDTH = 264;
@@ -198,16 +199,11 @@ export function ScreenshotOverlay() {
           />
         </ReactCrop>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            minHeight: "100vh",
-            placeItems: "center",
-            color: "var(--qp-text-primary)",
-          }}
-        >
-          {t("screenshot.reading")}
-        </div>
+        <SkeletonScreen
+          className="screenshot-skeleton"
+          count={8}
+          testId="screenshot-loading-skeleton"
+        />
       )}
 
       {pixelCrop && pixelCrop.width >= 8 && pixelCrop.height >= 8 && (

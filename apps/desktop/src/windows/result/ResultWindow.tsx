@@ -16,6 +16,7 @@ import {
 } from "../../services/invoke";
 import { GlassSelect } from "../../components/GlassSelect";
 import { ActionButton } from "../../components/ActionButton";
+import { LoadingSkeleton } from "../../components/LoadingSkeleton";
 import { useResultStore } from "../../stores/resultStore";
 import { useI18n } from "../../lib/i18n";
 
@@ -261,9 +262,15 @@ export function ResultWindow() {
           whiteSpace: "pre-wrap",
         }}
       >
-        {status === "loading"
-          ? t("result.processing")
-          : content || detail || t("result.noResult")}
+        {status === "loading" ? (
+          <LoadingSkeleton
+            count={4}
+            containerClassName="popup-result-skeleton"
+            containerTestId="result-loading-skeleton"
+          />
+        ) : (
+          content || detail || t("result.noResult")
+        )}
       </div>
       <footer
         className="popup-footer"

@@ -9,6 +9,7 @@ import {
 } from "./lib/settingsTypes";
 import { setI18nLanguage } from "./lib/i18n";
 import { SettingsWindow } from "./windows/settings/SettingsWindow";
+import { SkeletonScreen } from "./components/LoadingSkeleton";
 
 const SelectionWindow = lazy(() =>
   import("./windows/selection/SelectionWindow").then((module) => ({
@@ -112,7 +113,7 @@ export default function App() {
   }, []);
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<SkeletonScreen />}>
       {windowKind === "selection" ? (
         <SelectionWindow />
       ) : windowKind === "result" ? (

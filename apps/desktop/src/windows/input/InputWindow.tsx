@@ -17,6 +17,7 @@ import {
 } from "../../services/invoke";
 import { GlassSelect } from "../../components/GlassSelect";
 import { ActionButton } from "../../components/ActionButton";
+import { LoadingSkeleton } from "../../components/LoadingSkeleton";
 import { useInputStore } from "../../stores/inputStore";
 import { useI18n } from "../../lib/i18n";
 
@@ -281,13 +282,19 @@ export function InputWindow() {
           whiteSpace: "pre-wrap",
         }}
       >
-        {status === "loading"
-          ? t("input.processing")
-          : result ||
-            t("input.sourceTarget", {
-              source: languageLabel(sourceLanguage),
-              target: languageLabel(targetLanguage),
-            })}
+        {status === "loading" ? (
+          <LoadingSkeleton
+            count={4}
+            containerClassName="popup-result-skeleton"
+            containerTestId="input-loading-skeleton"
+          />
+        ) : (
+          result ||
+          t("input.sourceTarget", {
+            source: languageLabel(sourceLanguage),
+            target: languageLabel(targetLanguage),
+          })
+        )}
       </div>
       <div
         className="popup-footer"

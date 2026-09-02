@@ -17,7 +17,65 @@
   min-height: 100vh;
   overflow: hidden;
   background: transparent;
-}button, input, select, textarea{
+}
+:root, :root[data-theme="light"]{
+  --qp-skeleton-base: rgba(108, 125, 143, 0.16);
+  --qp-skeleton-highlight: rgba(255, 255, 255, 0.34);
+}
+:root[data-theme="dark"], :root[data-theme="workbench"]{
+  --qp-skeleton-base: rgba(255, 255, 255, 0.09);
+  --qp-skeleton-highlight: rgba(255, 255, 255, 0.18);
+}
+.skeleton-screen{
+  min-height: 100%;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+}
+.skeleton-screen .react-loading-skeleton{
+  width: min(100%, 420px);
+}
+.screenshot-skeleton{
+  width: min(100%, 720px);
+  min-height: 100vh;
+}
+.screenshot-skeleton .react-loading-skeleton{
+  width: 100%;
+}
+.settings-loading-screen{
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+.settings-loading-nav{
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 10px;
+  border: 1px solid var(--qp-border);
+  border-radius: 8px;
+  background: var(--qp-panel-bg);
+}
+.settings-loading-nav .react-loading-skeleton{
+  width: 100%;
+}
+.settings-loading-content{
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 20px;
+  border: 1px solid var(--qp-border);
+  border-radius: 8px;
+  background: var(--qp-panel-bg);
+}
+.settings-loading-content .react-loading-skeleton{
+  width: 100%;
+}
+.popup-result-skeleton .react-loading-skeleton{
+  width: 100%;
+}
+button, input, select, textarea{
   font: inherit;
 }.app-shell{
   min-height: 100vh;

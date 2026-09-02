@@ -11,6 +11,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { RotateCcw } from "lucide-react";
+import { LoadingSkeleton } from "../../components/LoadingSkeleton";
 import {
   setI18nLanguage,
   targetLanguageForUiLanguage,
@@ -399,6 +400,7 @@ function SettingsWindow() {
     useState<HotkeySettingKey | null>(null);
   const [activeSettingsSection, setActiveSettingsSection] =
     useState<SettingsSectionId>("general");
+  const [settingsReady, setSettingsReady] = useState(false);
   const [hotkeyStatuses, setHotkeyStatuses] = useState<
     NonNullable<SelectionActionResult["hotkeyStatuses"]>
   >([]);
@@ -475,6 +477,7 @@ function SettingsWindow() {
         if (isMounted) {
           setSettings(normalizeAppSettings(value));
           setSettingsStatus({ kind: "idle", message: t("settings.loaded") });
+          setSettingsReady(true);
         }
       })
       .catch((error) => {
@@ -487,6 +490,7 @@ function SettingsWindow() {
                 ? error
                 : t("settings.loadFailed"),
           });
+          setSettingsReady(true);
         }
       });
 
@@ -984,8 +988,9 @@ function SettingsWindow() {
     <main className="app-shell settings-window">
       <SettingsTitlebar />
 
-      <div className="settings-shell">
-        <section className="settings-layout">
+      {settingsReady ? (
+        <div className="settings-shell">
+          <section className="settings-layout">
           <nav className="settings-nav" aria-label={t("settings.categories")} ref={navRef}>
           <span
             className="settings-nav-indicator"
@@ -1260,13 +1265,18 @@ function SettingsWindow() {
                   ? t("settings.encrypted")
                   : t("settings.notConfigured")
               }
+              loading={textApiKeyStatus.kind === "loading"}
             />
             <div className="settings-key-feedback">
-              <span
-                className={`settings-feedback settings-feedback-${textApiKeyStatus.kind}`}
-              >
-                {t(textApiKeyStatus.message)}
-              </span>
+              {textApiKeyStatus.kind === "loading" ? (
+                <LoadingSkeleton width={140} height={14} />
+              ) : (
+                <span
+                  className={`settings-feedback settings-feedback-${textApiKeyStatus.kind}`}
+                >
+                  {t(textApiKeyStatus.message)}
+                </span>
+              )}
             </div>
           </SettingsSection>
           <SettingsSection id="ai-screenshot" title={t("settings.aiScreenshot")}>
@@ -1354,13 +1364,18 @@ function SettingsWindow() {
                   ? t("settings.encrypted")
                   : t("settings.notConfigured")
               }
+              loading={visionApiKeyStatus.kind === "loading"}
             />
             <div className="settings-key-feedback">
-              <span
-                className={`settings-feedback settings-feedback-${visionApiKeyStatus.kind}`}
-              >
-                {t(visionApiKeyStatus.message)}
-              </span>
+              {visionApiKeyStatus.kind === "loading" ? (
+                <LoadingSkeleton width={140} height={14} />
+              ) : (
+                <span
+                  className={`settings-feedback settings-feedback-${visionApiKeyStatus.kind}`}
+                >
+                  {t(visionApiKeyStatus.message)}
+                </span>
+              )}
             </div>
           </SettingsSection>
           <SettingsSection id="ai-input" title={t("settings.aiInput")}>
@@ -1448,13 +1463,18 @@ function SettingsWindow() {
                   ? t("settings.encrypted")
                   : t("settings.notConfigured")
               }
+              loading={inputApiKeyStatus.kind === "loading"}
             />
             <div className="settings-key-feedback">
-              <span
-                className={`settings-feedback settings-feedback-${inputApiKeyStatus.kind}`}
-              >
-                {t(inputApiKeyStatus.message)}
-              </span>
+              {inputApiKeyStatus.kind === "loading" ? (
+                <LoadingSkeleton width={140} height={14} />
+              ) : (
+                <span
+                  className={`settings-feedback settings-feedback-${inputApiKeyStatus.kind}`}
+                >
+                  {t(inputApiKeyStatus.message)}
+                </span>
+              )}
             </div>
           </SettingsSection>
           <SettingsSection id="appearance" title={t("settings.appearance")}>
@@ -1524,7 +1544,17 @@ function SettingsWindow() {
           {t("settings.save")}
         </button>
       </footer>
-      </div>
+        </div>
+      ) : (
+        <div className="settings-loading-screen">
+          <div className="settings-loading-nav">
+            <LoadingSkeleton count={7} height={34} />
+          </div>
+          <div className="settings-loading-content">
+            <LoadingSkeleton count={9} />
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -1613,11 +1643,23 @@ function ToggleRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TextRow({ label, value }: { label: string; value: string }) {
+function TextRow({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: string;
+  loading?: boolean;
+}) {
   return (
     <div className="setting-row">
       <span>{label}</span>
-      <strong>{value}</strong>
+      {loading ? (
+        <LoadingSkeleton width={120} height={16} />
+      ) : (
+        <strong>{value}</strong>
+      )}
     </div>
   );
 }

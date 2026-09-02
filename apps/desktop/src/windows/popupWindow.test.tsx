@@ -164,6 +164,44 @@ describe("WebView popup behavior", () => {
     );
   });
 
+  it("renders a skeleton while the result is loading", () => {
+    mocks.invoke.mockImplementation((command: string) =>
+      command === "get_result_snapshot"
+        ? new Promise<never>(() => {})
+        : Promise.resolve({ message: "ok" }),
+    );
+    useResultStore.setState({ status: "loading" });
+
+    render(<ResultWindow />);
+
+    expect(screen.getByTestId("result-loading-skeleton")).toBeTruthy();
+  });
+
+  it("renders a skeleton while the input result is loading", () => {
+    mocks.invoke.mockImplementation((command: string) =>
+      command === "get_input_snapshot"
+        ? new Promise<never>(() => {})
+        : Promise.resolve({ message: "ok" }),
+    );
+    useInputStore.setState({ status: "loading" });
+
+    render(<InputWindow />);
+
+    expect(screen.getByTestId("input-loading-skeleton")).toBeTruthy();
+  });
+
+  it("renders a skeleton while the screenshot is being captured", () => {
+    mocks.invoke.mockImplementation((command: string) =>
+      command === "get_screenshot_snapshot"
+        ? new Promise<never>(() => {})
+        : Promise.resolve({ message: "ok" }),
+    );
+
+    render(<ScreenshotOverlay />);
+
+    expect(screen.getByTestId("screenshot-loading-skeleton")).toBeTruthy();
+  });
+
   it("closes the screenshot overlay on Escape", () => {
     render(<ScreenshotOverlay />);
 
