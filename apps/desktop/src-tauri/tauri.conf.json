@@ -39,6 +39,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2026 QuickPick contributors",
     "licenseFile": "installer/LICENSE.txt",
     "icon": [
       "icons/icon.ico",
