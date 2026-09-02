@@ -162,4 +162,4 @@ Do not add API keys, selected text, screenshots, or AI response contents to comm
 
 ## License
 
-QuickPick has not declared a root open-source license yet. The installer currently uses the placeholder license text in `apps/desktop/src-tauri/installer/LICENSE.txt` and should be replaced before the final public release.
+[MIT](./LICENSE) © 2026 QuickPick contributors

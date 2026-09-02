@@ -2,6 +2,7 @@
   "name": "quickpick",
   "private": true,
   "version": "0.1.2",
+  "license": "MIT",
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev": "pnpm --filter quickpick-desktop dev",

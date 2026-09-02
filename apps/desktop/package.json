@@ -2,6 +2,7 @@
   "name": "quickpick-desktop",
   "private": true,
   "version": "0.1.2",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
