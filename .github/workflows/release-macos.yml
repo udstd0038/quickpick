@@ -1,0 +1,58 @@
+name: release-macos
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to create
+        required: true
+        default: v0.1.2-macos
+  push:
+    tags:
+      - "v*-macos"
+
+jobs:
+  release-macos-universal:
+    permissions:
+      contents: write
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          releaseName: QuickPick v0.1.2 macOS
+          releaseBody: |
+            # QuickPick v0.1.2 macOS
+
+            ## 更新内容
+
+            - 发布 macOS 通用版安装包，同时支持 Apple Silicon 与 Intel Mac。
+            - 该版本基于 `feature/macos-port` 的 macOS 移植实现。
+            - 当前未配置 Apple Developer 签名与公证，首次打开时若系统提示“无法验证开发者”，需要右键打开或在“隐私与安全性”中允许。
+
+            ## 默认快捷键
+
+            - `Command+,`：打开设置
+            - `Command+Alt+2`：划词翻译
+            - `Command+Alt+3`：区域截图
+            - `Command+Alt+4`：输入翻译
+
+            ## 下载
+
+            - macOS universal DMG 安装包
+          prerelease: true
+          args: --target universal-apple-darwin --bundles dmg --ci --no-sign
