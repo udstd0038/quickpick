@@ -438,16 +438,29 @@ fn normalize_hotkey_for_save(value: &str, label: &str) -> Result<String, String>
     }
 
     let shortcut = parse_hotkey(trimmed, label)?;
-    let has_required_modifier = if cfg!(target_os = "macos") {
-        shortcut.mods.contains(Modifiers::ALT) || shortcut.mods.contains(Modifiers::SUPER)
-    } else {
-        shortcut.mods.contains(Modifiers::ALT)
-    };
-    if !has_required_modifier {
-        return Err(error_key("hotkey.altRequired"));
+    if !hotkey_has_required_modifier(shortcut) {
+        return Err(error_key(if cfg!(target_os = "macos") {
+            "hotkey.commandOrControlRequired"
+        } else {
+            "hotkey.altRequired"
+        }));
     }
 
     Ok(format_shortcut(shortcut))
+}
+
+fn hotkey_has_required_modifier(shortcut: Shortcut) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        // macOS 15+ does not deliver RegisterEventHotKey callbacks for
+        // Option-only or Shift+Option-only combinations.
+        shortcut.mods.contains(Modifiers::SUPER) || shortcut.mods.contains(Modifiers::CONTROL)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        shortcut.mods.contains(Modifiers::ALT)
+    }
 }
 
 pub fn parse_hotkey(value: &str, _label: &str) -> Result<Shortcut, String> {
@@ -582,6 +595,9 @@ fn format_shortcut(shortcut: Shortcut) -> String {
         parts.push("Shift".to_string());
     }
     if shortcut.mods.contains(Modifiers::ALT) {
+        #[cfg(target_os = "macos")]
+        parts.push("Option".to_string());
+        #[cfg(not(target_os = "macos"))]
         parts.push("Alt".to_string());
     }
     if shortcut.mods.contains(Modifiers::SUPER) {
@@ -674,23 +690,54 @@ mod tests {
 
     #[test]
     fn hotkeys_are_normalized_for_save() {
-        let settings = settings_with_hotkeys(" alt + q ", "CTRL+ALT+3", "Alt+4");
-        let settings = normalize_settings_for_save(settings).unwrap();
+        #[cfg(not(target_os = "macos"))]
+        {
+            let settings = settings_with_hotkeys(" alt + q ", "CTRL+ALT+3", "Alt+4");
+            let settings = normalize_settings_for_save(settings).unwrap();
 
-        assert_eq!(settings.selection_hotkey, "Alt+Q");
-        assert_eq!(settings.screenshot_hotkey, "Ctrl+Alt+3");
-        assert_eq!(settings.input_translate_hotkey, "Alt+4");
+            assert_eq!(settings.selection_hotkey, "Alt+Q");
+            assert_eq!(settings.screenshot_hotkey, "Ctrl+Alt+3");
+            assert_eq!(settings.input_translate_hotkey, "Alt+4");
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let settings = settings_with_hotkeys(
+                " command + option + q ",
+                "COMMAND+OPTION+3",
+                "Command+Option+4",
+            );
+            let settings = normalize_settings_for_save(settings).unwrap();
+
+            assert_eq!(settings.selection_hotkey, "Command+Option+Q");
+            assert_eq!(settings.screenshot_hotkey, "Command+Option+3");
+            assert_eq!(settings.input_translate_hotkey, "Command+Option+4");
+        }
     }
 
     #[test]
     fn settings_hotkey_is_normalized_and_duplicates_are_rejected() {
-        let settings = AppSettings {
-            settings_hotkey: " alt + 0 ".to_string(),
-            ..AppSettings::default()
-        };
-        let settings = normalize_settings_for_save(settings).unwrap();
+        #[cfg(not(target_os = "macos"))]
+        {
+            let settings = AppSettings {
+                settings_hotkey: " alt + 0 ".to_string(),
+                ..AppSettings::default()
+            };
+            let settings = normalize_settings_for_save(settings).unwrap();
 
-        assert_eq!(settings.settings_hotkey, "Alt+0");
+            assert_eq!(settings.settings_hotkey, "Alt+0");
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let settings = AppSettings {
+                settings_hotkey: " command + comma ".to_string(),
+                ..AppSettings::default()
+            };
+            let settings = normalize_settings_for_save(settings).unwrap();
+
+            assert_eq!(settings.settings_hotkey, "Command+Comma");
+        }
 
         let duplicate_hotkey = AppSettings::default().selection_hotkey;
         let settings = AppSettings {
@@ -701,11 +748,28 @@ mod tests {
         assert!(normalize_settings_for_save(settings).is_err());
     }
 
+    #[cfg(not(target_os = "macos"))]
     #[test]
     fn hotkeys_must_include_alt() {
         let settings = settings_with_hotkeys("Ctrl+Q", "Alt+3", "Alt+4");
 
         assert!(normalize_settings_for_save(settings).is_err());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_hotkeys_must_include_command_or_control() {
+        let settings = settings_with_hotkeys("Option+2", "Command+Option+3", "Command+Option+4");
+
+        assert!(normalize_settings_for_save(settings).is_err());
+
+        let settings =
+            settings_with_hotkeys("Command+Option+2", "Command+Option+3", "Command+Option+4");
+
+        assert!(normalize_settings_for_save(settings).is_ok());
+
+        let fallback = default_selection_hotkey();
+        assert_eq!(normalize_hotkey_for_load("Option+2", &fallback), fallback);
     }
 
     #[test]

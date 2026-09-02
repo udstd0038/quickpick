@@ -63,7 +63,7 @@ const modifierKeyNames = new Set([
 ]);
 
 function keyNameFromKeyboardEvent(
-  event: ReactKeyboardEvent<HTMLElement>,
+  event: ReactKeyboardEvent<HTMLElement> | KeyboardEvent,
 ): string | null {
   const code = event.code;
 
@@ -100,7 +100,7 @@ function keyNameFromKeyboardEvent(
 }
 
 function shortcutFromKeyboardEvent(
-  event: ReactKeyboardEvent<HTMLElement>,
+  event: ReactKeyboardEvent<HTMLElement> | KeyboardEvent,
 ): string | null {
   const keyName = keyNameFromKeyboardEvent(event);
   if (!keyName) {
@@ -141,6 +141,20 @@ const settingsNavItems = [
 ] as const;
 
 type SettingsSectionId = (typeof settingsNavItems)[number]["id"];
+
+const hotkeyPlaceholders = runningOnMac
+  ? {
+      settingsHotkey: "Command+Comma",
+      selectionHotkey: "Command+Option+2",
+      screenshotHotkey: "Command+Option+3",
+      inputTranslateHotkey: "Command+Option+4",
+    }
+  : {
+      settingsHotkey: "Alt+0",
+      selectionHotkey: "Alt+2",
+      screenshotHotkey: "Alt+3",
+      inputTranslateHotkey: "Alt+4",
+    };
 
 function currentSystemTheme(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -594,6 +608,7 @@ function SettingsWindow() {
   };
 
   const startHotkeyCapture = (key: HotkeySettingKey) => {
+    getCurrentWindow().setFocus().catch(() => {});
     setCapturingHotkey(key);
     setHotkeyCaptureMode(true);
     setSettingsStatus({
@@ -610,7 +625,7 @@ function SettingsWindow() {
 
   const captureHotkey = (
     key: HotkeySettingKey,
-    event: ReactKeyboardEvent<HTMLButtonElement>,
+    event: ReactKeyboardEvent<HTMLButtonElement> | KeyboardEvent,
   ) => {
     if (capturingHotkey !== key) {
       return;
@@ -627,7 +642,7 @@ function SettingsWindow() {
       return;
     }
     const hasRequiredModifier = runningOnMac
-      ? event.metaKey || event.altKey
+      ? event.metaKey || event.ctrlKey
       : event.altKey;
     if (!hasRequiredModifier) {
       setSettingsStatus({
@@ -668,6 +683,21 @@ function SettingsWindow() {
     setSettings((current) => ({ ...current, [key]: shortcut }));
     finishHotkeyCapture(t("settings.hotkeyRecorded"));
   };
+
+  useEffect(() => {
+    if (!capturingHotkey) {
+      return;
+    }
+
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      captureHotkey(capturingHotkey, event);
+    };
+    window.addEventListener("keydown", handleWindowKeyDown, true);
+
+    return () => {
+      window.removeEventListener("keydown", handleWindowKeyDown, true);
+    };
+  }, [capturingHotkey]);
 
   useEffect(() => {
     return () => {
@@ -1124,7 +1154,7 @@ function SettingsWindow() {
                 <HotkeyCaptureButton
                   label={t("settings.hotkeySettings")}
                   value={settings.settingsHotkey}
-                  placeholder="Alt+0"
+                  placeholder={hotkeyPlaceholders.settingsHotkey}
                   active={capturingHotkey === "settingsHotkey"}
                   onStart={() => startHotkeyCapture("settingsHotkey")}
                   onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
@@ -1142,7 +1172,7 @@ function SettingsWindow() {
                 <HotkeyCaptureButton
                   label={t("settings.hotkeySelection")}
                   value={settings.selectionHotkey}
-                  placeholder="Alt+2"
+                  placeholder={hotkeyPlaceholders.selectionHotkey}
                   active={capturingHotkey === "selectionHotkey"}
                   onStart={() => startHotkeyCapture("selectionHotkey")}
                   onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
@@ -1160,7 +1190,7 @@ function SettingsWindow() {
                 <HotkeyCaptureButton
                   label={t("settings.hotkeyScreenshot")}
                   value={settings.screenshotHotkey}
-                  placeholder="Alt+3"
+                  placeholder={hotkeyPlaceholders.screenshotHotkey}
                   active={capturingHotkey === "screenshotHotkey"}
                   onStart={() => startHotkeyCapture("screenshotHotkey")}
                   onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
@@ -1178,7 +1208,7 @@ function SettingsWindow() {
                 <HotkeyCaptureButton
                   label={t("settings.hotkeyInput")}
                   value={settings.inputTranslateHotkey}
-                  placeholder="Alt+4"
+                  placeholder={hotkeyPlaceholders.inputTranslateHotkey}
                   active={capturingHotkey === "inputTranslateHotkey"}
                   onStart={() => startHotkeyCapture("inputTranslateHotkey")}
                   onCancel={() => finishHotkeyCapture(t("settings.hotkeyCancelled"))}
@@ -1631,7 +1661,10 @@ function HotkeyCaptureButton({
       type="button"
       aria-label={t("settings.recordHotkey", { label })}
       aria-pressed={active}
-      onClick={onStart}
+      onClick={(event) => {
+        event.currentTarget.focus();
+        onStart();
+      }}
       onBlur={() => {
         if (active) {
           onCancel();

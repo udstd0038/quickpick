@@ -1155,6 +1155,43 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state != ShortcutState::Pressed {
+                        return;
+                    }
+                    let capture_mode = app
+                        .state::<AppState>()
+                        .hotkey_capture_mode
+                        .lock()
+                        .map(|enabled| *enabled)
+                        .unwrap_or(false);
+                    if capture_mode {
+                        return;
+                    }
+
+                    let action = app
+                        .state::<AppState>()
+                        .hotkey_bindings
+                        .lock()
+                        .ok()
+                        .and_then(|bindings| bindings.action_for(shortcut));
+
+                    match action {
+                        Some(HotkeyAction::Settings) => show_settings_window(app),
+                        Some(HotkeyAction::Selection) => {
+                            activate_selection_bar(app, shortcut_release_keys(shortcut))
+                        }
+                        Some(HotkeyAction::Screenshot) => capture_region_from_entry(app),
+                        Some(HotkeyAction::InputTranslate) => {
+                            activate_input_translate(app);
+                        }
+                        None => {}
+                    }
+                })
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             get_selection_snapshot,
             get_result_snapshot,
@@ -1305,44 +1342,6 @@ fn setup_global_shortcuts(
     app: &tauri::AppHandle,
     settings: &app_settings::AppSettings,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    app.plugin(
-        tauri_plugin_global_shortcut::Builder::new()
-            .with_handler(|app, shortcut, event| {
-                if event.state != ShortcutState::Released {
-                    return;
-                }
-                let capture_mode = app
-                    .state::<AppState>()
-                    .hotkey_capture_mode
-                    .lock()
-                    .map(|enabled| *enabled)
-                    .unwrap_or(false);
-                if capture_mode {
-                    return;
-                }
-
-                let action = app
-                    .state::<AppState>()
-                    .hotkey_bindings
-                    .lock()
-                    .ok()
-                    .and_then(|bindings| bindings.action_for(shortcut));
-
-                match action {
-                    Some(HotkeyAction::Settings) => show_settings_window(app),
-                    Some(HotkeyAction::Selection) => {
-                        activate_selection_bar(app, shortcut_release_keys(shortcut))
-                    }
-                    Some(HotkeyAction::Screenshot) => capture_region_from_entry(app),
-                    Some(HotkeyAction::InputTranslate) => {
-                        activate_input_translate(app);
-                    }
-                    None => {}
-                }
-            })
-            .build(),
-    )?;
-
     if let Err(error) = replace_global_shortcuts(app, settings) {
         eprintln!("QuickPick global shortcut registration skipped: {error}");
     }
