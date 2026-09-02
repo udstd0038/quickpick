@@ -692,8 +692,9 @@ mod tests {
 
         assert_eq!(settings.settings_hotkey, "Alt+0");
 
+        let duplicate_hotkey = AppSettings::default().selection_hotkey;
         let settings = AppSettings {
-            settings_hotkey: "Alt+2".to_string(),
+            settings_hotkey: duplicate_hotkey,
             ..AppSettings::default()
         };
 
