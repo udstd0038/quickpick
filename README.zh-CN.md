@@ -162,4 +162,4 @@ README 截图生成脚本位于 `tools/capture-readme-screenshots.ps1`。
 
 ## 📜 许可
 
-QuickPick 目前尚未声明根级开源许可证。安装程序暂使用 `apps/desktop/src-tauri/installer/LICENSE.txt` 中的占位许可文本，正式公开发布前应替换为最终许可条款。
+[MIT](./LICENSE) © 2026 QuickPick contributors
