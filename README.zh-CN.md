@@ -26,8 +26,8 @@ QuickPick 默认坚持本地优先：
 
 当前发布状态：
 
-- Windows 11 v0.1.2 为正式版本。
-- macOS v0.1.2-macos 是基于 `feature/macos-port` 的 universal 预发布版本。
+- Windows 11 v0.1.3 为正式版本。
+- macOS v0.1.3-macos 是基于 `feature/macos-port` 的 universal 预发布版本。
 - macOS 包已通过 CI universal 构建，但尚未签名、未公证，也尚未在实体 Mac 上完成人工验收。
 
 ## 应用截图
@@ -81,18 +81,18 @@ QuickPick 默认坚持本地优先：
 
 ### Windows 11
 
-请从 [Windows Release 页面](https://github.com/udstd0038/quickpick/releases/tag/v0.1.2) 下载 v0.1.2 正式版本。
+请从 [Windows Release 页面](https://github.com/udstd0038/quickpick/releases/tag/v0.1.3) 下载 v0.1.3 正式版本。
 
 | 安装包 | 推荐用途 |
 |--------|----------|
-| [NSIS 安装包](https://github.com/udstd0038/quickpick/releases/download/v0.1.2/QuickPick_0.1.2_x64-setup.exe) | 常规安装 |
-| [便携 ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.2/QuickPick_0.1.2_x64-portable.zip) | 解压后直接运行 |
+| [NSIS 安装包](https://github.com/udstd0038/quickpick/releases/download/v0.1.3/QuickPick_0.1.3_x64-setup.exe) | 常规安装 |
+| [便携 ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.3/QuickPick_0.1.3_x64-portable.zip) | 解压后直接运行 |
 
 安装程序默认优先选择 `D:\Program Files\QuickPick`；没有 D 盘时选择其他非系统盘，只有 C 盘时回退到 `C:\Program Files\QuickPick`。
 
 ### macOS 预发布
 
-请从 [macOS Release 页面](https://github.com/udstd0038/quickpick/releases/tag/v0.1.2-macos) 下载 [macOS universal DMG](https://github.com/udstd0038/quickpick/releases/download/v0.1.2-macos/QuickPick_0.1.2_universal.dmg)。
+请从 [macOS Release 页面](https://github.com/udstd0038/quickpick/releases/tag/v0.1.3-macos) 下载 [macOS universal DMG](https://github.com/udstd0038/quickpick/releases/download/v0.1.3-macos/QuickPick_0.1.3_universal.dmg)。
 
 该包尚未签名和公证，Gatekeeper 可能要求右键“打开”或在“隐私与安全性”中允许后才能启动。
 

@@ -26,8 +26,8 @@ QuickPick keeps content local by default:
 
 Current releases:
 
-- Windows 11 v0.1.2 is the stable release.
-- macOS v0.1.2-macos is a universal pre-release built from `feature/macos-port`.
+- Windows 11 v0.1.3 is the stable release.
+- macOS v0.1.3-macos is a universal pre-release built from `feature/macos-port`.
 - The macOS package is CI-verified but is not signed, not notarized, and has not completed manual acceptance on physical Mac hardware yet.
 
 ## Screenshots
@@ -81,18 +81,18 @@ Each card has independent provider, Base URL, model, and API key settings. Reque
 
 ### Windows 11
 
-Download the v0.1.2 stable release from the [Windows release page](https://github.com/udstd0038/quickpick/releases/tag/v0.1.2).
+Download the v0.1.3 stable release from the [Windows release page](https://github.com/udstd0038/quickpick/releases/tag/v0.1.3).
 
 | Package | Recommendation |
 |---------|----------------|
-| [NSIS installer](https://github.com/udstd0038/quickpick/releases/download/v0.1.2/QuickPick_0.1.2_x64-setup.exe) | Use for a normal installation |
-| [Portable ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.2/QuickPick_0.1.2_x64-portable.zip) | Extract and run manually |
+| [NSIS installer](https://github.com/udstd0038/quickpick/releases/download/v0.1.3/QuickPick_0.1.3_x64-setup.exe) | Use for a normal installation |
+| [Portable ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.3/QuickPick_0.1.3_x64-portable.zip) | Extract and run manually |
 
 The installer prefers `D:\Program Files\QuickPick`. If drive D does not exist, it uses another non-system drive when available and falls back to `C:\Program Files\QuickPick`.
 
 ### macOS Pre-release
 
-Download the [macOS universal DMG](https://github.com/udstd0038/quickpick/releases/download/v0.1.2-macos/QuickPick_0.1.2_universal.dmg) from the [macOS release page](https://github.com/udstd0038/quickpick/releases/tag/v0.1.2-macos).
+Download the [macOS universal DMG](https://github.com/udstd0038/quickpick/releases/download/v0.1.3-macos/QuickPick_0.1.3_universal.dmg) from the [macOS release page](https://github.com/udstd0038/quickpick/releases/tag/v0.1.3-macos).
 
 This package is unsigned and not notarized yet. Gatekeeper may ask you to right-click Open or approve it in Privacy & Security before it starts.
 
