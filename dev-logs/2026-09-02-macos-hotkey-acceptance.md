@@ -30,5 +30,6 @@ macOS 的全局快捷键链路存在三个高风险点：
 
 ## 待办
 
-- 推送后等待 macOS GitHub Actions 编译验证。
+- 修复已推送到 `feature/macos-port`，但 GitHub Actions 因账号付款/额度问题无法启动 job，需要先恢复托管 Runner。
+- 恢复后等待 macOS GitHub Actions 编译验证。
 - 需要在实体 macOS 上重新人工验收快捷键录入与四个默认快捷键触发。
