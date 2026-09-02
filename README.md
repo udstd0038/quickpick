@@ -32,39 +32,19 @@ Current releases:
 
 ## Screenshots
 
-The screenshots below were captured from the real QuickPick UI on Windows 11.
+The screenshots below were captured from the real QuickPick UI on Windows 11 in light theme.
 
 ### Settings
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/en/settings-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/en/settings-light.png" />
-  <img alt="QuickPick Settings" src="./screenshots/en/settings-light.png" />
-</picture>
+<img alt="QuickPick Settings" src="./screenshots/en/settings-light.png" />
 
 ### Selection Menu
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/en/selection-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/en/selection-light.png" />
-  <img alt="QuickPick Selection Menu" src="./screenshots/en/selection-light.png" />
-</picture>
+<img alt="QuickPick Selection Menu" src="./screenshots/en/selection-light.png" />
 
 ### Input Translation
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/en/input-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/en/input-light.png" />
-  <img alt="QuickPick Input Translation" src="./screenshots/en/input-light.png" />
-</picture>
-
-### Region Screenshot
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/en/screenshot-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/en/screenshot-light.png" />
-  <img alt="QuickPick Region Screenshot" src="./screenshots/en/screenshot-light.png" />
-</picture>
+<img alt="QuickPick Input Translation" src="./screenshots/en/input-light.png" />
 
 ## Features
 

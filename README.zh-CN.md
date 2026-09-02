@@ -32,39 +32,19 @@ QuickPick 默认坚持本地优先：
 
 ## 应用截图
 
-以下截图来自 Windows 11 下真实运行的 QuickPick 界面。
+以下截图来自 Windows 11 下真实运行的 QuickPick 浅色界面。
 
 ### 设置页
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/zh-cn/settings-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/zh-cn/settings-light.png" />
-  <img alt="QuickPick 设置页" src="./screenshots/zh-cn/settings-light.png" />
-</picture>
+<img alt="QuickPick 设置页" src="./screenshots/zh-cn/settings-light.png" />
 
 ### 划词菜单
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/zh-cn/selection-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/zh-cn/selection-light.png" />
-  <img alt="QuickPick 划词菜单" src="./screenshots/zh-cn/selection-light.png" />
-</picture>
+<img alt="QuickPick 划词菜单" src="./screenshots/zh-cn/selection-light.png" />
 
 ### 输入翻译
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/zh-cn/input-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/zh-cn/input-light.png" />
-  <img alt="QuickPick 输入翻译" src="./screenshots/zh-cn/input-light.png" />
-</picture>
-
-### 区域截图
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/zh-cn/screenshot-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="./screenshots/zh-cn/screenshot-light.png" />
-  <img alt="QuickPick 区域截图" src="./screenshots/zh-cn/screenshot-light.png" />
-</picture>
+<img alt="QuickPick 输入翻译" src="./screenshots/zh-cn/input-light.png" />
 
 ## ✨ 主要功能
 
