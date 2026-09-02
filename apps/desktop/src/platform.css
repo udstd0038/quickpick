@@ -1,0 +1,18 @@
+:root[data-platform="macos"] .settings-window{
+  --qp-titlebar-height: 0px;
+}
+:root[data-platform="macos"] .settings-titlebar{
+  min-height: 0;
+  height: 0;
+  padding: 0;
+  border-bottom: 0;
+  overflow: hidden;
+}
+:root[data-platform="macos"] .settings-shell{
+  padding-top: 10px;
+}
+:root[data-platform="macos"] .settings-layout,
+:root[data-platform="macos"] .settings-savebar{
+  margin-right: 6px;
+  margin-left: 6px;
+}

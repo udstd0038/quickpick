@@ -4,6 +4,8 @@ use tauri::{AppHandle, Manager};
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::localized_error::error_key;
+#[cfg(target_os = "macos")]
+use crate::localized_error::error_key_with_detail;
 
 #[cfg(windows)]
 use windows::{
@@ -28,6 +30,7 @@ pub struct ApiKeyStatus {
     pub configured: bool,
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn api_key_status(app: &AppHandle, scope: &str) -> Result<ApiKeyStatus, String> {
     let path = api_key_path(app, scope)?;
     let legacy_path = legacy_api_key_path(app)?;
@@ -37,6 +40,19 @@ pub fn api_key_status(app: &AppHandle, scope: &str) -> Result<ApiKeyStatus, Stri
     })
 }
 
+#[cfg(target_os = "macos")]
+pub fn api_key_status(app: &AppHandle, scope: &str) -> Result<ApiKeyStatus, String> {
+    let _ = app;
+    let entry = mac_keyring_entry(scope)?;
+    Ok(ApiKeyStatus {
+        configured: match entry.get_password() {
+            Ok(value) => !value.is_empty(),
+            Err(_) => false,
+        },
+    })
+}
+
+#[cfg(not(target_os = "macos"))]
 pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), String> {
     let trimmed = api_key.trim();
     if trimmed.is_empty() {
@@ -59,6 +75,24 @@ pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), S
     fs::write(path, encrypted).map_err(|_| error_key("security.saveFailed"))
 }
 
+#[cfg(target_os = "macos")]
+pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), String> {
+    let _ = app;
+    let trimmed = api_key.trim();
+    if trimmed.is_empty() {
+        return Err(error_key("security.apiKeyEmpty"));
+    }
+    if trimmed.len() > MAX_API_KEY_BYTES {
+        return Err(error_key("security.apiKeyTooLong"));
+    }
+
+    let entry = mac_keyring_entry(scope)?;
+    entry
+        .set_password(trimmed)
+        .map_err(|error| error_key_with_detail("security.saveFailed", &error.to_string()))
+}
+
+#[cfg(not(target_os = "macos"))]
 pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
     let path = api_key_path(app, scope)?;
     if path.exists() {
@@ -74,6 +108,23 @@ pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
+    let _ = app;
+    let entry = mac_keyring_entry(scope)?;
+    let configured = matches!(
+        entry.get_password(),
+        Ok(value) if !value.is_empty()
+    );
+    if !configured {
+        return Ok(());
+    }
+    entry
+        .delete_credential()
+        .map_err(|error| error_key_with_detail("security.clearFailed", &error.to_string()))
+}
+
+#[cfg(not(target_os = "macos"))]
 pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<Zeroizing<String>>, String> {
     let path = api_key_path(app, scope)?;
     let legacy_path = legacy_api_key_path(app)?;
@@ -100,6 +151,26 @@ pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<Zeroizing<Str
     };
 
     Ok(Some(value))
+}
+
+#[cfg(target_os = "macos")]
+pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<Zeroizing<String>>, String> {
+    let _ = app;
+    let entry = mac_keyring_entry(scope)?;
+    match entry.get_password() {
+        Ok(value) if !value.is_empty() => Ok(Some(Zeroizing::new(value))),
+        Ok(_) => Ok(None),
+        Err(error) => Err(error_key_with_detail(
+            "security.readFailed",
+            &error.to_string(),
+        )),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn mac_keyring_entry(scope: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new("com.quickpick.desktop", &normalize_scope(scope))
+        .map_err(|error| error_key_with_detail("security.readFailed", &error.to_string()))
 }
 
 fn api_key_path(app: &AppHandle, scope: &str) -> Result<PathBuf, String> {

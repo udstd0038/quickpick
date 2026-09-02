@@ -118,6 +118,17 @@ export const windowEffectOptions = [
   { id: "mica", label: "Mica" },
 ] as const;
 
+const runningOnMac =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+
+const defaultSettingsHotkey = runningOnMac ? "Command+Comma" : "Alt+0";
+const defaultSelectionHotkey = runningOnMac ? "Command+Option+2" : "Alt+2";
+const defaultScreenshotHotkey = runningOnMac ? "Command+Option+3" : "Alt+3";
+const defaultInputTranslateHotkey = runningOnMac
+  ? "Command+Option+4"
+  : "Alt+4";
+
 export function applyTextAiProviderDefaults(
   current: AppSettings,
   providerId: string,
@@ -173,10 +184,10 @@ export function applyInputAiProviderDefaults(
 export const defaultAppSettings: AppSettings = {
   autostartEnabled: true,
   allowClipboardFallback: true,
-  settingsHotkey: "Alt+0",
-  selectionHotkey: "Alt+2",
-  screenshotHotkey: "Alt+3",
-  inputTranslateHotkey: "Alt+4",
+  settingsHotkey: defaultSettingsHotkey,
+  selectionHotkey: defaultSelectionHotkey,
+  screenshotHotkey: defaultScreenshotHotkey,
+  inputTranslateHotkey: defaultInputTranslateHotkey,
   uiLanguage: "system",
   themeMode: "system",
   windowEffect: "acrylic",

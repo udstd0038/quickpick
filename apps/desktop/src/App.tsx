@@ -8,6 +8,7 @@ import {
   type AppSettings,
 } from "./lib/settingsTypes";
 import { setI18nLanguage } from "./lib/i18n";
+import { setPlatformDataset } from "./lib/platform";
 import { SettingsWindow } from "./windows/settings/SettingsWindow";
 import { SkeletonScreen } from "./components/LoadingSkeleton";
 
@@ -61,6 +62,7 @@ function applyGlobalAppearance(settings: AppSettings) {
   root.dataset.theme = effectiveTheme;
   root.dataset.themePreference = settings.themeMode;
   root.dataset.windowEffect = settings.windowEffect;
+  setPlatformDataset(root);
   root.style.colorScheme = effectiveTheme === "light" ? "light" : "dark";
   if (settings.windowEffect === "mica") {
     for (const name of appearanceAlphaVariables) {

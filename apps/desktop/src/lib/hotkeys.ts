@@ -7,9 +7,15 @@ export type HotkeySettingKey =
   | "inputTranslateHotkey";
 
 export function sameShortcut(left: string, right: string): boolean {
+  const normalize = (value: string) =>
+    value
+      .replace(/\s+/g, "")
+      .replace(/\b(?:Super|Cmd|Meta)\b/gi, "Command")
+      .replace(/\bOption\b/gi, "Alt")
+      .toLowerCase();
+
   return (
-    left.replace(/\s+/g, "").toLowerCase() ===
-    right.replace(/\s+/g, "").toLowerCase()
+    normalize(left) === normalize(right)
   );
 }
 

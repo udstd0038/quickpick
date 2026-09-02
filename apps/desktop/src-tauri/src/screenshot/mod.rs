@@ -3,6 +3,7 @@ use serde::Serialize;
 use xcap::Monitor;
 
 pub const CLIPBOARD_FORMAT: &str = "CF_DIB + CF_BITMAP";
+pub const CLIPBOARD_FORMAT_MACOS: &str = "PNG";
 const MIN_REGION_SIZE: i32 = 8;
 
 #[derive(Clone, Debug, Serialize)]
@@ -31,6 +32,8 @@ pub struct CapturedRegionImage {
     pub height: u32,
     pub monitor_name: String,
     pub png_bytes: Vec<u8>,
+    #[cfg_attr(windows, allow(dead_code))]
+    rgba_bytes: Vec<u8>,
     bmp_bytes: Vec<u8>,
 }
 
@@ -139,6 +142,7 @@ pub fn capture_selected_region(
         height: capture_height,
         monitor_name,
         png_bytes,
+        rgba_bytes: image.as_raw().clone(),
         bmp_bytes,
     })
 }
@@ -168,15 +172,34 @@ fn region_to_monitor_relative(
 }
 
 pub fn copy_captured_region_to_clipboard(
+    _app: &tauri::AppHandle,
     image: &CapturedRegionImage,
 ) -> Result<CaptureClipboardResult, String> {
+    #[cfg(windows)]
     copy_bmp_bytes_to_clipboard(&image.bmp_bytes)?;
+
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_clipboard_manager::ClipboardExt;
+
+        let tauri_image =
+            tauri::image::Image::new_owned(image.rgba_bytes.clone(), image.width, image.height);
+        _app.clipboard()
+            .write_image(&tauri_image)
+            .map_err(|error| format!("写入截图到剪贴板失败：{error}"))?;
+    }
+
+    let clipboard_format = if cfg!(target_os = "macos") {
+        CLIPBOARD_FORMAT_MACOS
+    } else {
+        CLIPBOARD_FORMAT
+    };
 
     Ok(CaptureClipboardResult {
         width: image.width,
         height: image.height,
         monitor_name: image.monitor_name.clone(),
-        clipboard_format: CLIPBOARD_FORMAT,
+        clipboard_format,
         message: format!(
             "已复制区域截图：{}x{}（{}）",
             image.width, image.height, image.monitor_name
@@ -184,6 +207,7 @@ pub fn copy_captured_region_to_clipboard(
     })
 }
 
+#[cfg(windows)]
 fn copy_bmp_bytes_to_clipboard(bmp_bytes: &[u8]) -> Result<(), String> {
     const BMP_FILE_HEADER_SIZE: usize = 14;
 

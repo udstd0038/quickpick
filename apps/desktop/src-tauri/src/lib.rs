@@ -5,13 +5,12 @@ mod screenshot;
 mod security;
 mod selection;
 
-use selection::SelectionSnapshot;
 use localized_error::error_key;
+use selection::SelectionSnapshot;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use zeroize::Zeroize;
 use tauri::{
     image::Image,
     menu::{CheckMenuItem, Menu, MenuItem},
@@ -20,6 +19,7 @@ use tauri::{
     Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use zeroize::Zeroize;
 
 struct AppState {
     selection_snapshot: Mutex<SelectionSnapshot>,
@@ -174,6 +174,14 @@ struct SettingsActionResult {
 struct ScreenshotStatusEvent {
     kind: &'static str,
     message: String,
+}
+
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MacPermissionStatus {
+    accessibility: bool,
+    screen_recording: bool,
+    input_monitoring: bool,
 }
 
 fn provider_id(settings: &app_settings::AppSettings) -> &str {
@@ -687,7 +695,7 @@ fn save_app_settings(
         let _ = replace_global_shortcuts(&app, &previous_settings);
         return Err(error);
     }
-    apply_autostart_setting(settings.autostart_enabled)?;
+    apply_autostart_setting(&app, settings.autostart_enabled)?;
     sync_window_appearance(&app, &settings);
     if let Some(tray) = app.tray_by_id("main") {
         if let Ok(menu) = build_tray_menu(&app, settings.autostart_enabled, &settings.ui_language) {
@@ -803,19 +811,39 @@ fn clear_popup_state_from_state(state: &AppState, window: &str) {
 }
 
 #[tauri::command]
-fn copy_selection_text(state: tauri::State<'_, AppState>) -> Result<SelectionActionResult, String> {
-    copy_selection_text_from_state(&state)
+fn copy_selection_text(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<SelectionActionResult, String> {
+    copy_selection_text_from_state(&app, &state)
 }
 
-fn copy_selection_text_from_state(state: &AppState) -> Result<SelectionActionResult, String> {
+fn copy_selection_text_from_state(
+    app: &tauri::AppHandle,
+    state: &AppState,
+) -> Result<SelectionActionResult, String> {
     let text = current_selection_text(state)?;
 
-    clipboard_win::set_clipboard_string(&text)
-        .map_err(|_| error_key("clipboard.writeFailed"))?;
+    write_text_to_clipboard(app, &text)?;
 
     Ok(SelectionActionResult {
         message: "已复制".to_string(),
     })
+}
+
+#[cfg(windows)]
+fn write_text_to_clipboard(app: &tauri::AppHandle, text: &str) -> Result<(), String> {
+    let _ = app;
+    clipboard_win::set_clipboard_string(text).map_err(|_| error_key("clipboard.writeFailed"))
+}
+
+#[cfg(target_os = "macos")]
+fn write_text_to_clipboard(app: &tauri::AppHandle, text: &str) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+
+    app.clipboard()
+        .write_text(text)
+        .map_err(|_| error_key("clipboard.writeFailed"))
 }
 
 #[tauri::command]
@@ -848,7 +876,10 @@ fn search_selection_text_from_state(state: &AppState) -> Result<SelectionActionR
 }
 
 #[tauri::command]
-fn copy_result_content(state: tauri::State<'_, AppState>) -> Result<SelectionActionResult, String> {
+fn copy_result_content(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<SelectionActionResult, String> {
     let snapshot = state
         .result_snapshot
         .lock()
@@ -863,8 +894,7 @@ fn copy_result_content(state: tauri::State<'_, AppState>) -> Result<SelectionAct
         return Err(error_key("result.emptyCopy"));
     }
 
-    clipboard_win::set_clipboard_string(content)
-        .map_err(|_| error_key("clipboard.writeFailed"))?;
+    write_text_to_clipboard(&app, content)?;
 
     Ok(SelectionActionResult {
         message: "结果已复制".to_string(),
@@ -872,7 +902,10 @@ fn copy_result_content(state: tauri::State<'_, AppState>) -> Result<SelectionAct
 }
 
 #[tauri::command]
-fn copy_input_result(state: tauri::State<'_, AppState>) -> Result<SelectionActionResult, String> {
+fn copy_input_result(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<SelectionActionResult, String> {
     let result = state
         .last_input_result
         .lock()
@@ -884,8 +917,7 @@ fn copy_input_result(state: tauri::State<'_, AppState>) -> Result<SelectionActio
         return Err(error_key("input.noCopyableResult"));
     }
 
-    clipboard_win::set_clipboard_string(content)
-        .map_err(|_| error_key("clipboard.writeFailed"))?;
+    write_text_to_clipboard(&app, content)?;
 
     Ok(SelectionActionResult {
         message: "输入翻译结果已复制".to_string(),
@@ -1048,8 +1080,77 @@ fn set_hotkey_capture_mode(
     })
 }
 
+#[tauri::command]
+async fn get_macos_permission_status() -> MacPermissionStatus {
+    #[cfg(target_os = "macos")]
+    {
+        current_macos_permission_status().await
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        MacPermissionStatus {
+            accessibility: true,
+            screen_recording: true,
+            input_monitoring: true,
+        }
+    }
+}
+
+#[tauri::command]
+async fn request_macos_permission(kind: String) -> Result<MacPermissionStatus, String> {
+    #[cfg(target_os = "macos")]
+    {
+        match kind.as_str() {
+            "accessibility" => {
+                tauri_plugin_macos_permissions::request_accessibility_permission().await;
+            }
+            "screen_recording" => {
+                tauri_plugin_macos_permissions::request_screen_recording_permission().await;
+            }
+            "input_monitoring" => {
+                tauri_plugin_macos_permissions::request_input_monitoring_permission()
+                    .await
+                    .map_err(|error| error.to_string())?;
+            }
+            _ => return Err("unknown macos permission".to_string()),
+        }
+        Ok(current_macos_permission_status().await)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = kind;
+        Ok(MacPermissionStatus {
+            accessibility: true,
+            screen_recording: true,
+            input_monitoring: true,
+        })
+    }
+}
+
+#[cfg(target_os = "macos")]
+async fn current_macos_permission_status() -> MacPermissionStatus {
+    MacPermissionStatus {
+        accessibility: tauri_plugin_macos_permissions::check_accessibility_permission().await,
+        screen_recording: tauri_plugin_macos_permissions::check_screen_recording_permission().await,
+        input_monitoring: tauri_plugin_macos_permissions::check_input_monitoring_permission().await,
+    }
+}
+
 pub fn run() {
-    tauri::Builder::default()
+    #[cfg(target_os = "macos")]
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .plugin(tauri_plugin_macos_permissions::init())
+        .plugin(tauri_plugin_os::init());
+
+    #[cfg(not(target_os = "macos"))]
+    let builder = tauri::Builder::default();
+
+    builder
         .manage(AppState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
@@ -1073,21 +1174,22 @@ pub fn run() {
             set_hotkey_capture_mode,
             request_input_translation,
             request_result_translation,
-            capture_region_rect
+            capture_region_rect,
+            get_macos_permission_status,
+            request_macos_permission
         ])
         .setup(|app| {
             let settings = app_settings::load_app_settings(app.handle()).unwrap_or_default();
-            for label in [
-                "selection",
-                "result",
-                "input",
-                "screenshot_overlay",
-            ] {
+            for label in ["selection", "result", "input", "screenshot_overlay"] {
                 if let Some(window) = app.get_webview_window(label) {
                     let _ = window.hide();
                 }
             }
-            if let Err(error) = apply_autostart_setting(settings.autostart_enabled) {
+            #[cfg(target_os = "macos")]
+            let _ = app
+                .handle()
+                .set_activation_policy(tauri::ActivationPolicy::Accessory);
+            if let Err(error) = apply_autostart_setting(app.handle(), settings.autostart_enabled) {
                 eprintln!("QuickPick autostart sync skipped: {error}");
             }
             sync_window_appearance(app.handle(), &settings);
@@ -1115,10 +1217,7 @@ pub fn run() {
                 let _ = window.hide();
             }
             WindowEvent::CloseRequested { api, .. }
-                if matches!(
-                    window.label(),
-                    "input" | "selection"
-                ) =>
+                if matches!(window.label(), "input" | "selection") =>
             {
                 api.prevent_close();
                 clear_popup_state_internal(window.app_handle(), window.label());
@@ -1351,7 +1450,12 @@ fn apply_window_appearance(
         let Some(window) = app.get_webview_window(label) else {
             continue;
         };
+        #[cfg(windows)]
         let _ = window.set_decorations(false);
+        #[cfg(target_os = "macos")]
+        if label == "main" {
+            let _ = window.set_decorations(true);
+        }
         let _ = window.set_title(&localized_window_title(label, &settings.ui_language));
         if let Err(error) = window.set_theme(theme) {
             eprintln!("QuickPick {label} window theme sync skipped: {error}");
@@ -1365,6 +1469,7 @@ fn apply_window_appearance(
     Ok(())
 }
 
+#[cfg(windows)]
 fn apply_window_vibrancy(
     window: &tauri::WebviewWindow,
     settings: &app_settings::AppSettings,
@@ -1380,7 +1485,10 @@ fn apply_window_vibrancy(
         window
             .set_effects(EffectsBuilder::new().effect(effect).build())
             .map_err(|error| {
-                localized_error::error_key_with_detail("windowEffect.micaFailed", &error.to_string())
+                localized_error::error_key_with_detail(
+                    "windowEffect.micaFailed",
+                    &error.to_string(),
+                )
             })?;
         return Ok(());
     }
@@ -1388,10 +1496,26 @@ fn apply_window_vibrancy(
     window
         .set_effects(EffectsBuilder::new().effect(Effect::Blur).build())
         .map_err(|error| {
-            localized_error::error_key_with_detail(
-                "windowEffect.acrylicFailed",
-                &error.to_string(),
-            )
+            localized_error::error_key_with_detail("windowEffect.acrylicFailed", &error.to_string())
+        })
+}
+
+#[cfg(target_os = "macos")]
+fn apply_window_vibrancy(
+    window: &tauri::WebviewWindow,
+    settings: &app_settings::AppSettings,
+) -> Result<(), String> {
+    let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
+
+    let effect = if settings.window_effect.as_str() == "mica" {
+        Effect::ContentBackground
+    } else {
+        Effect::Popover
+    };
+    window
+        .set_effects(EffectsBuilder::new().effect(effect).build())
+        .map_err(|error| {
+            localized_error::error_key_with_detail("windowEffect.micaFailed", &error.to_string())
         })
 }
 
@@ -1592,6 +1716,11 @@ fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             }
         })
         .build(app)?;
+    #[cfg(target_os = "macos")]
+    {
+        let _ = tray.set_icon_as_template(true);
+        let _ = tray.set_show_menu_on_left_click(true);
+    }
     tray.set_menu(Some(tray_menu))?;
     tray.on_menu_event(|app, event| match event.id().as_ref() {
         "settings" => show_settings_window(app),
@@ -1814,9 +1943,7 @@ fn resolved_ui_language(language: &str) -> String {
     };
     let locale = locale.to_ascii_lowercase();
     if locale.starts_with("zh") {
-        if locale.starts_with("zh-tw")
-            || locale.starts_with("zh-hk")
-            || locale.starts_with("zh-mo")
+        if locale.starts_with("zh-tw") || locale.starts_with("zh-hk") || locale.starts_with("zh-mo")
         {
             "zh-Hant".to_string()
         } else {
@@ -1861,7 +1988,7 @@ fn toggle_autostart_from_tray(app: &tauri::AppHandle) {
     settings.autostart_enabled = !settings.autostart_enabled;
 
     match app_settings::save_app_settings(app, &settings)
-        .and_then(|_| apply_autostart_setting(settings.autostart_enabled))
+        .and_then(|_| apply_autostart_setting(app, settings.autostart_enabled))
     {
         Ok(()) => {
             if let Some(tray) = app.tray_by_id("main") {
@@ -1879,6 +2006,25 @@ fn toggle_autostart_from_tray(app: &tauri::AppHandle) {
 }
 
 fn capture_region_from_entry(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let allowed = tauri::async_runtime::block_on(
+            tauri_plugin_macos_permissions::check_screen_recording_permission(),
+        );
+        if !allowed {
+            tauri::async_runtime::block_on(
+                tauri_plugin_macos_permissions::request_screen_recording_permission(),
+            );
+            show_native_message_popup(
+                app,
+                "屏幕录制权限".to_string(),
+                "请允许 QuickPick 录制屏幕，然后重新触发区域截图。".to_string(),
+                "首次授权后可能需要重新启动 QuickPick。".to_string(),
+            );
+            return;
+        }
+    }
+
     if show_screenshot_overlay(app) {
         return;
     }
@@ -1886,10 +2032,7 @@ fn capture_region_from_entry(app: &tauri::AppHandle) {
     eprintln!("QuickPick screenshot WebView window is unavailable");
 }
 
-fn get_or_create_window(
-    app: &tauri::AppHandle,
-    label: &str,
-) -> Option<tauri::WebviewWindow> {
+fn get_or_create_window(app: &tauri::AppHandle, label: &str) -> Option<tauri::WebviewWindow> {
     if let Some(window) = app.get_webview_window(label) {
         return Some(window);
     }
@@ -1901,14 +2044,13 @@ fn get_or_create_window(
         "screenshot_overlay" => "QuickPick 截图",
         _ => "QuickPick",
     };
-    let mut builder =
-        WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
-            .title(title)
-            .transparent(true)
-            .decorations(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .visible(false);
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
+        .title(title)
+        .transparent(true)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .visible(false);
 
     match label {
         "selection" => {
@@ -1987,7 +2129,7 @@ async fn handle_region_menu_selection(
     match selection.action {
         screenshot::RegionMenuAction::Copy => {
             let image = screenshot::capture_selected_region(selection)?;
-            let result = screenshot::copy_captured_region_to_clipboard(&image)?;
+            let result = screenshot::copy_captured_region_to_clipboard(&app, &image)?;
             emit_screenshot_status(&app, "success", result.message.clone());
 
             Ok(SelectionActionResult {
@@ -2166,10 +2308,15 @@ fn emit_screenshot_status(app: &tauri::AppHandle, kind: &'static str, message: S
 }
 
 fn activate_selection_bar(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
-    let foreground_window = selection::current_foreground_window();
     let app = app.clone();
     std::thread::spawn(move || {
-        refresh_selection_snapshot(&app, foreground_window, hotkey_keys);
+        #[cfg(windows)]
+        {
+            let foreground_window = selection::current_foreground_window();
+            refresh_selection_snapshot(&app, foreground_window, hotkey_keys);
+        }
+        #[cfg(target_os = "macos")]
+        refresh_selection_snapshot_macos(&app, hotkey_keys);
         let _ = show_selection_webview(&app);
     });
 }
@@ -2182,9 +2329,7 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
     {
         use windows_sys::Win32::{
             Foundation::POINT,
-            UI::WindowsAndMessaging::{
-                GetCursorPos, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN,
-            },
+            UI::WindowsAndMessaging::{GetCursorPos, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN},
         };
 
         let mut cursor = POINT { x: 0, y: 0 };
@@ -2193,20 +2338,15 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
         }
         let window_width = 480;
         let window_height = 58;
-        let max_x =
-            (unsafe { GetSystemMetrics(SM_CXSCREEN) - window_width - 8 }).max(8);
-        let max_y =
-            (unsafe { GetSystemMetrics(SM_CYSCREEN) - window_height - 8 }).max(8);
+        let max_x = (unsafe { GetSystemMetrics(SM_CXSCREEN) - window_width - 8 }).max(8);
+        let max_y = (unsafe { GetSystemMetrics(SM_CYSCREEN) - window_height - 8 }).max(8);
         let below_y = cursor.y + 18;
         let y = if below_y > max_y {
             (cursor.y - window_height - 18).clamp(8, max_y)
         } else {
             below_y.clamp(8, max_y)
         };
-        let _ = window.set_position(tauri::PhysicalPosition::new(
-            cursor.x.clamp(8, max_x),
-            y,
-        ));
+        let _ = window.set_position(tauri::PhysicalPosition::new(cursor.x.clamp(8, max_x), y));
     }
     let _ = window.set_always_on_top(true);
     let _ = window.show();
@@ -2341,49 +2481,50 @@ async fn request_input_translation(
         *current = None;
     }
 
-    let (status, content, detail) = if !api_key_configured || needs_explicit_base_url || needs_explicit_model {
-        (
-            "error".to_string(),
-            String::new(),
-            "请先到设置页完成输入模型配置。".to_string(),
-        )
-    } else if trimmed.is_empty() {
-        (
-            "error".to_string(),
-            String::new(),
-            "请输入要翻译的文本。".to_string(),
-        )
-    } else {
-        let (request_source_language, request_target_language) =
-            translation_request_languages(&source_language, &target_language, &direction);
-        let ai_result = match security::load_api_key(&app, "input") {
-            Ok(Some(mut api_key)) => {
-                let result = ai::run_input_text_action(
-                    &settings,
-                    &api_key,
-                    "translate",
-                    &trimmed,
-                    &request_source_language,
-                    &request_target_language,
-                )
-                .await;
-                api_key.zeroize();
-                result
-            }
-            Ok(None) => Err(error_key("input.apiKeyMissing")),
-            Err(error) => Err(error),
-        };
-
-        match ai_result {
-            Ok(content) => {
-                if let Ok(mut current) = app.state::<AppState>().last_input_result.lock() {
-                    *current = Some(content.clone());
+    let (status, content, detail) =
+        if !api_key_configured || needs_explicit_base_url || needs_explicit_model {
+            (
+                "error".to_string(),
+                String::new(),
+                "请先到设置页完成输入模型配置。".to_string(),
+            )
+        } else if trimmed.is_empty() {
+            (
+                "error".to_string(),
+                String::new(),
+                "请输入要翻译的文本。".to_string(),
+            )
+        } else {
+            let (request_source_language, request_target_language) =
+                translation_request_languages(&source_language, &target_language, &direction);
+            let ai_result = match security::load_api_key(&app, "input") {
+                Ok(Some(mut api_key)) => {
+                    let result = ai::run_input_text_action(
+                        &settings,
+                        &api_key,
+                        "translate",
+                        &trimmed,
+                        &request_source_language,
+                        &request_target_language,
+                    )
+                    .await;
+                    api_key.zeroize();
+                    result
                 }
-                ("success".to_string(), content, String::new())
+                Ok(None) => Err(error_key("input.apiKeyMissing")),
+                Err(error) => Err(error),
+            };
+
+            match ai_result {
+                Ok(content) => {
+                    if let Ok(mut current) = app.state::<AppState>().last_input_result.lock() {
+                        *current = Some(content.clone());
+                    }
+                    ("success".to_string(), content, String::new())
+                }
+                Err(error) => ("error".to_string(), String::new(), error),
             }
-            Err(error) => ("error".to_string(), String::new(), error),
-        }
-    };
+        };
 
     let payload = InputReadyPayload {
         status,
@@ -2516,6 +2657,7 @@ async fn request_result_translation(
     Err(error_key("result.languageSwitchUnsupported"))
 }
 
+#[cfg(windows)]
 fn refresh_selection_snapshot(
     app: &tauri::AppHandle,
     foreground_window: selection::ForegroundWindow,
@@ -2529,6 +2671,20 @@ fn refresh_selection_snapshot(
         hotkey_keys,
         allow_clipboard_fallback,
     );
+    let state = app.state::<AppState>();
+
+    if let Ok(mut current) = state.selection_snapshot.lock() {
+        *current = snapshot;
+    };
+}
+
+#[cfg(target_os = "macos")]
+fn refresh_selection_snapshot_macos(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
+    let allow_clipboard_fallback = app_settings::load_app_settings(app)
+        .map(|settings| settings.allow_clipboard_fallback)
+        .unwrap_or(false);
+    let snapshot =
+        selection::capture_selected_text_for_app(app, hotkey_keys, allow_clipboard_fallback);
     let state = app.state::<AppState>();
 
     if let Ok(mut current) = state.selection_snapshot.lock() {
@@ -2577,16 +2733,16 @@ fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapsho
     let _ = app.emit_to("result", "result-ready", snapshot.clone());
 }
 
-fn apply_autostart_setting(enabled: bool) -> Result<(), String> {
+fn apply_autostart_setting(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
     if enabled {
-        enable_autostart()
+        enable_autostart(app)
     } else {
-        disable_autostart()
+        disable_autostart(app)
     }
 }
 
 #[cfg(windows)]
-fn enable_autostart() -> Result<(), String> {
+fn enable_autostart(_app: &tauri::AppHandle) -> Result<(), String> {
     use windows_sys::Win32::{
         Foundation::ERROR_SUCCESS,
         System::Registry::{
@@ -2595,8 +2751,7 @@ fn enable_autostart() -> Result<(), String> {
         },
     };
 
-    let current_exe =
-        std::env::current_exe().map_err(|_| error_key("autostart.locateFailed"))?;
+    let current_exe = std::env::current_exe().map_err(|_| error_key("autostart.locateFailed"))?;
     let command = format!("\"{}\"", current_exe.to_string_lossy());
     let key_path = wide_null("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
     let value_name = wide_null("QuickPick");
@@ -2647,13 +2802,20 @@ fn enable_autostart() -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(windows))]
-fn enable_autostart() -> Result<(), String> {
+#[cfg(target_os = "macos")]
+fn enable_autostart(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+
+    app.autolaunch().enable().map_err(|error| error.to_string())
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
+fn enable_autostart(_app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
 #[cfg(windows)]
-fn disable_autostart() -> Result<(), String> {
+fn disable_autostart(_app: &tauri::AppHandle) -> Result<(), String> {
     use windows_sys::Win32::{
         Foundation::{ERROR_FILE_NOT_FOUND, ERROR_SUCCESS},
         System::Registry::{
@@ -2701,11 +2863,21 @@ fn disable_autostart() -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(windows))]
-fn disable_autostart() -> Result<(), String> {
+#[cfg(target_os = "macos")]
+fn disable_autostart(app: &tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+
+    app.autolaunch()
+        .disable()
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
+fn disable_autostart(_app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(windows)]
 fn wide_null(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
 }
@@ -2722,6 +2894,7 @@ fn show_settings_window(app: &tauri::AppHandle) {
                 .map(|settings| settings.ui_language)
                 .unwrap_or_default(),
         ));
+        #[cfg(windows)]
         let _ = window.set_decorations(false);
         let _ = window.unminimize();
         let _ = window.show();
@@ -2746,7 +2919,11 @@ mod tests {
     #[test]
     fn settings_hotkey_maps_to_settings_action() {
         let bindings = HotkeyBindings::default();
-        let shortcut = app_settings::parse_hotkey("Alt+0", "设置").unwrap();
+        let shortcut = app_settings::parse_hotkey(
+            &app_settings::AppSettings::default().settings_hotkey,
+            "设置",
+        )
+        .unwrap();
 
         assert!(matches!(
             bindings.action_for(&shortcut),

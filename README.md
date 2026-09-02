@@ -1,5 +1,7 @@
 # QuickPick
 
+> macOS 移植工作在 `feature/macos-port` 分支持续验证；`main` 仍面向 Windows。
+
 QuickPick 是一个运行在 Windows 11 上的轻量级划词与截图 AI 工具。它常驻系统托盘，通过全局快捷键在任意软件中处理选中的文字、截取屏幕区域，并调用 OpenAI 兼容 AI 模型完成翻译、总结和文字提取。
 
 ## 功能

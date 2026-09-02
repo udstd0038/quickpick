@@ -98,18 +98,42 @@ fn default_allow_clipboard_fallback() -> bool {
     true
 }
 
+#[cfg(target_os = "macos")]
+fn default_settings_hotkey() -> String {
+    "Command+Comma".to_string()
+}
+
+#[cfg(not(target_os = "macos"))]
 fn default_settings_hotkey() -> String {
     "Alt+0".to_string()
 }
 
+#[cfg(target_os = "macos")]
+fn default_selection_hotkey() -> String {
+    "Command+Option+2".to_string()
+}
+
+#[cfg(not(target_os = "macos"))]
 fn default_selection_hotkey() -> String {
     "Alt+2".to_string()
 }
 
+#[cfg(target_os = "macos")]
+fn default_screenshot_hotkey() -> String {
+    "Command+Option+3".to_string()
+}
+
+#[cfg(not(target_os = "macos"))]
 fn default_screenshot_hotkey() -> String {
     "Alt+3".to_string()
 }
 
+#[cfg(target_os = "macos")]
+fn default_input_translate_hotkey() -> String {
+    "Command+Option+4".to_string()
+}
+
+#[cfg(not(target_os = "macos"))]
 fn default_input_translate_hotkey() -> String {
     "Alt+4".to_string()
 }
@@ -124,9 +148,7 @@ fn system_translation_language() -> String {
     };
     let locale = locale.to_ascii_lowercase();
     if locale.starts_with("zh") {
-        if locale.starts_with("zh-tw")
-            || locale.starts_with("zh-hk")
-            || locale.starts_with("zh-mo")
+        if locale.starts_with("zh-tw") || locale.starts_with("zh-hk") || locale.starts_with("zh-mo")
         {
             "zh-Hant".to_string()
         } else {
@@ -201,8 +223,7 @@ pub fn load_app_settings(app: &AppHandle) -> Result<AppSettings, String> {
         return Ok(AppSettings::default());
     }
 
-    let content = fs::read_to_string(&path)
-        .map_err(|_| error_key("settings.readFailed"))?;
+    let content = fs::read_to_string(&path).map_err(|_| error_key("settings.readFailed"))?;
     serde_json::from_str::<AppSettings>(&content)
         .map(normalize_settings_for_load)
         .map_err(|_| error_key("settings.invalidFormat"))
@@ -216,15 +237,14 @@ pub fn save_app_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), 
         fs::create_dir_all(parent).map_err(|_| error_key("settings.createDirFailed"))?;
     }
 
-    let content =
-        serde_json::to_string_pretty(&settings).map_err(|_| error_key("settings.serializeFailed"))?;
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|_| error_key("settings.serializeFailed"))?;
     fs::write(path, content).map_err(|_| error_key("settings.writeFailed"))
 }
 
 pub fn normalize_settings_for_save(mut settings: AppSettings) -> Result<AppSettings, String> {
     normalize_common_fields(&mut settings);
-    settings.settings_hotkey =
-        normalize_hotkey_for_save(&settings.settings_hotkey, "设置")?;
+    settings.settings_hotkey = normalize_hotkey_for_save(&settings.settings_hotkey, "设置")?;
     settings.selection_hotkey = normalize_hotkey_for_save(&settings.selection_hotkey, "划词菜单")?;
     settings.screenshot_hotkey =
         normalize_hotkey_for_save(&settings.screenshot_hotkey, "区域截图")?;
@@ -418,7 +438,12 @@ fn normalize_hotkey_for_save(value: &str, label: &str) -> Result<String, String>
     }
 
     let shortcut = parse_hotkey(trimmed, label)?;
-    if !shortcut.mods.contains(Modifiers::ALT) {
+    let has_required_modifier = if cfg!(target_os = "macos") {
+        shortcut.mods.contains(Modifiers::ALT) || shortcut.mods.contains(Modifiers::SUPER)
+    } else {
+        shortcut.mods.contains(Modifiers::ALT)
+    };
+    if !has_required_modifier {
         return Err(error_key("hotkey.altRequired"));
     }
 
@@ -560,6 +585,9 @@ fn format_shortcut(shortcut: Shortcut) -> String {
         parts.push("Alt".to_string());
     }
     if shortcut.mods.contains(Modifiers::SUPER) {
+        #[cfg(target_os = "macos")]
+        parts.push("Command".to_string());
+        #[cfg(not(target_os = "macos"))]
         parts.push("Win".to_string());
     }
 
@@ -579,6 +607,7 @@ fn format_code(code: Code) -> String {
         Code::Digit7 => "7".to_string(),
         Code::Digit8 => "8".to_string(),
         Code::Digit9 => "9".to_string(),
+        Code::Comma => "Comma".to_string(),
         Code::KeyA => "A".to_string(),
         Code::KeyB => "B".to_string(),
         Code::KeyC => "C".to_string(),
@@ -803,7 +832,10 @@ mod tests {
             "http://172.16.1.5:8080/v1",
             "http://192.168.1.10:8080/v1",
         ] {
-            assert!(validate_ai_base_url(url).is_ok(), "expected {url} to be allowed");
+            assert!(
+                validate_ai_base_url(url).is_ok(),
+                "expected {url} to be allowed"
+            );
         }
     }
 }

@@ -40,6 +40,10 @@ import {
   type HotkeySettingKey,
 } from "../../lib/hotkeys";
 import { useSettingsStore } from "../../stores/settingsStore";
+import {
+  runningOnMac,
+  setPlatformDataset,
+} from "../../lib/platform";
 
 type SelectionActionResult = {
   message: string;
@@ -79,6 +83,7 @@ function keyNameFromKeyboardEvent(
     ArrowRight: "ArrowRight",
     ArrowUp: "ArrowUp",
     Backspace: "Backspace",
+    Comma: "Comma",
     Delete: "Delete",
     End: "End",
     Enter: "Enter",
@@ -103,6 +108,9 @@ function shortcutFromKeyboardEvent(
   }
 
   const parts: string[] = [];
+  if (runningOnMac && event.metaKey) {
+    parts.push("Command");
+  }
   if (event.ctrlKey) {
     parts.push("Ctrl");
   }
@@ -110,7 +118,7 @@ function shortcutFromKeyboardEvent(
     parts.push("Shift");
   }
   if (event.altKey) {
-    parts.push("Alt");
+    parts.push(runningOnMac ? "Option" : "Alt");
   }
   parts.push(keyName);
 
@@ -161,6 +169,7 @@ function applyDocumentAppearance(settings: AppSettings) {
   root.dataset.themePreference = settings.themeMode;
   root.style.colorScheme = effectiveTheme === "light" ? "light" : "dark";
   root.dataset.windowEffect = settings.windowEffect;
+  setPlatformDataset(root);
   if (settings.windowEffect === "mica") {
     for (const name of appearanceAlphaVariables) {
       root.style.removeProperty(name);
@@ -182,7 +191,9 @@ function isHttpBaseUrl(value: string) {
 function SettingsTitlebar() {
   const t = useI18n();
   useEffect(() => {
-    getCurrentWindow().setDecorations(false).catch(() => {});
+    if (!runningOnMac) {
+      getCurrentWindow().setDecorations(false).catch(() => {});
+    }
   }, []);
 
   const minimizeWindow = () => {
@@ -615,7 +626,10 @@ function SettingsWindow() {
     if (modifierKeyNames.has(event.key)) {
       return;
     }
-    if (!event.altKey) {
+    const hasRequiredModifier = runningOnMac
+      ? event.metaKey || event.altKey
+      : event.altKey;
+    if (!hasRequiredModifier) {
       setSettingsStatus({
         kind: "error",
         message: t("settings.hotkeyNeedsAlt"),

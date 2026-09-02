@@ -4,13 +4,17 @@ import {
   normalizeAppSettings,
   visionAiProviderOptions,
 } from "./settingsTypes";
+import { runningOnMac } from "./platform";
+
+const expectedSettingsHotkey = runningOnMac ? "Command+Comma" : "Alt+0";
+const expectedSelectionHotkey = runningOnMac ? "Command+Option+2" : "Alt+2";
 
 describe("settingsTypes", () => {
   it("normalizes missing fields to defaults", () => {
     const settings = normalizeAppSettings({});
 
-    expect(settings.settingsHotkey).toBe("Alt+0");
-    expect(settings.selectionHotkey).toBe("Alt+2");
+    expect(settings.settingsHotkey).toBe(expectedSettingsHotkey);
+    expect(settings.selectionHotkey).toBe(expectedSelectionHotkey);
     expect(settings.allowClipboardFallback).toBe(true);
     expect(settings.panelOpacity).toBe(100);
     expect(settings.textAiProvider).toBe("deepseek");

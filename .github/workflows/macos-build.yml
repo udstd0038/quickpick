@@ -1,0 +1,61 @@
+name: macos-port
+
+on:
+  push:
+    branches: [main, feature/macos-port]
+  pull_request:
+
+jobs:
+  windows-regression:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Frontend tests
+        run: pnpm --filter quickpick-desktop test
+      - name: Frontend build
+        run: pnpm --filter quickpick-desktop build
+      - name: Rust check
+        working-directory: apps/desktop/src-tauri
+        run: cargo check
+      - name: Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test
+
+  macos-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Frontend tests
+        run: pnpm --filter quickpick-desktop test
+      - name: Frontend build
+        run: pnpm --filter quickpick-desktop build
+      - name: Rust check aarch64
+        working-directory: apps/desktop/src-tauri
+        run: cargo check --target aarch64-apple-darwin
+      - name: Rust check x86_64
+        working-directory: apps/desktop/src-tauri
+        run: cargo check --target x86_64-apple-darwin
+      - name: Rust tests aarch64
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --target aarch64-apple-darwin
+      - name: Universal build
+        working-directory: apps/desktop
+        run: pnpm exec tauri build --target universal-apple-darwin --no-bundle --ci
