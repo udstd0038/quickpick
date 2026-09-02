@@ -1,6 +1,8 @@
 param(
   [string]$QuickPickExe = "",
-  [string]$OutputRoot = ""
+  [string]$OutputRoot = "",
+  [string[]]$Themes = @("light"),
+  [switch]$IncludeScreenshot
 )
 
 $ErrorActionPreference = "Stop"
@@ -285,10 +287,8 @@ try {
     "zh-Hans" = "zh-cn"
     "en" = "en"
   }
-  $themes = @("light", "dark")
+  $themes = if ($Themes.Count -gt 0) { $Themes } else { @("light") }
   $languages = @("zh-Hans", "en")
-
-  $screenshotTitle = "QuickPick " + [char]0x622A + [char]0x56FE
 
   foreach ($language in $languages) {
     $languageDirectory = $languageDirectoryMap[$language]
@@ -331,12 +331,15 @@ try {
       Type-SafeInputText
       Capture-Window $window (Join-Path $OutputRoot "screenshots\$languageDirectory\input-$theme.png")
 
-      Hide-QuickPickWindows ([uint32]$process.Id)
-      Start-Sleep -Milliseconds 300
-      Send-Hotkey $hotkeyWindow 8
-      $window = Wait-VisibleWindow ([uint32]$process.Id) $screenshotTitle
-      Draw-ScreenshotSelection $window
-      Capture-Window $window (Join-Path $OutputRoot "screenshots\$languageDirectory\screenshot-$theme.png")
+      if ($IncludeScreenshot) {
+        $screenshotTitle = "QuickPick " + [char]0x622A + [char]0x56FE
+        Hide-QuickPickWindows ([uint32]$process.Id)
+        Start-Sleep -Milliseconds 300
+        Send-Hotkey $hotkeyWindow 8
+        $window = Wait-VisibleWindow ([uint32]$process.Id) $screenshotTitle
+        Draw-ScreenshotSelection $window
+        Capture-Window $window (Join-Path $OutputRoot "screenshots\$languageDirectory\screenshot-$theme.png")
+      }
 
       Stop-QuickPickProcess
     }
