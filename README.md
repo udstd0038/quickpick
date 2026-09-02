@@ -1,57 +1,185 @@
-# QuickPick
+<div>
+  <img src="./assets/quickpick-icon.png" alt="QuickPick" width="256" />
+  <h1>QuickPick</h1>
+  <p>A lightweight text selection and screenshot AI utility for Windows 11</p>
+</div>
 
-QuickPick 是一个运行在 Windows 11 上的轻量级划词与截图 AI 工具。它常驻系统托盘，通过全局快捷键在任意软件中处理选中的文字、截取屏幕区域，并调用 OpenAI 兼容 AI 模型完成翻译、总结和文字提取。
+[![GitHub release](https://img.shields.io/github/v/release/udstd0038/quickpick.svg)](https://github.com/udstd0038/quickpick/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/udstd0038/quickpick/macos-port.yml?branch=main&label=CI)](https://github.com/udstd0038/quickpick/actions/workflows/macos-port.yml)
+[![Total Downloads](https://img.shields.io/github/downloads/udstd0038/quickpick/total.svg)](https://github.com/udstd0038/quickpick/releases)
 
-## 功能
+English | [简体中文](./README.zh-CN.md)
 
-- 划词：选中文本后按 `Alt+2` 弹出划词菜单，可复制、翻译、总结或搜索。
-- 截图：按 `Alt+3` 框选屏幕区域，可复制图片、提取文字或翻译图片中的文字。
-- 输入翻译：按 `Alt+4` 打开输入翻译窗口，手动输入文本并翻译。
-- 设置：按 `Alt+0` 打开设置页，可配置 AI 接入、快捷键、语言、主题、窗口效果和透明度。
-- 托盘：启动后常驻托盘，不主动弹出主窗口；支持开机自启和托盘菜单。
-- 多语言：界面支持简体中文、繁体中文、英文、韩文、日文、法文、德文和西班牙文。
+## Overview
 
-## AI 配置
+QuickPick is a lightweight AI utility that stays in the system tray and works from anywhere on Windows 11. It turns selected text and screen regions into useful actions: copy, search, summarize, translate, OCR, or image translation through an OpenAI-compatible API.
 
-QuickPick 使用 OpenAI 兼容接口，并在设置页中拆分为三个独立模型：
+The desktop app is built with Tauri 2, React, TypeScript, and Rust. The Rust side handles global hotkeys, tray integration, text selection, screenshots, encrypted API key storage, and AI requests. The React side renders the settings page and WebView popups with light and dark themes.
 
-- 划词模型：处理划词翻译、总结等文本任务。
-- 截图模型：处理截图文字提取和图片翻译等视觉任务。
-- 输入模型：处理输入翻译窗口的文本任务。
+QuickPick keeps content local by default:
 
-API Key 使用 Windows DPAPI 加密保存。输入文本、截图内容和 AI 结果默认不写入历史记录。
+- Selected text, screenshots, and AI results are not saved as history.
+- AI requests only start after the user explicitly triggers an action.
+- API keys are encrypted locally with Windows DPAPI or macOS Keychain.
 
-## 安装
+## Release Status
 
-当前版本面向 Windows 11 x64。
+Current releases:
 
-- 下载 `QuickPick_0.1.0_x64-setup.exe` 运行安装程序。
-- 默认安装位置优先选择 `D:\Program Files\QuickPick`；没有 D 盘时选择其他非系统盘，只有 C 盘时回退到 `C:\Program Files\QuickPick`。
-- 也可以下载 `QuickPick_0.1.0_x64-portable.zip`，解压后直接运行。
+- Windows 11 v0.1.2 is the stable release.
+- macOS v0.1.2-macos is a universal pre-release built from `feature/macos-port`.
+- The macOS package is CI-verified but is not signed, not notarized, and has not completed manual acceptance on physical Mac hardware yet.
 
-首次使用请按 `Alt+0` 打开设置页，至少为需要使用的功能配置对应的 AI 供应商、Base URL、模型和 API Key。
+## Screenshots
 
-## 隐私
+The screenshots below were captured from the real QuickPick UI on Windows 11.
 
-- 不自动保存划词文本、截图、AI 结果或翻译历史。
-- 不自动覆盖剪贴板；复制操作只在用户明确点击后执行。
-- API Key 本地加密保存，不写入开发日志或仓库。
+### Settings
 
-## 开发
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/en/settings-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/en/settings-light.png" />
+  <img alt="QuickPick Settings" src="./screenshots/en/settings-light.png" />
+</picture>
 
-项目使用 pnpm monorepo、Tauri 2、React、TypeScript 和 Rust。
+### Selection Menu
 
-```powershell
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/en/selection-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/en/selection-light.png" />
+  <img alt="QuickPick Selection Menu" src="./screenshots/en/selection-light.png" />
+</picture>
+
+### Input Translation
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/en/input-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/en/input-light.png" />
+  <img alt="QuickPick Input Translation" src="./screenshots/en/input-light.png" />
+</picture>
+
+### Region Screenshot
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./screenshots/en/screenshot-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="./screenshots/en/screenshot-light.png" />
+  <img alt="QuickPick Region Screenshot" src="./screenshots/en/screenshot-light.png" />
+</picture>
+
+## Features
+
+- 🖱️ Selection menu for the current foreground window with copy, search, translate, and summarize actions.
+- 🖼️ Region screenshot with copy, OCR text extraction, and image translation actions.
+- ⌨️ Input translation window with source language, target language, direction, and `Ctrl+Enter` translation.
+- 🧩 Independent selection model, screenshot model, and input model configuration.
+- ⚙️ OpenAI-compatible provider presets including DeepSeek, Xiaomi MiMo, Kimi, GLM, MiniMax, and Qwen.
+- 🤖 System tray integration, startup option, and globally registered hotkeys.
+- 🌓 Light/dark themes, Acrylic/Mica window effects, and adjustable panel opacity.
+- 🌍 UI languages for simplified Chinese, traditional Chinese, English, Korean, Japanese, French, German, and Spanish.
+- 🔒 Local-first privacy: no text, screenshot, or AI history is stored by default.
+
+## AI Model Settings
+
+QuickPick separates AI credentials and model settings into three cards in the settings page:
+
+| Card | Purpose |
+|------|---------|
+| Selection Model | Text translation and summarization from the selection menu |
+| Screenshot Model | OCR and image translation from region screenshots |
+| Input Model | Text translation from the input translation window |
+
+Each card has independent provider, Base URL, model, and API key settings. Requests use the configured model only and never fall back to another card.
+
+## Privacy
+
+- QuickPick does not save selected text, screenshots, OCR output, translation output, or AI history.
+- Clipboard content is only changed when the user clicks Copy.
+- API keys are encrypted locally and are not written to logs or the repository.
+- External AI endpoints must use HTTPS unless the address is local or on a private network.
+
+## Installation
+
+### Windows 11
+
+Download the v0.1.2 stable release from the [Windows release page](https://github.com/udstd0038/quickpick/releases/tag/v0.1.2).
+
+| Package | Recommendation |
+|---------|----------------|
+| [NSIS installer](https://github.com/udstd0038/quickpick/releases/download/v0.1.2/QuickPick_0.1.2_x64-setup.exe) | Use for a normal installation |
+| [Portable ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.2/QuickPick_0.1.2_x64-portable.zip) | Extract and run manually |
+
+The installer prefers `D:\Program Files\QuickPick`. If drive D does not exist, it uses another non-system drive when available and falls back to `C:\Program Files\QuickPick`.
+
+### macOS Pre-release
+
+Download the [macOS universal DMG](https://github.com/udstd0038/quickpick/releases/download/v0.1.2-macos/QuickPick_0.1.2_universal.dmg) from the [macOS release page](https://github.com/udstd0038/quickpick/releases/tag/v0.1.2-macos).
+
+This package is unsigned and not notarized yet. Gatekeeper may ask you to right-click Open or approve it in Privacy & Security before it starts.
+
+### First Run
+
+QuickPick stays silent in the system tray after startup. Configure at least the AI model card you plan to use before starting a request.
+
+Default Windows hotkeys:
+
+| Action | Hotkey |
+|--------|--------|
+| Settings | `Alt+0` |
+| Selection menu | `Alt+2` |
+| Region screenshot | `Alt+3` |
+| Input translation | `Alt+4` |
+
+macOS default hotkeys on the pre-release branch use `Command+,` for Settings and `Command+Option+2`, `Command+Option+3`, and `Command+Option+4` for Selection, Region Screenshot, and Input Translation.
+
+## Development
+
+Development requires Node.js 22 or later and pnpm. Use the pnpm version specified by the `packageManager` field in `package.json`.
+
+```bash
+git clone https://github.com/udstd0038/quickpick.git
+cd quickpick
+
 pnpm install
-pnpm dev
+pnpm test
+pnpm desktop:dev
 ```
 
-构建 Windows NSIS 安装包：
+Build the Windows release with NSIS:
 
 ```powershell
 pnpm --filter quickpick-desktop exec tauri build --bundles nsis --ci --no-sign
 ```
 
-## 许可
+Build a macOS universal package on macOS:
 
-安装程序使用的许可文本位于 `apps/desktop/src-tauri/installer/LICENSE.txt`，当前为发布前占位文本，正式条款发布前会替换。
+```bash
+pnpm --filter quickpick-desktop exec tauri build --target universal-apple-darwin --bundles dmg --ci --no-sign
+```
+
+The screenshot capture helper is available at `tools/capture-readme-screenshots.ps1`.
+
+## Tech Stack
+
+| Area | Stack |
+|------|-------|
+| Desktop shell | Tauri 2 |
+| System layer | Rust |
+| UI | React 19 + TypeScript + Tailwind CSS + Vite |
+| UI icons | lucide-react |
+| Screenshot capture | xcap |
+| AI transport | OpenAI-compatible HTTP APIs |
+| Secret storage | Windows DPAPI and macOS Keychain |
+| Automation | Tauri global shortcuts, Windows UI Automation, macOS Accessibility |
+| Testing | Vitest, Rust unit tests, GitHub Actions |
+
+The frontend renders the settings page and WebView popups. Rust owns the OS-facing capabilities and AI request flow.
+
+## Contributing
+
+Contributions, bug reports, translations, and design feedback are welcome. Before opening a pull request, read [AGENT.md](./AGENT.md) and the project documents under [docs/](./docs). The repository keeps current progress and decisions in [dev-logs/](./dev-logs).
+
+Do not add API keys, selected text, screenshots, or AI response contents to commits, logs, issues, or CI artifacts.
+
+## License
+
+QuickPick has not declared a root open-source license yet. The installer currently uses the placeholder license text in `apps/desktop/src-tauri/installer/LICENSE.txt` and should be replaced before the final public release.
