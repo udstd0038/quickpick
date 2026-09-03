@@ -16,7 +16,7 @@ use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     window::{Color, Effect, EffectsBuilder},
-    Emitter, Manager, Theme, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+    Emitter, LogicalSize, Manager, Theme, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use zeroize::Zeroize;
@@ -1154,7 +1154,11 @@ pub fn run() {
         .manage(AppState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_denylist(&["main"])
+                .build(),
+        )
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -2881,6 +2885,25 @@ fn wide_null(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
+const SETTINGS_WINDOW_DEFAULT_WIDTH: f64 = 480.0;
+const SETTINGS_WINDOW_DEFAULT_HEIGHT: f64 = 600.0;
+
+fn settings_window_default_size() -> LogicalSize<f64> {
+    LogicalSize::new(
+        SETTINGS_WINDOW_DEFAULT_WIDTH,
+        SETTINGS_WINDOW_DEFAULT_HEIGHT,
+    )
+}
+
+fn reset_settings_window_to_default(window: &tauri::WebviewWindow) {
+    let size = settings_window_default_size();
+    let _ = window.unminimize();
+    let _ = window.unmaximize();
+    let _ = window.set_min_size(Some(size));
+    let _ = window.set_size(size);
+    let _ = window.center();
+}
+
 fn show_settings_window(app: &tauri::AppHandle) {
     if let Ok(settings) = app_settings::load_app_settings(app) {
         sync_window_appearance(app, &settings);
@@ -2895,7 +2918,13 @@ fn show_settings_window(app: &tauri::AppHandle) {
         ));
         #[cfg(windows)]
         let _ = window.set_decorations(false);
-        let _ = window.unminimize();
+        let should_reset =
+            !window.is_visible().unwrap_or(true) || window.is_minimized().unwrap_or(false);
+        if should_reset {
+            reset_settings_window_to_default(&window);
+        } else {
+            let _ = window.unminimize();
+        }
         let _ = window.show();
         refresh_current_window_glass(app, &window);
         let _ = window.set_focus();
@@ -2984,5 +3013,12 @@ mod tests {
         assert!(state.last_text_translation.lock().unwrap().is_none());
         assert!(state.last_input_result.lock().unwrap().is_none());
         assert!(state.last_screenshot_payload.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn settings_window_default_size_is_480x600() {
+        let size = settings_window_default_size();
+        assert_eq!(size.width, 480.0);
+        assert_eq!(size.height, 600.0);
     }
 }
