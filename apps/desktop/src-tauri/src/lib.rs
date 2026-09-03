@@ -2714,7 +2714,7 @@ fn wide_null(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-const SETTINGS_WINDOW_DEFAULT_WIDTH: f64 = 480.0;
+const SETTINGS_WINDOW_DEFAULT_WIDTH: f64 = 400.0;
 const SETTINGS_WINDOW_DEFAULT_HEIGHT: f64 = 600.0;
 
 fn settings_window_default_size() -> LogicalSize<f64> {
@@ -2840,9 +2840,9 @@ mod tests {
     }
 
     #[test]
-    fn settings_window_default_size_is_480x600() {
+    fn settings_window_default_size_is_400x600() {
         let size = settings_window_default_size();
-        assert_eq!(size.width, 480.0);
+        assert_eq!(size.width, 400.0);
         assert_eq!(size.height, 600.0);
     }
 }
