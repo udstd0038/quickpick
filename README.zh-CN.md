@@ -1,11 +1,11 @@
 <div>
   <img src="./assets/quickpick-icon.png" alt="QuickPick" width="256" />
   <h1>QuickPick</h1>
-  <p>运行在 Windows 11 上的轻量级划词与截图 AI 工具</p>
+  <p>运行在 Windows 11 与 macOS 上的轻量级划词与截图 AI 工具</p>
 </div>
 
 [![GitHub release](https://img.shields.io/github/v/release/udstd0038/quickpick.svg)](https://github.com/udstd0038/quickpick/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/udstd0038/quickpick/macos-port.yml?branch=main&label=CI)](https://github.com/udstd0038/quickpick/actions/workflows/macos-port.yml)
+[![安全审计](https://img.shields.io/github/actions/workflow/status/udstd0038/quickpick/security-audit.yml?branch=main&label=Security)](https://github.com/udstd0038/quickpick/actions/workflows/security-audit.yml)
 [![Total Downloads](https://img.shields.io/github/downloads/udstd0038/quickpick/total.svg)](https://github.com/udstd0038/quickpick/releases)
 
 [English](./README.md) | 简体中文
@@ -26,7 +26,7 @@ QuickPick 默认坚持本地优先：
 
 当前发布状态：
 
-- Windows 11 v0.1.3 为正式版本。
+- Windows 11 v0.1.4 为正式版本。
 - macOS v0.1.3-macos 是基于 `feature/macos-port` 的 universal 预发布版本。
 - macOS 包已通过 CI universal 构建，但尚未签名、未公证，也尚未在实体 Mac 上完成人工验收。
 
@@ -81,12 +81,12 @@ QuickPick 默认坚持本地优先：
 
 ### Windows 11
 
-请从 [Windows Release 页面](https://github.com/udstd0038/quickpick/releases/tag/v0.1.3) 下载 v0.1.3 正式版本。
+请从 [Windows Release 页面](https://github.com/udstd0038/quickpick/releases/tag/v0.1.4) 下载 v0.1.4 正式版本。
 
 | 安装包 | 推荐用途 |
 |--------|----------|
-| [NSIS 安装包](https://github.com/udstd0038/quickpick/releases/download/v0.1.3/QuickPick_0.1.3_x64-setup.exe) | 常规安装 |
-| [便携 ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.3/QuickPick_0.1.3_x64-portable.zip) | 解压后直接运行 |
+| [NSIS 安装包](https://github.com/udstd0038/quickpick/releases/download/v0.1.4/QuickPick_0.1.4_x64-setup.exe) | 常规安装 |
+| [便携 ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.4/QuickPick_0.1.4_x64-portable.zip) | 解压后直接运行 |
 
 安装程序默认优先选择 `D:\Program Files\QuickPick`；没有 D 盘时选择其他非系统盘，只有 C 盘时回退到 `C:\Program Files\QuickPick`。
 
@@ -156,9 +156,13 @@ README 截图生成脚本位于 `tools/capture-readme-screenshots.ps1`。
 
 ## 🤝 参与贡献
 
-欢迎提交代码、Issue、翻译和设计建议。创建 Pull Request 前请先阅读 [AGENT.md](./AGENT.md) 和 [docs/](./docs) 下的项目文档，并查看 [dev-logs/](./dev-logs) 了解当前进度与决策。
+欢迎提交代码、Issue、翻译和设计建议。创建 Pull Request 前请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)、[AGENT.md](./AGENT.md) 和 [docs/](./docs) 下的项目文档，并查看 [dev-logs/](./dev-logs) 了解当前进度与决策。
 
 请勿把 API Key、用户文本、截图内容或 AI 返回全文写入提交、日志、Issue 或 CI 产物。
+
+## 🔐 安全
+
+漏洞报告方式与支持版本请阅读 [SECURITY.md](./SECURITY.md)。请勿在公开 Issue 中披露可直接利用的安全问题。
 
 ## 📜 许可
 

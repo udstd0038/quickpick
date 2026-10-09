@@ -2,7 +2,25 @@
   "name": "quickpick",
   "private": true,
   "version": "0.1.4",
+  "description": "Lightweight AI utility for text selection, screenshot OCR/translation, and input translation.",
   "license": "MIT",
+  "homepage": "https://github.com/udstd0038/quickpick/releases/latest",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udstd0038/quickpick.git"
+  },
+  "bugs": {
+    "url": "https://github.com/udstd0038/quickpick/issues"
+  },
+  "keywords": [
+    "tauri",
+    "rust",
+    "react",
+    "translation",
+    "ocr",
+    "screenshot",
+    "openai-compatible"
+  ],
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev": "pnpm --filter quickpick-desktop dev",

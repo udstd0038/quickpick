@@ -2,7 +2,24 @@
   "name": "quickpick-desktop",
   "private": true,
   "version": "0.1.4",
+  "description": "QuickPick desktop client built with Tauri 2, React, TypeScript, and Rust.",
   "license": "MIT",
+  "homepage": "https://github.com/udstd0038/quickpick/releases/latest",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udstd0038/quickpick.git",
+    "directory": "apps/desktop"
+  },
+  "bugs": {
+    "url": "https://github.com/udstd0038/quickpick/issues"
+  },
+  "keywords": [
+    "tauri",
+    "desktop",
+    "translation",
+    "ocr",
+    "screenshot"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

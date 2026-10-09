@@ -1,11 +1,11 @@
 <div>
   <img src="./assets/quickpick-icon.png" alt="QuickPick" width="256" />
   <h1>QuickPick</h1>
-  <p>A lightweight text selection and screenshot AI utility for Windows 11</p>
+  <p>A lightweight text selection and screenshot AI utility for Windows 11 and macOS</p>
 </div>
 
 [![GitHub release](https://img.shields.io/github/v/release/udstd0038/quickpick.svg)](https://github.com/udstd0038/quickpick/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/udstd0038/quickpick/macos-port.yml?branch=main&label=CI)](https://github.com/udstd0038/quickpick/actions/workflows/macos-port.yml)
+[![Security Audit](https://img.shields.io/github/actions/workflow/status/udstd0038/quickpick/security-audit.yml?branch=main&label=Security)](https://github.com/udstd0038/quickpick/actions/workflows/security-audit.yml)
 [![Total Downloads](https://img.shields.io/github/downloads/udstd0038/quickpick/total.svg)](https://github.com/udstd0038/quickpick/releases)
 
 English | [简体中文](./README.zh-CN.md)
@@ -26,7 +26,7 @@ QuickPick keeps content local by default:
 
 Current releases:
 
-- Windows 11 v0.1.3 is the stable release.
+- Windows 11 v0.1.4 is the stable release.
 - macOS v0.1.3-macos is a universal pre-release built from `feature/macos-port`.
 - The macOS package is CI-verified but is not signed, not notarized, and has not completed manual acceptance on physical Mac hardware yet.
 
@@ -81,12 +81,12 @@ Each card has independent provider, Base URL, model, and API key settings. Reque
 
 ### Windows 11
 
-Download the v0.1.3 stable release from the [Windows release page](https://github.com/udstd0038/quickpick/releases/tag/v0.1.3).
+Download the v0.1.4 stable release from the [Windows release page](https://github.com/udstd0038/quickpick/releases/tag/v0.1.4).
 
 | Package | Recommendation |
 |---------|----------------|
-| [NSIS installer](https://github.com/udstd0038/quickpick/releases/download/v0.1.3/QuickPick_0.1.3_x64-setup.exe) | Use for a normal installation |
-| [Portable ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.3/QuickPick_0.1.3_x64-portable.zip) | Extract and run manually |
+| [NSIS installer](https://github.com/udstd0038/quickpick/releases/download/v0.1.4/QuickPick_0.1.4_x64-setup.exe) | Use for a normal installation |
+| [Portable ZIP](https://github.com/udstd0038/quickpick/releases/download/v0.1.4/QuickPick_0.1.4_x64-portable.zip) | Extract and run manually |
 
 The installer prefers `D:\Program Files\QuickPick`. If drive D does not exist, it uses another non-system drive when available and falls back to `C:\Program Files\QuickPick`.
 
@@ -156,9 +156,13 @@ The frontend renders the settings page and WebView popups. Rust owns the OS-faci
 
 ## Contributing
 
-Contributions, bug reports, translations, and design feedback are welcome. Before opening a pull request, read [AGENT.md](./AGENT.md) and the project documents under [docs/](./docs). The repository keeps current progress and decisions in [dev-logs/](./dev-logs).
+Contributions, bug reports, translations, and design feedback are welcome. Before opening a pull request, read [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENT.md](./AGENT.md), and the project documents under [docs/](./docs). The repository keeps current progress and decisions in [dev-logs/](./dev-logs).
 
 Do not add API keys, selected text, screenshots, or AI response contents to commits, logs, issues, or CI artifacts.
+
+## Security
+
+For vulnerability reporting and supported versions, read [SECURITY.md](./SECURITY.md). Do not disclose exploitable security issues in public GitHub issues.
 
 ## License
 
