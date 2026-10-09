@@ -39,4 +39,3 @@ Out of scope:
 - Vulnerabilities in third-party AI providers.
 - Issues caused by intentionally unsafe local HTTP endpoints configured by the user.
 - Social engineering or physical access to an unlocked device.
-

@@ -54,4 +54,3 @@ pnpm --filter quickpick-desktop exec tauri build --no-bundle --ci
 ## Security and Privacy
 
 QuickPick is local-first. New features must not add content history or transmit user content without an explicit user action. Report security issues according to `SECURITY.md`, not in a public issue.
-
