@@ -21,6 +21,12 @@
     "screenshot",
     "openai-compatible"
   ],
+  "contributors": [
+    {
+      "name": "udstd0038",
+      "url": "https://github.com/udstd0038"
+    }
+  ],
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev": "pnpm --filter quickpick-desktop dev",

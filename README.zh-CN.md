@@ -160,6 +160,12 @@ README 截图生成脚本位于 `tools/capture-readme-screenshots.ps1`。
 
 请勿把 API Key、用户文本、截图内容或 AI 返回全文写入提交、日志、Issue 或 CI 产物。
 
+## 👥 贡献者
+
+- [@udstd0038](https://github.com/udstd0038) - 维护者
+
+贡献者名单详见 [CONTRIBUTORS.md](./CONTRIBUTORS.md)。
+
 ## 🔐 安全
 
 漏洞报告方式与支持版本请阅读 [SECURITY.md](./SECURITY.md)。请勿在公开 Issue 中披露可直接利用的安全问题。

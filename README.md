@@ -160,6 +160,12 @@ Contributions, bug reports, translations, and design feedback are welcome. Befor
 
 Do not add API keys, selected text, screenshots, or AI response contents to commits, logs, issues, or CI artifacts.
 
+## Contributors
+
+- [@udstd0038](https://github.com/udstd0038) - maintainer
+
+See [CONTRIBUTORS.md](./CONTRIBUTORS.md) for the contributor list.
+
 ## Security
 
 For vulnerability reporting and supported versions, read [SECURITY.md](./SECURITY.md). Do not disclose exploitable security issues in public GitHub issues.

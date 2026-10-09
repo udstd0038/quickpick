@@ -20,6 +20,12 @@
     "ocr",
     "screenshot"
   ],
+  "contributors": [
+    {
+      "name": "udstd0038",
+      "url": "https://github.com/udstd0038"
+    }
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
