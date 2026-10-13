@@ -28,7 +28,7 @@ Current releases:
 
 - Windows 11 v0.1.4 is the stable release.
 - macOS v0.1.3-macos is a universal pre-release built from `feature/macos-port`.
-- The macOS package is CI-verified but is not signed, not notarized, and has not completed manual acceptance on physical Mac hardware yet.
+- The published macOS package passed CI, but it is unsigned and not notarized. Later shortcut fixes still need a successful build and another acceptance run on physical Mac hardware.
 
 ## Screenshots
 
@@ -126,13 +126,15 @@ pnpm desktop:dev
 
 Build the Windows release with NSIS:
 
-```powershell
+```text
 pnpm --filter quickpick-desktop exec tauri build --bundles nsis --ci --no-sign
 ```
 
-Build a macOS universal package on macOS:
+Build a macOS universal package on macOS from `feature/macos-port`. The `main` branch currently contains the Windows implementation:
 
 ```bash
+git switch feature/macos-port
+pnpm install --frozen-lockfile
 pnpm --filter quickpick-desktop exec tauri build --target universal-apple-darwin --bundles dmg --ci --no-sign
 ```
 
