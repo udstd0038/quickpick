@@ -563,8 +563,8 @@ mod tests {
             let board = PrivateBoard(NSPasteboard::pasteboardWithUniqueName());
             let original = fixture(&[
                 &[
-                    ("public.utf8-plain-text", b"fixture"),
-                    ("public.html", b"<b>fixture</b>"),
+                    ("public.utf8-plain-text", "QuickPick 测试 🧪".as_bytes()),
+                    ("public.html", "<b>QuickPick 测试 🧪</b>".as_bytes()),
                     ("public.rtf", br"{\rtf1\ansi fixture}"),
                 ],
                 &[
@@ -578,6 +578,43 @@ mod tests {
                 board: board.0.clone(),
             };
             let before = clipboard.snapshot().unwrap();
+            let type_names = |snapshot: &ClipboardSnapshot| {
+                snapshot
+                    .items
+                    .iter()
+                    .map(|item| {
+                        item.iter()
+                            .map(|representation| representation.type_name.clone())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>()
+            };
+            // AppKit may advertise additional legacy aliases. Diagnose only
+            // type names from this private fixture, never clipboard bytes.
+            eprintln!(
+                "private fixture requested types: {:?}",
+                type_names(&original)
+            );
+            eprintln!("private fixture native types: {:?}", type_names(&before));
+            assert!(before.items.len() >= original.items.len());
+            for (item_index, expected) in original.items.iter().enumerate() {
+                for representation in expected {
+                    let native = before.items[item_index]
+                        .iter()
+                        .find(|native| native.type_name == representation.type_name)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "private fixture item {item_index} is missing type {}",
+                                representation.type_name
+                            )
+                        });
+                    assert!(
+                        native.bytes.as_slice() == representation.bytes.as_slice(),
+                        "private fixture bytes differ for item {item_index}, type {}",
+                        representation.type_name
+                    );
+                }
+            }
             write_fixture(
                 &board.0,
                 &fixture(&[&[("public.utf8-plain-text", b"replacement")]]),
@@ -585,12 +622,37 @@ mod tests {
             let copied_count = board.0.changeCount();
             clipboard.restore(&before, copied_count).unwrap();
             let restored = clipboard.snapshot().unwrap();
-            assert_eq!(restored.items.len(), original.items.len());
-            for (actual, expected) in restored.items.iter().zip(&original.items) {
+            eprintln!(
+                "private fixture restored types: {:?}",
+                type_names(&restored)
+            );
+            assert_eq!(restored.items.len(), before.items.len());
+            for (item_index, (actual, expected)) in
+                restored.items.iter().zip(&before.items).enumerate()
+            {
                 assert_eq!(actual.len(), expected.len());
-                for (actual, expected) in actual.iter().zip(expected) {
-                    assert_eq!(actual.type_name, expected.type_name);
-                    assert_eq!(actual.bytes.as_slice(), expected.bytes.as_slice());
+                let actual_types = actual
+                    .iter()
+                    .map(|representation| &representation.type_name)
+                    .collect::<std::collections::BTreeSet<_>>();
+                let expected_types = expected
+                    .iter()
+                    .map(|representation| &representation.type_name)
+                    .collect::<std::collections::BTreeSet<_>>();
+                assert_eq!(
+                    actual_types, expected_types,
+                    "private fixture item {item_index} types changed"
+                );
+                for expected in expected {
+                    let actual = actual
+                        .iter()
+                        .find(|actual| actual.type_name == expected.type_name)
+                        .expect("type sets were checked above");
+                    assert!(
+                        actual.bytes.as_slice() == expected.bytes.as_slice(),
+                        "restored bytes differ for item {item_index}, type {}",
+                        expected.type_name
+                    );
                 }
             }
         });
