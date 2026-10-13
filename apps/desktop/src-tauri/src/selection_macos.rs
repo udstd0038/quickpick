@@ -1,9 +1,7 @@
-use std::time::Duration;
-
-use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
-use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri::AppHandle;
+
+use crate::{clipboard_macos, selection_clipboard::FallbackError};
 
 use axuielement::{
     ax_attribute::AX_SELECTED_TEXT_ATTRIBUTE, is_process_trusted, is_process_trusted_with_prompt,
@@ -94,8 +92,8 @@ impl SelectionSnapshot {
 pub fn current_foreground_window() -> ForegroundWindow {}
 
 pub fn capture_selected_text_for_app(
-    app: &AppHandle,
-    _hotkey_keys: Vec<i32>,
+    _app: &AppHandle,
+    hotkey_keys: Vec<i32>,
     allow_clipboard_fallback: bool,
 ) -> SelectionSnapshot {
     if !is_process_trusted() {
@@ -112,11 +110,19 @@ pub fn capture_selected_text_for_app(
         return direct;
     }
 
-    capture_selected_text_from_clipboard(app)
-        .map(|text| {
+    let input_monitoring_allowed = tauri::async_runtime::block_on(
+        tauri_plugin_macos_permissions::check_input_monitoring_permission(),
+    );
+    match clipboard_macos::capture_selection(&hotkey_keys, input_monitoring_allowed) {
+        Ok(text) => {
             SelectionSnapshot::captured_from(text, "clipboard", "已通过剪贴板兜底读取选中文本")
-        })
-        .unwrap_or(direct)
+        }
+        Err(error) => {
+            let mut snapshot = SelectionSnapshot::error(clipboard_error_message(error));
+            snapshot.source = "clipboard".to_string();
+            snapshot
+        }
+    }
 }
 
 trait SnapshotStatusExt {
@@ -158,31 +164,36 @@ fn read_ax_selected_text() -> SelectionSnapshot {
     SelectionSnapshot::empty("未读取到选中文本，请重新选择后再试")
 }
 
-fn capture_selected_text_from_clipboard(app: &AppHandle) -> Option<String> {
-    let previous = app.clipboard().read_text().ok();
-    if !send_command_c() {
-        return None;
+fn clipboard_error_message(error: FallbackError) -> &'static str {
+    match error {
+        FallbackError::Busy => "正在读取选中文本，请稍后重试",
+        FallbackError::InvalidTrigger => {
+            "当前快捷键无法安全用于剪贴板取词，请更换快捷键或使用直接取词"
+        }
+        FallbackError::SnapshotIncomplete | FallbackError::SnapshotPromise => {
+            "当前剪贴板内容无法完整备份，本次未使用剪贴板兜底"
+        }
+        FallbackError::SnapshotTooLarge => "当前剪贴板内容超过备份上限，本次未使用剪贴板兜底",
+        FallbackError::ClipboardChanged => {
+            "剪贴板在取词过程中发生变化，已保留较新的内容，请重新选择后再试"
+        }
+        FallbackError::ClipboardReadFailed => "剪贴板内容读取失败，本次没有返回选中文本",
+        FallbackError::CopyTimedOut => "复制未在规定时间内完成，本次没有读取旧剪贴板文本",
+        FallbackError::EmptyCopiedText => "复制后未读取到文本，请重新选择文本后再试",
+        FallbackError::KeysNotReleased => "快捷键尚未完全松开，本次未模拟复制",
+        FallbackError::InputUnavailable => "辅助功能或输入监控权限不可用，请检查权限后重新触发取词",
+        FallbackError::KeyboardLayoutUnavailable => {
+            "当前键盘布局无法安全模拟复制，本次未使用剪贴板兜底"
+        }
+        FallbackError::FocusChanged => "当前应用在取词过程中发生变化，请重新选择文本后再试",
+        FallbackError::InputFailed => "模拟复制失败，本次没有返回选中文本",
+        FallbackError::ReleaseFailed => "模拟复制的按键释放失败，本次没有返回选中文本",
+        FallbackError::RestoreFailed => "原剪贴板内容恢复失败，本次没有返回选中文本，请检查剪贴板",
+        FallbackError::ReleaseAndRestoreFailed => {
+            "模拟复制的按键释放和原剪贴板恢复均失败，本次没有返回选中文本，请检查键盘和剪贴板"
+        }
+        FallbackError::ReleaseAndClipboardChanged => "模拟复制的按键释放失败，且剪贴板在取词过程中发生变化，已保留较新的内容，请检查键盘后重试",
     }
-
-    std::thread::sleep(Duration::from_millis(80));
-    let copied = app.clipboard().read_text().ok();
-    if let Some(value) = previous {
-        let _ = app.clipboard().write_text(value);
-    }
-
-    copied
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-}
-
-fn send_command_c() -> bool {
-    let Ok(mut enigo) = Enigo::new(&Settings::default()) else {
-        return false;
-    };
-
-    enigo.key(Key::Meta, Direction::Press).is_ok()
-        && enigo.key(Key::Unicode('c'), Direction::Click).is_ok()
-        && enigo.key(Key::Meta, Direction::Release).is_ok()
 }
 
 fn make_preview(text: &str) -> String {

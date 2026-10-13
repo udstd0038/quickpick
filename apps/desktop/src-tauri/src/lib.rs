@@ -1,9 +1,15 @@
 mod ai;
 mod app_settings;
+#[cfg(target_os = "macos")]
+mod clipboard_macos;
 mod localized_error;
 mod screenshot;
 mod security;
 mod selection;
+#[cfg(any(target_os = "macos", test))]
+mod selection_clipboard;
+#[cfg(any(target_os = "macos", test))]
+mod shortcut_macos;
 
 use localized_error::error_key;
 use selection::SelectionSnapshot;
@@ -18,7 +24,9 @@ use tauri::{
     window::{Color, Effect, EffectsBuilder},
     Emitter, LogicalSize, Manager, Theme, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+#[cfg(not(target_os = "macos"))]
+use tauri_plugin_global_shortcut::{Code, Modifiers};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use zeroize::Zeroize;
 
 struct AppState {
@@ -1612,6 +1620,14 @@ fn spawn_drag_effect_watchdog(app: tauri::AppHandle, label: String) {
     });
 }
 
+#[cfg(target_os = "macos")]
+fn shortcut_release_keys(shortcut: &Shortcut) -> Vec<i32> {
+    // The macOS clipboard backend checks all modifiers separately. Keep the
+    // primary key too: injecting Command while Q is still held could quit the app.
+    vec![shortcut_macos::key_code(shortcut.key).unwrap_or(-1)]
+}
+
+#[cfg(not(target_os = "macos"))]
 fn shortcut_release_keys(shortcut: &Shortcut) -> Vec<i32> {
     let mut keys = Vec::new();
 
@@ -1635,6 +1651,7 @@ fn shortcut_release_keys(shortcut: &Shortcut) -> Vec<i32> {
     keys
 }
 
+#[cfg(not(target_os = "macos"))]
 fn shortcut_key_virtual_code(code: Code) -> Option<i32> {
     match code {
         Code::Digit0 => Some(0x30),
@@ -2936,6 +2953,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(target_os = "macos"))]
     fn selection_hotkey_alt_4_waits_for_alt_and_digit_4() {
         let shortcut = app_settings::parse_hotkey("Alt+4", "划词菜单").unwrap();
         let keys = shortcut_release_keys(&shortcut);
@@ -2960,6 +2978,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))]
     fn selection_hotkey_with_ctrl_waits_for_all_modifiers_and_main_key() {
         let shortcut = app_settings::parse_hotkey("Ctrl+Alt+Q", "划词菜单").unwrap();
         let keys = shortcut_release_keys(&shortcut);
@@ -2967,6 +2986,15 @@ mod tests {
         assert!(keys.contains(&0x11));
         assert!(keys.contains(&0x12));
         assert!(keys.contains(&0x51));
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn selection_hotkey_waits_for_physical_macos_primary_key() {
+        let shortcut = app_settings::parse_hotkey("Command+Shift+Q", "划词菜单").unwrap();
+        assert_eq!(shortcut_release_keys(&shortcut), vec![12]);
+        let shortcut = app_settings::parse_hotkey("Ctrl+Alt+4", "划词菜单").unwrap();
+        assert_eq!(shortcut_release_keys(&shortcut), vec![21]);
     }
 
     #[test]
