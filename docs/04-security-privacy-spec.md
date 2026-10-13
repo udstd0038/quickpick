@@ -185,7 +185,7 @@ WebView 与窗口权限：
 
 首版验收时必须确认：
 
-- `scripts/security-audit.ps1` 通过 `pnpm audit` 和 `cargo audit`。
+- `pnpm security:audit` 通过生产 npm 依赖审计和 `cargo audit`。
 - 配置文件中没有明文 API Key。
 - 开发日志中没有用户内容。
 - AI 功能只在用户点击后触发。
