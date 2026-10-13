@@ -7,16 +7,33 @@ export type HotkeySettingKey =
   | "inputTranslateHotkey";
 
 export function sameShortcut(left: string, right: string): boolean {
-  const normalize = (value: string) =>
-    value
-      .replace(/\s+/g, "")
-      .replace(/\b(?:Super|Cmd|Meta)\b/gi, "Command")
-      .replace(/\bOption\b/gi, "Alt")
-      .toLowerCase();
+  const modifierAliases: Record<string, string> = {
+    alt: "alt",
+    option: "alt",
+    ctrl: "ctrl",
+    control: "ctrl",
+    shift: "shift",
+    command: "super",
+    cmd: "super",
+    meta: "super",
+    super: "super",
+    win: "super",
+  };
+  const normalize = (value: string) => {
+    const parts = value.replace(/\s+/g, "").toLowerCase().split("+");
+    const key = parts.pop() || "";
+    const modifiers = parts.map((part) => modifierAliases[part]);
+    if (!key || modifiers.some((modifier) => !modifier)) {
+      return value.replace(/\s+/g, "").toLowerCase();
+    }
 
-  return (
-    normalize(left) === normalize(right)
-  );
+    const normalizedKey = key
+      .replace(/^key([a-z])$/, "$1")
+      .replace(/^digit([0-9])$/, "$1");
+    return [...new Set(modifiers)].sort().join("+") + "+" + normalizedKey;
+  };
+
+  return normalize(left) === normalize(right);
 }
 
 export function findHotkeyConflict(
