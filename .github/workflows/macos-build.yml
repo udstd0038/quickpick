@@ -32,6 +32,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
       - name: Frontend tests
@@ -60,6 +63,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
       - name: Frontend tests
