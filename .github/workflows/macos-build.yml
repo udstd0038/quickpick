@@ -18,6 +18,9 @@ on:
 permissions:
   contents: read
 
+env:
+  CARGO_TARGET_DIR: ${{ github.workspace }}/apps/desktop/src-tauri/target
+
 jobs:
   windows-regression:
     runs-on: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.runner == 'self-hosted' && '["self-hosted", "Windows"]' || '["windows-latest"]') }}
@@ -89,7 +92,8 @@ jobs:
           VALIDATION_SHA: ${{ github.sha }}
           VALIDATION_EVENT: ${{ github.event_name }}
         run: |
-          compgen -G 'apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg' > /dev/null
+          lipo "$CARGO_TARGET_DIR/universal-apple-darwin/release/quickpick" -verify_arch arm64 x86_64
+          compgen -G "$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/dmg/*.dmg" > /dev/null
           printf 'Commit: %s\nEvent: %s\nRunner: %s %s\nUnsigned universal DMG for manual acceptance.\n' \
             "$VALIDATION_SHA" "$VALIDATION_EVENT" "$RUNNER_OS" "$RUNNER_ARCH" > build-info.txt
           cat build-info.txt >> "$GITHUB_STEP_SUMMARY"

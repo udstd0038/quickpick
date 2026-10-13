@@ -51,6 +51,7 @@ macOS 移植在 `feature/macos-port` 分支开发。本轮第一阶段在 `codex
 
 - Windows：显式使用 `cmd`，执行前端测试/构建、`cargo check --locked` 和 `cargo test --locked`。
 - macOS：显式使用 `bash`，执行前端测试/构建、ARM 与 Intel 的 `cargo check --locked`、Runner 原生架构的 `cargo test --locked`，以及带 `--locked` 的未签名 universal DMG 构建。原生测试既支持 ARM Runner，也支持 Intel Runner；另一架构的运行行为仍需实机验收。
+- CI 显式将 `CARGO_TARGET_DIR` 固定为 `apps/desktop/src-tauri/target`，避免仓库开发用 `target-monorepo-check` 配置与产物路径不一致；打包后用 `lipo` 验证 ARM/Intel 两架构。
 - pnpm 使用 `--frozen-lockfile`；Rust 与 Tauri 构建使用 `--locked`，防止 CI 静默改写依赖锁文件。
 - DMG 与 `build-info.txt` 上传为 `quickpick-macos-universal-<完整 github.sha>`，保留 14 天。验收记录必须写入该提交和对应 workflow run。PR 的 `github.sha` 是 GitHub 为该 PR 生成的合并提交，与 checkout 的验证代码对应。
 
