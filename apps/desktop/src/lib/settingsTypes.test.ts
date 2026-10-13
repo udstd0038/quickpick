@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   defaultAppSettings,
   normalizeAppSettings,
@@ -10,6 +10,42 @@ const expectedSettingsHotkey = runningOnMac ? "Command+Comma" : "Alt+0";
 const expectedSelectionHotkey = runningOnMac ? "Command+Option+2" : "Alt+2";
 
 describe("settingsTypes", () => {
+  it.each([
+    [
+      "MacIntel",
+      "Command+Comma",
+      "Command+Option+2",
+      "Command+Option+3",
+      "Command+Option+4",
+    ],
+    ["Win32", "Alt+0", "Alt+2", "Alt+3", "Alt+4"],
+  ])(
+    "uses the four platform defaults on %s",
+    async (platform, settingsHotkey, selectionHotkey, screenshotHotkey, inputTranslateHotkey) => {
+      vi.stubGlobal("navigator", {
+        platform,
+        userAgent: platform,
+        language: "en-US",
+        languages: ["en-US"],
+      });
+      vi.resetModules();
+      try {
+        const { normalizeAppSettings: normalizePlatformSettings } = await import(
+          "./settingsTypes"
+        );
+        const settings = normalizePlatformSettings({});
+
+        expect(settings.settingsHotkey).toBe(settingsHotkey);
+        expect(settings.selectionHotkey).toBe(selectionHotkey);
+        expect(settings.screenshotHotkey).toBe(screenshotHotkey);
+        expect(settings.inputTranslateHotkey).toBe(inputTranslateHotkey);
+      } finally {
+        vi.unstubAllGlobals();
+        vi.resetModules();
+      }
+    },
+  );
+
   it("normalizes missing fields to defaults", () => {
     const settings = normalizeAppSettings({});
 

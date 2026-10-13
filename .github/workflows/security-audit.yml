@@ -8,7 +8,10 @@ on:
 
 jobs:
   security-audit:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -21,8 +24,5 @@ jobs:
         run: cargo install cargo-audit --locked
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
-      - name: Audit npm dependencies
-        run: pnpm --filter quickpick-desktop audit --prod
-      - name: Audit Rust dependencies
-        working-directory: apps/desktop/src-tauri
-        run: cargo audit
+      - name: Audit npm and Rust dependencies
+        run: pnpm security:audit

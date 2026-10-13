@@ -116,22 +116,22 @@
 
 发布前必须执行：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\security-audit.ps1
+```bash
+pnpm security:audit
 ```
 
-脚本会依次执行：
+跨平台入口 `scripts/security-audit.mjs` 会从仓库根目录和 Rust 项目目录依次执行以下命令；任一步失败都会返回非零退出码：
 
 - `pnpm --filter quickpick-desktop audit --prod`
 - `cargo audit`
 
 如果本机未安装 `cargo-audit`，先执行：
 
-```powershell
-cargo install cargo-audit
+```bash
+cargo install cargo-audit --locked
 ```
 
-仓库同时提供 `.github/workflows/security-audit.yml`，在 push、PR 和每周计划任务中运行 npm 与 Rust 依赖审计。高危漏洞不允许进入 release。
+仓库同时提供 `.github/workflows/security-audit.yml`，在 push、PR 和每周计划任务中使用 Ubuntu/Bash 调用相同审计入口。Windows、macOS 和 Linux 本地开发均可使用 `pnpm security:audit`，无需 PowerShell。高危漏洞不允许进入 release。
 
 ## 9. 收尾说明
 
