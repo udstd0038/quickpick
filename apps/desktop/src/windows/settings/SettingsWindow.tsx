@@ -44,6 +44,7 @@ import {
   runningOnMac,
   setPlatformDataset,
 } from "../../lib/platform";
+import { MacPermissionsPanel } from "./MacPermissionsPanel";
 
 type SelectionActionResult = {
   message: string;
@@ -409,6 +410,12 @@ function SettingsWindow() {
   const localizedThemeModeOptions = themeModeOptions.map((option) => ({
     id: option.id,
     label: t(option.label),
+  }));
+  const localizedWindowEffectOptions = windowEffectOptions.map((option) => ({
+    id: option.id,
+    label: runningOnMac
+      ? option.id === "mica" ? "Content background" : "Popover"
+      : option.label,
   }));
   const settings = useSettingsStore((state) => state.settings);
   const settingsStatus = useSettingsStore((state) => state.status);
@@ -1145,7 +1152,9 @@ function SettingsWindow() {
                 </span>
               </label>
               <p className="setting-hint">
-                {t("settings.allowClipboardFallbackDescription")}
+                {t(runningOnMac
+                  ? "macPermissions.clipboardFallbackDescription"
+                  : "settings.allowClipboardFallbackDescription")}
               </p>
             </SettingField>
             <SettingField label={t("settings.aiTimeout")}>
@@ -1550,7 +1559,7 @@ function SettingsWindow() {
               <GlassSelect
                 ariaLabel={t("settings.selectWindowEffect")}
                 value={settings.windowEffect}
-                options={windowEffectOptions}
+                options={localizedWindowEffectOptions}
                 onChange={(value) => updateSetting("windowEffect", value)}
               />
             </SettingField>
@@ -1581,8 +1590,15 @@ function SettingsWindow() {
             />
             <TextRow
               label={t("settings.apiKey")}
-              value={t("settings.apiKeyValue")}
+              value={t(runningOnMac
+                ? "macPermissions.apiKeyValue"
+                : "settings.apiKeyValue")}
             />
+            {runningOnMac && (
+              <MacPermissionsPanel
+                clipboardFallbackEnabled={settings.allowClipboardFallback}
+              />
+            )}
           </SettingsSection>
         </div>
       </section>

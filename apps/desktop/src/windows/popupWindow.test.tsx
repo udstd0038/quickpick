@@ -202,18 +202,20 @@ describe("WebView popup behavior", () => {
     expect(screen.getByTestId("screenshot-loading-skeleton")).toBeTruthy();
   });
 
-  it("closes the screenshot overlay on Escape", () => {
+  it("queries the screenshot session on Escape before attempting cancellation", () => {
     render(<ScreenshotOverlay />);
 
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(mocks.hide).toHaveBeenCalled();
+    expect(mocks.invoke).toHaveBeenCalledWith("get_screenshot_snapshot");
+    expect(mocks.hide).not.toHaveBeenCalled();
   });
 
-  it("cancels the screenshot overlay on right-click", () => {
+  it("queries the screenshot session on right-click before attempting cancellation", () => {
     const { container } = render(<ScreenshotOverlay />);
     const overlay = container.firstChild as HTMLElement;
 
     fireEvent.contextMenu(overlay);
-    expect(mocks.hide).toHaveBeenCalled();
+    expect(mocks.invoke).toHaveBeenCalledWith("get_screenshot_snapshot");
+    expect(mocks.hide).not.toHaveBeenCalled();
   });
 });
