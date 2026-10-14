@@ -22,6 +22,7 @@ pub struct ClipboardSnapshot {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FallbackError {
+    ClipboardAccessDenied,
     Busy,
     InvalidTrigger,
     SnapshotIncomplete,
@@ -188,6 +189,7 @@ pub fn capture_selection<C: ClipboardBackend, K: CopyKeyboard, T: Clock>(
         || matches!(
             copied,
             Err(FallbackError::KeyboardLayoutUnavailable
+                | FallbackError::ClipboardAccessDenied
                 | FallbackError::InputUnavailable
                 | FallbackError::FocusChanged
                 | FallbackError::KeysNotReleased)
@@ -601,6 +603,7 @@ mod tests {
     #[test]
     fn incomplete_or_unrestorable_snapshot_never_sends_keys() {
         for error in [
+            FallbackError::ClipboardAccessDenied,
             FallbackError::SnapshotIncomplete,
             FallbackError::SnapshotTooLarge,
             FallbackError::SnapshotPromise,

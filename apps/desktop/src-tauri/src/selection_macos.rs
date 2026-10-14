@@ -166,6 +166,7 @@ fn read_ax_selected_text() -> SelectionSnapshot {
 
 fn clipboard_error_message(error: FallbackError) -> &'static str {
     match error {
+        FallbackError::ClipboardAccessDenied => "系统拒绝访问剪贴板，本次未模拟复制；请检查 QuickPick 的剪贴板访问设置",
         FallbackError::Busy => "正在读取选中文本，请稍后重试",
         FallbackError::InvalidTrigger => {
             "当前快捷键无法安全用于剪贴板取词，请更换快捷键或使用直接取词"

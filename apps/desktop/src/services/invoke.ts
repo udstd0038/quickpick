@@ -71,16 +71,28 @@ export function requestResultTranslation(input: {
 }
 
 export function captureRegionRect(input: {
-  screenX: number;
-  screenY: number;
+  sessionId: number;
+  x: number;
+  y: number;
   width: number;
   height: number;
-  action: string;
+  action: "copy" | "extract" | "translate";
 }) {
   return invoke<SelectionActionResult>("capture_region_rect", input);
 }
 
+export function cancelScreenshot(sessionId: number) {
+  return invoke<SelectionActionResult>("cancel_screenshot", { sessionId });
+}
+
+export type ScreenshotClosedPayload = { sessionId: number };
+export type ScreenshotErrorPayload = { sessionId: number; message: string };
+
 export type MonitorScreenshotPayload = {
+  sessionId: number;
+  monitorId: number;
+  monitorWidth: number;
+  monitorHeight: number;
   width: number;
   height: number;
   monitorX: number;

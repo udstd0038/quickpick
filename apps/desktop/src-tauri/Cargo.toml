@@ -49,7 +49,7 @@ axuielement = { version = "0.9.1", default-features = false, features = ["raw-ff
 enigo = { version = "0.6.1", default-features = false }
 keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
 objc2 = "0.6.4"
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSEvent", "NSPasteboard", "NSPasteboardItem"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSEvent", "NSPasteboard", "NSPasteboardItem", "NSWindow", "NSResponder"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSArray", "NSData", "NSString"] }
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-clipboard-manager = "2.3.3"

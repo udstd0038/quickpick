@@ -3,6 +3,8 @@ mod app_settings;
 #[cfg(target_os = "macos")]
 mod clipboard_macos;
 mod localized_error;
+#[cfg(target_os = "macos")]
+mod macos_window;
 mod screenshot;
 mod security;
 mod selection;
@@ -15,7 +17,10 @@ use localized_error::error_key;
 use selection::SelectionSnapshot;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::time::{Duration, Instant};
 use tauri::{
     image::Image,
@@ -36,8 +41,8 @@ struct AppState {
     last_image_translation: Mutex<Option<LastImageTranslation>>,
     last_input_result: Mutex<Option<String>>,
     last_input_payload: Mutex<Option<InputReadyPayload>>,
-    last_screenshot_payload: Mutex<Option<screenshot::MonitorScreenshotPayload>>,
-    last_screenshot_error: Mutex<Option<String>>,
+    screenshot_store: Mutex<screenshot::ScreenshotStore>,
+    screenshot_worker_busy: Arc<AtomicBool>,
     hotkey_bindings: Mutex<HotkeyBindings>,
     hotkey_capture_mode: Mutex<bool>,
     drag_effects: Mutex<DragEffectState>,
@@ -74,8 +79,8 @@ impl Default for AppState {
             last_image_translation: Mutex::new(None),
             last_input_result: Mutex::new(None),
             last_input_payload: Mutex::new(None),
-            last_screenshot_payload: Mutex::new(None),
-            last_screenshot_error: Mutex::new(None),
+            screenshot_store: Mutex::new(screenshot::ScreenshotStore::default()),
+            screenshot_worker_busy: Arc::new(AtomicBool::new(false)),
             hotkey_bindings: Mutex::new(HotkeyBindings::default()),
             hotkey_capture_mode: Mutex::new(false),
             drag_effects: Mutex::new(DragEffectState::default()),
@@ -670,20 +675,11 @@ fn get_input_snapshot(state: tauri::State<'_, AppState>) -> Option<InputReadyPay
 fn get_screenshot_snapshot(
     state: tauri::State<'_, AppState>,
 ) -> Result<Option<screenshot::MonitorScreenshotPayload>, String> {
-    if let Some(error) = state
-        .last_screenshot_error
+    state
+        .screenshot_store
         .lock()
-        .ok()
-        .and_then(|mut current| current.take())
-    {
-        return Err(error);
-    }
-
-    Ok(state
-        .last_screenshot_payload
-        .lock()
-        .ok()
-        .and_then(|mut current| current.take()))
+        .map_err(|_| "截图状态读取失败".to_string())?
+        .peek_payload()
 }
 
 #[tauri::command]
@@ -764,11 +760,21 @@ fn clear_api_key(
 }
 
 #[tauri::command]
-fn clear_popup_state(
+async fn clear_popup_state(
     app: tauri::AppHandle,
     window: String,
 ) -> Result<SelectionActionResult, String> {
-    clear_popup_state_internal(&app, &window);
+    if window == "screenshot_overlay" {
+        on_screenshot_main(app, move |app| {
+            clear_popup_state_internal(app, "screenshot_overlay");
+            if let Some(window) = app.get_webview_window("screenshot_overlay") {
+                let _ = window.hide();
+            }
+        })
+        .await?;
+    } else {
+        clear_popup_state_internal(&app, &window);
+    }
 
     Ok(SelectionActionResult {
         message: "弹窗状态已清理".to_string(),
@@ -777,6 +783,19 @@ fn clear_popup_state(
 
 fn clear_popup_state_internal(app: &tauri::AppHandle, window: &str) {
     let state = app.state::<AppState>();
+    if window == "screenshot_overlay" {
+        let id = if let Ok(mut store) = state.screenshot_store.lock() {
+            let id = store.active_id();
+            store.cancel_all();
+            id
+        } else {
+            None
+        };
+        if let Some(id) = id {
+            emit_screenshot_closed(app, id);
+        }
+        return;
+    }
     clear_popup_state_from_state(&state, window);
 }
 
@@ -802,11 +821,8 @@ fn clear_popup_state_from_state(state: &AppState, window: &str) {
             }
         }
         "screenshot_overlay" => {
-            if let Ok(mut current) = state.last_screenshot_payload.lock() {
-                *current = None;
-            }
-            if let Ok(mut current) = state.last_screenshot_error.lock() {
-                *current = None;
+            if let Ok(mut store) = state.screenshot_store.lock() {
+                store.cancel_all();
             }
         }
         "selection" => {
@@ -1127,11 +1143,44 @@ async fn request_macos_permission(kind: String) -> Result<MacPermissionStatus, S
     #[cfg(not(target_os = "macos"))]
     {
         let _ = kind;
-        Ok(MacPermissionStatus {
-            accessibility: true,
-            screen_recording: true,
-            input_monitoring: true,
-        })
+        Err("当前系统不支持 macOS 权限请求".to_string())
+    }
+}
+
+fn macos_permission_settings_url(kind: &str) -> Result<&'static str, String> {
+    match kind {
+        "accessibility" => {
+            Ok("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        }
+        "screen_recording" => {
+            Ok("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        }
+        "input_monitoring" => {
+            Ok("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
+        }
+        _ => Err("未知的 macOS 权限类型".to_string()),
+    }
+}
+
+#[tauri::command]
+async fn open_macos_permission_settings(kind: String) -> Result<(), String> {
+    let url = macos_permission_settings_url(&kind)?;
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("/usr/bin/open")
+            .arg(url)
+            .status()
+            .map_err(|_| "无法打开系统权限设置".to_string())?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err("无法打开系统权限设置".to_string())
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = url;
+        Err("当前系统不支持 macOS 权限设置".to_string())
     }
 }
 
@@ -1164,7 +1213,14 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_denylist(&["main"])
+                .with_denylist(&[
+                    "main",
+                    "selection",
+                    "selection_bar",
+                    "result",
+                    "input",
+                    "screenshot_overlay",
+                ])
                 .build(),
         )
         .plugin(
@@ -1224,8 +1280,10 @@ pub fn run() {
             request_input_translation,
             request_result_translation,
             capture_region_rect,
+            cancel_screenshot,
             get_macos_permission_status,
-            request_macos_permission
+            request_macos_permission,
+            open_macos_permission_settings
         ])
         .setup(|app| {
             let settings = app_settings::load_app_settings(app.handle()).unwrap_or_default();
@@ -1278,6 +1336,22 @@ pub fn run() {
             WindowEvent::Focused(false) if window.label() == "selection" => {
                 clear_popup_state_internal(window.app_handle(), "selection");
                 let _ = window.hide();
+            }
+            WindowEvent::Focused(false) if window.label() == "screenshot_overlay" => {
+                // A delayed hide event from the previous frame must not cancel a capture.
+                let idle_visible = window.is_visible().unwrap_or(false)
+                    && !window.is_focused().unwrap_or(true)
+                    && window
+                        .app_handle()
+                        .state::<AppState>()
+                        .screenshot_store
+                        .lock()
+                        .map(|store| !store.is_capturing())
+                        .unwrap_or(false);
+                if idle_visible {
+                    clear_popup_state_internal(window.app_handle(), "screenshot_overlay");
+                    let _ = window.hide();
+                }
             }
             WindowEvent::Moved(_) => {
                 suspend_window_effect_while_dragging(window);
@@ -2025,31 +2099,263 @@ fn toggle_autostart_from_tray(app: &tauri::AppHandle) {
     }
 }
 
+/// The OS capture cannot be interrupted. Keep one permit until its main-thread
+/// completion, even if the corresponding session was cancelled in the meantime.
+struct ScreenshotWorkerPermit(Arc<AtomicBool>);
+
+impl ScreenshotWorkerPermit {
+    fn acquire(busy: &Arc<AtomicBool>) -> Option<Self> {
+        busy.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .ok()
+            .map(|_| Self(Arc::clone(busy)))
+    }
+}
+
+impl Drop for ScreenshotWorkerPermit {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScreenshotClosedPayload {
+    session_id: u64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScreenshotErrorPayload {
+    session_id: u64,
+    message: String,
+}
+
+fn emit_screenshot_closed(app: &tauri::AppHandle, id: u64) {
+    let _ = app.emit_to(
+        "screenshot_overlay",
+        "screenshot-closed",
+        ScreenshotClosedPayload { session_id: id },
+    );
+}
+
+async fn on_screenshot_main<R: Send + 'static>(
+    app: tauri::AppHandle,
+    task: impl FnOnce(&tauri::AppHandle) -> R + Send + 'static,
+) -> Result<R, String> {
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    let owned = app.clone();
+    app.run_on_main_thread(move || {
+        let _ = sender.send(task(&owned));
+    })
+    .map_err(|_| "截图窗口不可用".to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        receiver
+            .recv()
+            .map_err(|_| "截图窗口任务未完成".to_string())
+    })
+    .await
+    .map_err(|_| "截图窗口任务失败".to_string())?
+}
+
 fn capture_region_from_entry(app: &tauri::AppHandle) {
-    #[cfg(target_os = "macos")]
+    let handle = app.clone();
+    // Native window creation, placement and AppKit access always run on the UI thread.
+    if app
+        .run_on_main_thread(move || begin_screenshot_capture(&handle))
+        .is_err()
     {
-        let allowed = tauri::async_runtime::block_on(
-            tauri_plugin_macos_permissions::check_screen_recording_permission(),
-        );
-        if !allowed {
-            tauri::async_runtime::block_on(
-                tauri_plugin_macos_permissions::request_screen_recording_permission(),
-            );
-            show_native_message_popup(
-                app,
-                "屏幕录制权限".to_string(),
-                "请允许 QuickPick 录制屏幕，然后重新触发区域截图。".to_string(),
-                "首次授权后可能需要重新启动 QuickPick。".to_string(),
-            );
-            return;
-        }
+        eprintln!("QuickPick screenshot UI is unavailable");
     }
+}
 
-    if show_screenshot_overlay(app) {
+fn begin_screenshot_capture(app: &tauri::AppHandle) {
+    let state = app.state::<AppState>();
+    let Some(permit) = ScreenshotWorkerPermit::acquire(&state.screenshot_worker_busy) else {
         return;
+    };
+    let Some(window) = get_or_create_window(app, "screenshot_overlay") else {
+        return;
+    };
+    let cursor = screenshot_cursor_position(&window);
+    let (id, previous) = match state.screenshot_store.lock() {
+        Ok(mut store) => {
+            let previous = store.active_id();
+            match store.begin() {
+                Ok(id) => (id, previous),
+                Err(_) => return,
+            }
+        }
+        Err(_) => return,
+    };
+    if let Some(previous) = previous {
+        emit_screenshot_closed(app, previous);
     }
+    let was_visible = window.is_visible().unwrap_or(false);
+    let _ = window.hide();
+    let handle = app.clone();
+    let spawned = std::thread::Builder::new()
+        .name("quickpick-screenshot".into())
+        .spawn(move || {
+            let _permit = permit;
+            let result = (|| {
+                #[cfg(target_os = "macos")]
+                {
+                    let allowed = tauri::async_runtime::block_on(async {
+                        if !tauri_plugin_macos_permissions::check_screen_recording_permission()
+                            .await
+                        {
+                            tauri_plugin_macos_permissions::request_screen_recording_permission()
+                                .await;
+                        }
+                        tauri_plugin_macos_permissions::check_screen_recording_permission().await
+                    });
+                    if !allowed {
+                        return Err(
+                            "请在系统设置中允许屏幕录制；首次授权后可能需要重新启动 QuickPick"
+                                .to_string(),
+                        );
+                    }
+                }
+                // Allow the previous overlay to leave the compositor before reading the screen.
+                if was_visible {
+                    std::thread::sleep(Duration::from_millis(80));
+                }
+                let monitor = match cursor {
+                    Some((x, y)) => screenshot::monitor_at_point(x, y)?,
+                    None => {
+                        let mut monitors =
+                            xcap::Monitor::all().map_err(|_| "无法读取显示器列表".to_string())?;
+                        let index = monitors
+                            .iter()
+                            .position(|m| m.is_primary().unwrap_or(false))
+                            .or_else(|| if monitors.is_empty() { None } else { Some(0) })
+                            .ok_or_else(|| "没有可用的显示器".to_string())?;
+                        monitors.swap_remove(index)
+                    }
+                };
+                screenshot::capture_monitor_screenshot(id, &monitor).map(|(_, session)| session)
+            })();
+            let completion_handle = handle.clone();
+            // Moving the permit into the callback also bounds queued completed frames.
+            let _ = handle.run_on_main_thread(move || {
+                let _permit = _permit;
+                finish_screenshot_capture(&completion_handle, id, result);
+            });
+        });
+    if spawned.is_err() {
+        finish_screenshot_capture(app, id, Err("无法启动截图任务，请稍后重试".to_string()));
+    }
+}
 
-    eprintln!("QuickPick screenshot WebView window is unavailable");
+#[cfg(target_os = "macos")]
+fn screenshot_cursor_position(_: &tauri::WebviewWindow) -> Option<(i32, i32)> {
+    macos_window::cursor_position()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn screenshot_cursor_position(window: &tauri::WebviewWindow) -> Option<(i32, i32)> {
+    window.cursor_position().ok().and_then(|position| {
+        if position.x.is_finite()
+            && position.y.is_finite()
+            && position.x >= i32::MIN as f64
+            && position.x <= i32::MAX as f64
+            && position.y >= i32::MIN as f64
+            && position.y <= i32::MAX as f64
+        {
+            Some((position.x.round() as i32, position.y.round() as i32))
+        } else {
+            None
+        }
+    })
+}
+
+fn finish_screenshot_capture(
+    app: &tauri::AppHandle,
+    id: u64,
+    result: Result<screenshot::ScreenshotSession, String>,
+) {
+    let state = app.state::<AppState>();
+    let payload = match state.screenshot_store.lock() {
+        Ok(mut store) => {
+            if !store.complete(id, result) {
+                return;
+            }
+            store.peek_payload()
+        }
+        Err(_) => return,
+    };
+    let result = payload.and_then(|payload| {
+        let payload = payload.ok_or_else(|| "没有可用的截图快照".to_string())?;
+        let window = app
+            .get_webview_window("screenshot_overlay")
+            .ok_or_else(|| "截图窗口不可用".to_string())?;
+        window
+            .set_fullscreen(false)
+            .map_err(|_| "无法设置截图窗口".to_string())?;
+        #[cfg(target_os = "macos")]
+        {
+            window
+                .set_position(tauri::LogicalPosition::new(
+                    payload.monitor_x as f64,
+                    payload.monitor_y as f64,
+                ))
+                .map_err(|_| "无法定位截图窗口".to_string())?;
+            window
+                .set_size(LogicalSize::new(
+                    payload.monitor_width as f64,
+                    payload.monitor_height as f64,
+                ))
+                .map_err(|_| "无法设置截图窗口尺寸".to_string())?;
+            macos_window::configure_popup(&window)?;
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            window
+                .set_position(tauri::PhysicalPosition::new(
+                    payload.monitor_x,
+                    payload.monitor_y,
+                ))
+                .map_err(|_| "无法定位截图窗口".to_string())?;
+            window
+                .set_size(tauri::PhysicalSize::new(
+                    payload.monitor_width,
+                    payload.monitor_height,
+                ))
+                .map_err(|_| "无法设置截图窗口尺寸".to_string())?;
+        }
+        window
+            .set_always_on_top(true)
+            .map_err(|_| "无法设置截图窗口层级".to_string())?;
+        window.show().map_err(|_| "无法显示截图窗口".to_string())?;
+        window
+            .set_focus()
+            .map_err(|_| "无法聚焦截图窗口".to_string())?;
+        app.emit_to("screenshot_overlay", "screenshot-ready", payload)
+            .map_err(|_| "无法发送截图预览".to_string())?;
+        Ok(())
+    });
+    if let Err(message) = result {
+        if let Ok(mut store) = state.screenshot_store.lock() {
+            store.cancel_matching(id);
+        }
+        let _ = app.emit_to(
+            "screenshot_overlay",
+            "screenshot-error",
+            ScreenshotErrorPayload {
+                session_id: id,
+                message: message.clone(),
+            },
+        );
+        if let Some(window) = app.get_webview_window("screenshot_overlay") {
+            let _ = window.hide();
+        }
+        show_native_message_popup(
+            app,
+            "截图未完成".to_string(),
+            message,
+            "请检查屏幕录制权限或重新尝试。".to_string(),
+        );
+    }
 }
 
 fn get_or_create_window(app: &tauri::AppHandle, label: &str) -> Option<tauri::WebviewWindow> {
@@ -2083,72 +2389,98 @@ fn get_or_create_window(app: &tauri::AppHandle, label: &str) -> Option<tauri::We
             builder = builder.inner_size(480.0, 460.0).resizable(true).center();
         }
         "screenshot_overlay" => {
-            builder = builder.fullscreen(true).resizable(false);
+            builder = builder.fullscreen(false).resizable(false);
         }
         _ => return None,
     }
 
     let window = builder.build().ok()?;
+    #[cfg(target_os = "macos")]
+    if macos_window::configure_popup(&window).is_err() {
+        return None;
+    }
     let settings = app_settings::load_app_settings(app).unwrap_or_default();
     sync_window_appearance(app, &settings);
     Some(window)
 }
 
-fn show_screenshot_overlay(app: &tauri::AppHandle) -> bool {
-    let Some(window) = get_or_create_window(app, "screenshot_overlay") else {
-        return false;
-    };
-    match screenshot::capture_current_monitor_screenshot() {
-        Ok(payload) => {
-            if let Ok(mut current) = app.state::<AppState>().last_screenshot_payload.lock() {
-                *current = Some(payload.clone());
-            }
-            let _ = app.emit_to("screenshot_overlay", "screenshot-ready", payload);
-        }
-        Err(error) => {
-            if let Ok(mut current) = app.state::<AppState>().last_screenshot_error.lock() {
-                *current = Some(error.clone());
-            }
-            let _ = app.emit_to("screenshot_overlay", "screenshot-error", error);
-        }
-    }
-    let _ = window.set_always_on_top(true);
-    let _ = window.show();
-    let _ = window.set_focus();
-    true
-}
-
 #[tauri::command(rename_all = "camelCase")]
 async fn capture_region_rect(
     app: tauri::AppHandle,
-    screen_x: i32,
-    screen_y: i32,
+    session_id: u64,
+    x: u32,
+    y: u32,
     width: u32,
     height: u32,
     action: String,
 ) -> Result<SelectionActionResult, String> {
     let action = match action.as_str() {
+        "copy" => screenshot::RegionMenuAction::Copy,
         "extract" => screenshot::RegionMenuAction::Extract,
         "translate" => screenshot::RegionMenuAction::Translate,
-        _ => screenshot::RegionMenuAction::Copy,
+        _ => return Err("未知的截图操作".to_string()),
     };
     let selection = screenshot::RegionMenuSelection {
         action,
-        screen_x,
-        screen_y,
+        session_id: Some(session_id),
+        x,
+        y,
         width,
         height,
     };
-    handle_region_menu_selection(app, selection).await
+    // Own the matching frame before hide/focus events clear the shared store.
+    let session = on_screenshot_main(app.clone(), move |app| {
+        let session = app
+            .state::<AppState>()
+            .screenshot_store
+            .lock()
+            .map_err(|_| "截图状态读取失败".to_string())?
+            .take_matching(Some(session_id))?;
+        emit_screenshot_closed(app, session_id);
+        if let Some(window) = app.get_webview_window("screenshot_overlay") {
+            let _ = window.hide();
+        }
+        Ok::<_, String>(session)
+    })
+    .await??;
+    handle_region_menu_selection(app, session, selection).await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn cancel_screenshot(
+    app: tauri::AppHandle,
+    session_id: u64,
+) -> Result<SelectionActionResult, String> {
+    on_screenshot_main(app, move |app| {
+        let cancelled = app
+            .state::<AppState>()
+            .screenshot_store
+            .lock()
+            .map_err(|_| "截图状态读取失败".to_string())?
+            .cancel_matching(session_id);
+        if !cancelled {
+            return Err("截图会话已失效，请重新截图".to_string());
+        }
+        emit_screenshot_closed(app, session_id);
+        if let Some(window) = app.get_webview_window("screenshot_overlay") {
+            let _ = window.hide();
+        }
+        Ok(())
+    })
+    .await??;
+    Ok(SelectionActionResult {
+        message: "截图已取消".to_string(),
+    })
 }
 
 async fn handle_region_menu_selection(
     app: tauri::AppHandle,
+    session: screenshot::ScreenshotSession,
     selection: screenshot::RegionMenuSelection,
 ) -> Result<SelectionActionResult, String> {
     match selection.action {
         screenshot::RegionMenuAction::Copy => {
-            let image = screenshot::capture_selected_region(selection)?;
+            let image = screenshot::crop_selected_region(session, selection)?;
             let result = screenshot::copy_captured_region_to_clipboard(&app, &image)?;
             emit_screenshot_status(&app, "success", result.message.clone());
 
@@ -2162,13 +2494,14 @@ async fn handle_region_menu_selection(
                 screenshot::RegionMenuAction::Translate => "translate",
                 screenshot::RegionMenuAction::Copy => unreachable!(),
             };
-            run_screenshot_ai_action(app, selection, action).await
+            run_screenshot_ai_action(app, session, selection, action).await
         }
     }
 }
 
 async fn run_screenshot_ai_action(
     app: tauri::AppHandle,
+    session: screenshot::ScreenshotSession,
     selection: screenshot::RegionMenuSelection,
     action: &'static str,
 ) -> Result<SelectionActionResult, String> {
@@ -2228,7 +2561,7 @@ async fn run_screenshot_ai_action(
     set_app_result_snapshot(&app, loading)?;
     emit_screenshot_status(&app, "success", "正在读取截图区域".to_string());
 
-    let image = match screenshot::capture_selected_region(selection) {
+    let image = match screenshot::crop_selected_region(session, selection) {
         Ok(image) => image,
         Err(error) => {
             let snapshot = ResultSnapshot::image_error(
@@ -3022,15 +3355,25 @@ mod tests {
             *current = Some("secret input".to_string());
         }
         {
-            let mut current = state.last_screenshot_payload.lock().unwrap();
-            *current = Some(screenshot::MonitorScreenshotPayload {
-                width: 1920,
-                height: 1080,
-                monitor_x: 0,
-                monitor_y: 0,
-                monitor_name: "test".to_string(),
-                png_data_url: "data:image/png;base64,secret".to_string(),
-            });
+            let mut store = state.screenshot_store.lock().unwrap();
+            let id = store.begin().unwrap();
+            let session = screenshot::ScreenshotSession::new(
+                screenshot::MonitorScreenshotPayload {
+                    session_id: id,
+                    monitor_id: 1,
+                    width: 8,
+                    height: 8,
+                    monitor_x: 0,
+                    monitor_y: 0,
+                    monitor_width: 8,
+                    monitor_height: 8,
+                    monitor_name: "test".to_string(),
+                    png_data_url: "data:image/png;base64,synthetic".to_string(),
+                },
+                image::RgbaImage::new(8, 8),
+            )
+            .unwrap();
+            assert!(store.complete(id, Ok(session)));
         }
 
         clear_popup_state_from_state(&state, "result");
@@ -3040,7 +3383,13 @@ mod tests {
         assert_eq!(state.result_snapshot.lock().unwrap().status, "empty");
         assert!(state.last_text_translation.lock().unwrap().is_none());
         assert!(state.last_input_result.lock().unwrap().is_none());
-        assert!(state.last_screenshot_payload.lock().unwrap().is_none());
+        assert!(state
+            .screenshot_store
+            .lock()
+            .unwrap()
+            .peek_payload()
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -3048,5 +3397,39 @@ mod tests {
         let size = settings_window_default_size();
         assert_eq!(size.width, 420.0);
         assert_eq!(size.height, 600.0);
+    }
+
+    #[test]
+    fn cancelled_capture_keeps_native_worker_exclusive_until_it_exits() {
+        let state = AppState::default();
+        let permit = ScreenshotWorkerPermit::acquire(&state.screenshot_worker_busy).unwrap();
+        let id = state.screenshot_store.lock().unwrap().begin().unwrap();
+        assert!(state.screenshot_store.lock().unwrap().cancel_matching(id));
+        assert!(ScreenshotWorkerPermit::acquire(&state.screenshot_worker_busy).is_none());
+        drop(permit);
+        assert!(ScreenshotWorkerPermit::acquire(&state.screenshot_worker_busy).is_some());
+    }
+
+    #[test]
+    fn permission_settings_only_accept_three_fixed_destinations() {
+        for (kind, pane) in [
+            ("accessibility", "Privacy_Accessibility"),
+            ("screen_recording", "Privacy_ScreenCapture"),
+            ("input_monitoring", "Privacy_ListenEvent"),
+        ] {
+            assert_eq!(
+                macos_permission_settings_url(kind).unwrap(),
+                format!("x-apple.systempreferences:com.apple.preference.security?{pane}")
+            );
+        }
+        for invalid in [
+            "",
+            "https://example.test",
+            "accessibility;open",
+            "ScreenRecording",
+            "../Privacy_Accessibility",
+        ] {
+            assert!(macos_permission_settings_url(invalid).is_err());
+        }
     }
 }
