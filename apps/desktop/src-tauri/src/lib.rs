@@ -1306,7 +1306,7 @@ pub fn run() {
                 })
                 .build(),
         );
-    let handler = tauri::generate_handler![
+    let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
         get_selection_snapshot,
         get_result_snapshot,
         get_input_snapshot,
