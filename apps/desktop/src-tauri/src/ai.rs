@@ -63,6 +63,11 @@ pub async fn run_text_action(
     source_language: &str,
     target_language: &str,
 ) -> Result<String, String> {
+    #[cfg(feature = "dev-tools")]
+    if crate::dev_fixture::active() {
+        return crate::dev_fixture::ai_result();
+    }
+
     if selected_text.chars().count() > MAX_TEXT_INPUT_CHARS {
         return Err(error_key("ai.textTooLong"));
     }
@@ -112,6 +117,11 @@ pub async fn run_input_text_action(
     source_language: &str,
     target_language: &str,
 ) -> Result<String, String> {
+    #[cfg(feature = "dev-tools")]
+    if crate::dev_fixture::active() {
+        return crate::dev_fixture::ai_result();
+    }
+
     if selected_text.chars().count() > MAX_TEXT_INPUT_CHARS {
         return Err(error_key("ai.inputTooLong"));
     }
@@ -168,6 +178,11 @@ pub async fn run_image_action(
     source_language: &str,
     target_language: &str,
 ) -> Result<String, String> {
+    #[cfg(feature = "dev-tools")]
+    if crate::dev_fixture::active() {
+        return crate::dev_fixture::ai_result();
+    }
+
     if png_bytes.is_empty() {
         return Err(error_key("ai.imageEmpty"));
     }

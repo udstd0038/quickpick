@@ -2,6 +2,8 @@ mod ai;
 mod app_settings;
 #[cfg(target_os = "macos")]
 mod clipboard_macos;
+#[cfg(feature = "dev-tools")]
+mod dev_fixture;
 mod localized_error;
 #[cfg(target_os = "macos")]
 mod macos_window;
@@ -857,12 +859,20 @@ fn copy_selection_text_from_state(
 
 #[cfg(windows)]
 fn write_text_to_clipboard(app: &tauri::AppHandle, text: &str) -> Result<(), String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(());
+    }
     let _ = app;
     clipboard_win::set_clipboard_string(text).map_err(|_| error_key("clipboard.writeFailed"))
 }
 
 #[cfg(target_os = "macos")]
 fn write_text_to_clipboard(app: &tauri::AppHandle, text: &str) -> Result<(), String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(());
+    }
     use tauri_plugin_clipboard_manager::ClipboardExt;
 
     app.clipboard()
@@ -878,6 +888,12 @@ fn search_selection_text(
 }
 
 fn search_selection_text_from_state(state: &AppState) -> Result<SelectionActionResult, String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(SelectionActionResult {
+            message: "Synthetic fixture search suppressed".into(),
+        });
+    }
     const MAX_SEARCH_CHARS: usize = 500;
 
     let text = current_selection_text(state)?;
@@ -1193,25 +1209,50 @@ async fn current_macos_permission_status() -> MacPermissionStatus {
     }
 }
 
+#[cfg(feature = "dev-tools")]
+pub fn run_fixture(build_marker: &'static str) {
+    if tauri::is_dev() {
+        eprintln!("QuickPick fixture requires bundled assets; build with --features dev-tools,tauri/custom-protocol");
+        std::process::exit(2);
+    }
+    if let Err(error) = dev_fixture::initialize(build_marker) {
+        eprintln!("QuickPick fixture startup rejected: {error}");
+        std::process::exit(2);
+    }
+    run();
+}
+
 pub fn run() {
+    #[cfg(feature = "dev-tools")]
+    let fixture_active = dev_fixture::active();
+    #[cfg(not(feature = "dev-tools"))]
+    let fixture_active = false;
+    #[allow(unused_mut)]
+    let mut context = tauri::generate_context!();
+    #[cfg(feature = "dev-tools")]
+    dev_fixture::configure_context(&mut context);
     #[cfg(target_os = "macos")]
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_os::init());
 
     #[cfg(not(target_os = "macos"))]
     let builder = tauri::Builder::default();
 
-    builder
-        .manage(AppState::default())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
-        .plugin(
+    #[cfg(target_os = "macos")]
+    let builder = if fixture_active {
+        builder
+    } else {
+        builder.plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+    };
+    let builder = if fixture_active {
+        builder
+    } else {
+        builder.plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_denylist(&[
                     "main",
@@ -1223,6 +1264,11 @@ pub fn run() {
                 ])
                 .build(),
         )
+    };
+    let builder = builder
+        .manage(AppState::default())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -1259,33 +1305,68 @@ pub fn run() {
                     }
                 })
                 .build(),
-        )
-        .invoke_handler(tauri::generate_handler![
-            get_selection_snapshot,
-            get_result_snapshot,
-            get_input_snapshot,
-            get_screenshot_snapshot,
-            get_app_settings,
-            save_app_settings,
-            get_api_key_status,
-            save_api_key,
-            clear_api_key,
-            clear_popup_state,
-            copy_selection_text,
-            search_selection_text,
-            copy_result_content,
-            copy_input_result,
-            run_text_ai_action,
-            set_hotkey_capture_mode,
-            request_input_translation,
-            request_result_translation,
-            capture_region_rect,
-            cancel_screenshot,
-            get_macos_permission_status,
-            request_macos_permission,
-            open_macos_permission_settings
-        ])
+        );
+    let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
+        get_selection_snapshot,
+        get_result_snapshot,
+        get_input_snapshot,
+        get_screenshot_snapshot,
+        get_app_settings,
+        save_app_settings,
+        get_api_key_status,
+        save_api_key,
+        clear_api_key,
+        clear_popup_state,
+        copy_selection_text,
+        search_selection_text,
+        copy_result_content,
+        copy_input_result,
+        run_text_ai_action,
+        set_hotkey_capture_mode,
+        request_input_translation,
+        request_result_translation,
+        capture_region_rect,
+        cancel_screenshot,
+        get_macos_permission_status,
+        request_macos_permission,
+        open_macos_permission_settings
+    ];
+    #[cfg(feature = "dev-tools")]
+    let fixture_handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool =
+        tauri::generate_handler![dev_fixture::fixture_frontend_ready];
+    #[cfg(feature = "dev-tools")]
+    let builder = builder
+        .invoke_handler(move |invoke| {
+            if invoke.message.command() == "fixture_frontend_ready" {
+                fixture_handler(invoke)
+            } else {
+                handler(invoke)
+            }
+        })
+        .on_page_load(dev_fixture::observe_page);
+    #[cfg(not(feature = "dev-tools"))]
+    let builder = builder.invoke_handler(handler);
+    builder
         .setup(|app| {
+            #[cfg(feature = "dev-tools")]
+            if dev_fixture::active() {
+                app_settings::save_app_settings(app.handle(), &dev_fixture::defaults())?;
+                let main =
+                    WebviewWindowBuilder::new(app.handle(), "main", dev_fixture::window_url())
+                        .title("QuickPick fixture")
+                        .inner_size(420.0, 600.0)
+                        .min_inner_size(420.0, 600.0)
+                        .center()
+                        .resizable(true)
+                        .transparent(true)
+                        .decorations(false)
+                        .visible(false);
+                dev_fixture::configure_window(main, "main").build()?;
+                for label in ["selection", "result", "input", "screenshot_overlay"] {
+                    get_or_create_window(app.handle(), label)
+                        .ok_or("fixture window creation failed")?;
+                }
+            }
             let settings = app_settings::load_app_settings(app.handle()).unwrap_or_default();
             for label in ["selection", "result", "input", "screenshot_overlay"] {
                 if let Some(window) = app.get_webview_window(label) {
@@ -1302,6 +1383,8 @@ pub fn run() {
             sync_window_appearance(app.handle(), &settings);
             setup_global_shortcuts(app.handle(), &settings)?;
             setup_tray(app.handle())?;
+            #[cfg(feature = "dev-tools")]
+            dev_fixture::start(app.handle())?;
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -1358,7 +1441,7 @@ pub fn run() {
             }
             _ => {}
         })
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running QuickPick");
 }
 
@@ -1559,6 +1642,22 @@ fn apply_window_vibrancy(
     window: &tauri::WebviewWindow,
     settings: &app_settings::AppSettings,
 ) -> Result<(), String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        // Tool screenshots must contain only the fixture's pixels, never a
+        // desktop wallpaper or other application sampled by system materials.
+        window
+            .set_effects(None)
+            .map_err(|_| "fixture effects unavailable")?;
+        let color = if settings.theme_mode == "dark" {
+            Color(28, 32, 39, 255)
+        } else {
+            Color(241, 245, 250, 255)
+        };
+        return window
+            .set_background_color(Some(color))
+            .map_err(|_| "fixture background unavailable".into());
+    }
     let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
 
     if settings.window_effect.as_str() == "mica" {
@@ -2158,6 +2257,12 @@ async fn on_screenshot_main<R: Send + 'static>(
 }
 
 fn capture_region_from_entry(app: &tauri::AppHandle) {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || dev_fixture::show_screenshot(&handle));
+        return;
+    }
     let handle = app.clone();
     // Native window creation, placement and AppKit access always run on the UI thread.
     if app
@@ -2370,7 +2475,11 @@ fn get_or_create_window(app: &tauri::AppHandle, label: &str) -> Option<tauri::We
         "screenshot_overlay" => "QuickPick 截图",
         _ => "QuickPick",
     };
-    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
+    #[cfg(not(feature = "dev-tools"))]
+    let url = WebviewUrl::App("/".into());
+    #[cfg(feature = "dev-tools")]
+    let url = dev_fixture::window_url();
+    let mut builder = WebviewWindowBuilder::new(app, label, url)
         .title(title)
         .transparent(true)
         .decorations(false)
@@ -2394,6 +2503,8 @@ fn get_or_create_window(app: &tauri::AppHandle, label: &str) -> Option<tauri::We
         _ => return None,
     }
 
+    #[cfg(feature = "dev-tools")]
+    let builder = dev_fixture::configure_window(builder, label);
     let window = builder.build().ok()?;
     #[cfg(target_os = "macos")]
     if macos_window::configure_popup(&window).is_err() {
@@ -2661,6 +2772,12 @@ fn emit_screenshot_status(app: &tauri::AppHandle, kind: &'static str, message: S
 }
 
 fn activate_selection_bar(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || dev_fixture::show_selection(&handle));
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
         #[cfg(windows)]
@@ -2718,6 +2835,12 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
 }
 
 fn activate_input_translate(app: &tauri::AppHandle) {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || dev_fixture::show_input(&handle));
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
         let _ = tauri::async_runtime::block_on(run_input_translate_flow(app.clone()));
@@ -3087,6 +3210,10 @@ fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapsho
 }
 
 fn apply_autostart_setting(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(());
+    }
     if enabled {
         enable_autostart(app)
     } else {

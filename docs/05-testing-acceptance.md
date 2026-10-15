@@ -11,7 +11,7 @@
 - 截图功能条只在松开鼠标后显示，并定位到选框右下角。
 - 前端文案必须通过 key-based `t()` 渲染，不能依赖 DOM 自动翻译。
 - 设置模型默认值、归一化、供应商默认填充必须由 `lib/settingsTypes.ts` 提供。
-- 每个功能合入前至少跑：`pnpm build`、`pnpm test`、`cargo check`、`cargo test`、release 构建、`scripts/verify-hotkeys.ps1`。
+- 每个功能合入前至少跑：`pnpm build`、`pnpm test`、`cargo check --locked`、`cargo test --locked`、release 构建及交互式 Windows 的 `pnpm verify:hotkeys --fixture-exe <专用 quickpick-fixture.exe>`。fixture 构建和不可执行状态见 `docs/06-dev-workflow.md` 第 9 节；不能把未执行报告为通过。
 
 ## 1. 通用验收
 
@@ -292,6 +292,17 @@
 - 托盘、自启、快捷键、截图、AI 设置在打包版本中可用。
 - 程序卸载或删除后不留下明显无用启动项。
 
+## 9.1 第四阶段开发工具迁移验收（代码已实现，独立 CI 运行中，交互结果待核验）
+
+- 五个原 PowerShell 脚本全部被替换或删除，活跃构建、审计和验收入口使用 Node.js 与 Rust；历史日志可保留旧命令，但不能继续作为执行入口。
+- 图标生成保留已验收的 E 套应用图标与 D 套透明托盘图标，验证 PNG 尺寸、ICO 多尺寸目录、ICNS 与透明度；NSIS BMP 保持 header `150×57`、sidebar `164×314`、24 位像素及正确行对齐。工具无网络调用，不新增渲染依赖；需要比对实际生成资源的外观。
+- 快捷键工具 `pnpm verify:hotkeys` 使用真实 `SendInput` 发送按下和释放，不投递私有 `WM_HOTKEY`；设置、划词、截图、输入四个动作分别验证准确窗口及状态，并覆盖关闭/失焦和相关取消路径。任一动作失败即非零退出。
+- README 截图 `pnpm capture:readme` 以独立 fixture 身份与配置生成 zh-Hans/en、浅色/深色下的设置、划词和输入窗口，可用 `--include-screenshot` 增加合成截图界面，保持已有文件名及最大宽度 1280 px；所有内容为固定样例。不得读取真实用户配置、Key、内容、剪贴板或桌面，不修改用户自启，不发起 AI 请求，仅清理自己创建的进程和临时目录。
+- 不能访问交互输入桌面、无法得到实际窗口或前台激活失败时返回非零状态 2，说明“未执行”。Windows CI 必须编译原生 helper/fixture 并执行可自动化检查；此结果不算交互式桌面验收通过。
+- 第四阶段需记录其最新源码提交的 Windows 回归、macOS 双架构检查、原生测试、工具编译、安全审计与 universal 产物，不复用第三阶段结果。真实 Windows 桌面检查及 Mac 实机项分别记录待执行或执行结果。
+
+当前本地资源集成检查 3 项、原生 helper 纯逻辑测试 15 项（其中 BMP 编码 3 项、Windows driver 12 项）及 Windows 目标 API check 已通过；这些结果不计作完整第四阶段独立 CI 或真实交互桌面验收通过。`.github/workflows/development-tools.yml` 在 Windows 构建带内嵌前端的专用 fixture 并尝试交互检查，退出码 2 时在 Summary 记为 `NOT RUN`，不能因 workflow 继续而标记人工项目通过。现有已验收二进制资源保留，工具在临时目录验证新生成结果。
+
 ## 10. 每阶段最低验收
 
 每个开发阶段结束前必须至少完成：
@@ -351,9 +362,11 @@ PR 实际验证的合并提交为 `d536ff8679a1b95b225c59ce5e9bfd1d64f40b7e`；[
 
 第二阶段已记录其独立提交的自动化、原生 CI 与 universal 产物结果；尚未完成的实机项见第 11.5 节。第三阶段必须取得对应新提交的验证，不能复用上述结果。
 
-### 11.4 第三阶段：权限、截图会话与窗口（实施中，待验收）
+### 11.4 第三阶段：权限、截图会话与窗口（代码与 CI 已通过，实机待验收）
 
-以下是第三阶段要求，不表示当前实现或 CI 已通过。前端用受控权限调用验证交互，Rust 用固定 RGBA 图像、显示器描述和可控完成顺序验证坐标及会话生命周期；CI 不捕获用户屏幕，也不读通用剪贴板。阶段结束另记源码 SHA、PR 合并 SHA、测试结果、universal 产物与安全审计。
+第三阶段源码 [`4e6d3ec46a54d61f3a0dc5f051621f45599cf61c`](https://github.com/udstd0038/quickpick/commit/4e6d3ec46a54d61f3a0dc5f051621f45599cf61c)，源码树 `51557c4416e5fa39a548a3932446917091679032`，已通过 [CI run `38498994618`](https://github.com/udstd0038/quickpick/actions/runs/38498994618)：两平台前端各 141/141、Windows Rust 66/66、macOS Rust 86/86、Windows 回归、macOS ARM/Intel check 及 unsigned universal DMG 构建/lipo 验证。[安全审计 run `38498994568`](https://github.com/udstd0038/quickpick/actions/runs/38498994568) 通过。
+
+PR 实际验证的合并提交为 `4906125a4072e832807f130417101f9bfae9e131`；[artifact `11865053097`](https://github.com/udstd0038/quickpick/actions/runs/38498994618/artifacts/11865053097) 对应该提交，未签名，保留至 2026-10-28。前端使用受控权限调用，Rust 使用固定 RGBA 图像、显示器描述和可控完成顺序；CI 不捕获用户屏幕，也不读通用剪贴板。下表保留功能验收要求，自动化通过不能替代真实权限、显示器及 Spaces/全屏行为验收。
 
 | 编号 | 场景 | 必须验证的结果 |
 | --- | --- | --- |
@@ -372,7 +385,7 @@ PR 实际验证的合并提交为 `d536ff8679a1b95b225c59ce5e9bfd1d64f40b7e`；[
 | W01 | macOS 截图遮罩及平台外观配置 | 验证普通无边框窗口、绑定显示器、collection behavior 与固定退出路径；Mac 展示实际效果名称，Windows 保留平台规则。编译/单测不算 Spaces/全屏实机通过。 |
 | B01 | macOS 15.4+ NSPasteboard 策略为 AlwaysDeny，或 pasteboardItems 返回歧义 nil | 读取快照及复制注入前安全停止；歧义 nil 不视为空板，不 clear/restore。只有访问许可明确且能可靠确认的空板才按空快照处理，访问拒绝不导致旧剪贴板被覆盖。 |
 
-Windows 回归、macOS 双架构检查、Runner 原生测试、安全审计与 universal 构建全部通过后，才能把第三阶段代码与 CI 标为通过并进入第四阶段。表中真实屏幕布局、TCC、Spaces/全屏与访问策略手动检查仍保留待执行；B01 是预防性要求，不是已复现事故或已通过实机验收的结论。
+第三阶段对应提交的上述自动化门槛已通过，进入第四阶段。表中真实屏幕布局、TCC、Spaces/全屏与访问策略手动检查仍保留待执行；B01 是预防性要求，不是已复现事故或已通过实机验收的结论。
 
 ### 11.5 真实 Mac 手动清单（全部待执行）
 
@@ -389,3 +402,5 @@ Windows 回归、macOS 双架构检查、Runner 原生测试、安全审计与 u
 - [ ] 第五阶段验证 Apple Silicon 与 Intel 的完整功能、菜单栏/深浅主题/原生标题栏、LaunchAgent 登录自启，以及签名、公证、staple、安装、卸载与升级。
 
 用户已确定各阶段代码及 CI 按 1 → 2 → 3 → 4 → 5 顺序推进，自动化验证通过后再进入下一阶段；Mac 实体验收延后，当前缺少设备不阻挡第四阶段。以上实机项目保持待执行，未通过项目返回对应阶段修复；完整原生验收及签名、公证未通过前不宣称正式分发就绪。
+
+第四阶段共享工具按 fixture 明确的截图失焦契约验收：macOS 开发分支的窗口应失焦隐藏，Windows 主线保留既有失焦后可见行为；两者都必须通过真实 `Esc` 关闭，缺少或未知契约视为失败。fixture 不伪造关闭来替代产品事件。

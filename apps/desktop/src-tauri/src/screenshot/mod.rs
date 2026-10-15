@@ -200,6 +200,12 @@ pub fn copy_captured_region_to_clipboard(
     _app: &tauri::AppHandle,
     image: &CapturedRegionImage,
 ) -> Result<CaptureClipboardResult, String> {
+    #[cfg(feature = "dev-tools")]
+    if crate::dev_fixture::active() {
+        return Ok(CaptureClipboardResult { width:image.width, height:image.height,
+            monitor_name:image.monitor_name.clone(), clipboard_format:"fixture (clipboard suppressed)",
+            message:"Synthetic fixture copy suppressed".into() });
+    }
     #[cfg(windows)]
     copy_bmp_bytes_to_clipboard(&image.bmp_bytes)?;
 
@@ -461,4 +467,22 @@ mod tests {
 
         assert_eq!(&bytes[0..8], b"\x89PNG\r\n\x1a\n");
     }
+}
+
+/// Fixed tool frame; never enumerates displays or reads desktop contents.
+#[cfg(feature = "dev-tools")]
+pub(crate) fn fixture_screenshot(session_id: u64) -> Result<ScreenshotSession, String> {
+    let image = image::RgbaImage::from_fn(960, 640, |x,y| {
+        let stripe = ((x / 80) + (y / 80)) % 2;
+        if stripe == 0 { image::Rgba([224,235,248,255]) }
+        else { image::Rgba([191,215,244,255]) }
+    });
+    let mut encoded = std::io::Cursor::new(Vec::new());
+    image.write_to(&mut encoded, image::ImageFormat::Png)
+        .map_err(|_| "synthetic fixture image unavailable")?;
+    let payload = MonitorScreenshotPayload { session_id, monitor_id:0, width:960, height:640,
+        monitor_x:80, monitor_y:80, monitor_width:960, monitor_height:640,
+        monitor_name:"Synthetic fixture".into(),
+        png_data_url:format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(encoded.into_inner())) };
+    ScreenshotSession::new(payload,image)
 }
