@@ -67,7 +67,7 @@ QuickPick 是运行在 Windows 11 上的轻量划词与截图 AI 工具。
 必须完成：
 
 - 执行适合本阶段的验证；如果不能执行，写明原因。
-- 如果本次修改影响应用代码、配置、资源或发行产物，完成验证并覆盖默认 release 后，自动启动新版 `src-tauri/target/release/quickpick.exe` 供用户验收。
+- 如果本次修改影响应用代码、配置、资源或发行产物，在可运行的 Windows 开发环境完成验证并覆盖默认 release 后，自动启动新版 `apps/desktop/src-tauri/target/release/quickpick.exe` 供用户验收；其他平台记录无法启动的原因及对应原生 CI/设备验收状态。
 - 更新当天开发日志 `dev-logs/YYYY-MM-DD.md`。
 - 日志至少包含：
   - 今日完成。

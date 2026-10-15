@@ -2,7 +2,7 @@
 
 ## 状态
 
-macOS 移植在 `feature/macos-port` 分支开发。本轮同步 Windows 主线修复，将开发版本统一到 `0.1.4`；第一、二、三阶段已通过各自提交的 CI 验收，第四阶段开发工具替换代码已完成，独立 CI 与交互桌面验收待执行：
+macOS 移植在 `feature/macos-port` 分支开发。本轮同步 Windows 主线修复，将开发版本统一到 `0.1.4`；第一、二、三阶段已通过各自提交的 CI 验收，第四阶段开发工具替换代码已完成，独立 CI 运行中，交互桌面结果待核验：
 
 - Windows 保留默认快捷键与 DPAPI/NSIS 流程，第一阶段 Windows 回归已通过。
 - macOS 使用 Tauri 2、React、xcap 和 Rust 原生/官方插件能力。
@@ -16,7 +16,7 @@ macOS 移植在 `feature/macos-port` 分支开发。本轮同步 Windows 主线�
 - 第三阶段 PR 实际验证的合并提交为 `4906125a4072e832807f130417101f9bfae9e131`；[artifact `11865053097`](https://github.com/udstd0038/quickpick/actions/runs/38498994618/artifacts/11865053097) 对应该提交，未签名，保留至 2026-10-28。代码与自动化验收通过，不计作权限、Retina、多屏、Spaces/全屏的真实设备验收通过。
 - 用户目前没有可用的实体 Mac；第一阶段通过说明构建与自动化基线可用，完整原生行为和手动检查保持待验收。
 - 当前阶段生成供验收的 CI 产物，不自动发布 Release；第四阶段需取得其自身最新提交的独立 CI，不能复用前三阶段结果。
-- 本工作分支已删除原五个 PowerShell 脚本，审计、资源生成、快捷键验收与 README 截图入口使用 Node.js/Rust；修改仍需通过草稿 PR 审阅合入，不能据此宣称默认分支已完成迁移。当前本地资源检查 3 项、原生 helper 14 项纯逻辑测试及 Windows 目标 API check 通过，完整第四阶段 CI 与实际交互结果仍待执行。
+- 本工作分支已删除原五个 PowerShell 脚本，审计、资源生成、快捷键验收与 README 截图入口使用 Node.js/Rust；修改仍需通过草稿 PR 审阅合入，不能据此宣称默认分支已完成迁移。当前本地资源检查 3 项、原生 helper 15 项纯逻辑测试（BMP 3、driver 12）及 Windows 目标 API check 通过，完整第四阶段 CI 运行中，实际交互结果待核验。
 
 ## 平台差异
 
@@ -91,9 +91,16 @@ GitHub 的手动触发入口要求此工作流同时存在于仓库默认分支�
 1. **统一开发基线与 CI（已通过）**：验收提交 `2ab5a52`，CI run `38381632543`；Windows 回归、macOS 双架构 check、原生测试、universal DMG 及架构/产物验证已完成。
 2. **取词与 Keychain 正确性（代码与 CI 已通过）**：源码 `e48f45592f40a2eb167ac4333dc5e7aff124ae84`，CI run `38440004266`，安全审计 run `38440004418`。剪贴板事务、按键清理、Keychain 错误处理及设置页未知状态已取得自动化结果；真实 Mac 手动检查保留待执行，不提前标为通过。
 3. **权限与多屏截图体验（代码与 CI 已通过）**：源码 `4e6d3ec46a54d61f3a0dc5f051621f45599cf61c`，CI run `38498994618`，安全审计 run `38498994568`。权限引导、同帧截图会话、取消/过期清理、macOS 窗口行为、平台外观名称及 `AlwaysDeny`/歧义 nil 防护取得独立自动化结果；Retina、外接屏、混合缩放、负坐标、TCC、Spaces/全屏继续待实机验收。
-4. **移除剩余 PowerShell 工具（当前阶段，代码已实现，独立 CI 与交互验收待执行）**：快捷键验收、README 截图、图标与安装器资源生成已替换为 `pnpm verify:hotkeys`、`pnpm capture:readme`、`pnpm tools:icons`、`pnpm tools:installer-assets`，加上第一阶段 `pnpm security:audit`，本分支原五脚本已删除并同步现行规范。资源生成复用现有工具链；快捷键验证真实 `SendInput` 和对应窗口，README 截图使用隔离的专用 `dev-tools` fixture。`pnpm test:tools` 检查真实生成资源，现有已验收二进制资源保留；最新提交仍须取得完整独立 CI。未执行的交互桌面检查返回非零且单独记录，不能以 CI 编译替代。
+4. **移除剩余 PowerShell 工具（当前阶段，代码已实现，独立 CI 运行中，交互结果待核验）**：快捷键验收、README 截图、图标与安装器资源生成已替换为 `pnpm verify:hotkeys`、`pnpm capture:readme`、`pnpm tools:icons`、`pnpm tools:installer-assets`，加上第一阶段 `pnpm security:audit`，本分支原五脚本已删除并同步现行规范。资源生成复用现有工具链；快捷键验证真实 `SendInput` 和对应窗口，README 截图使用隔离的专用 `dev-tools` fixture。`pnpm test:tools` 检查真实生成资源，现有已验收二进制资源保留；最新提交仍须取得完整独立 CI。未执行的交互桌面检查返回非零且单独记录，不能以 CI 编译替代。
 5. **实体 Mac 完整验收与正式分发**：使用准确提交的产物复验四组快捷键、中文输入法、常见应用取词、截图粘贴、Keychain、菜单栏、LaunchAgent、Spaces/全屏及深浅主题，记录 Apple Silicon/Intel 与系统版本及每项结果。完整功能验收通过后配置 Developer ID 签名、公证和 staple，验证 DMG 安装、卸载、升级与登录自启，再发布正式版本。自动更新尚未实现，另立后续阶段。
 
 用户已确定：各阶段代码与 CI 按 1 → 2 → 3 → 4 → 5 的顺序推进，每阶段自动化验证通过后再推进下一阶段；Mac 实体验收延后，不因当前缺少设备阻挡第四阶段。待验收的实机项目独立保留，不能标为通过；第五阶段正式分发仍须完成真实设备验收及签名、公证验证。
 
 签名和公证需要配置 Apple 证书及对应 CI secrets；本轮 CI 不依赖这些凭据，也不发布 GitHub Release。
+
+## 第五阶段执行顺序（等待真实 Mac）
+
+1. **确定支持范围并冻结候选**：根据 Tauri/依赖能力明确最低支持 macOS 版本，再配置发布要求；准备 Apple Silicon、Intel、Retina/外屏及 macOS 15.4+ 访问策略测试条件。记录源码 SHA、PR 构建合并 SHA、workflow run、artifact、DMG SHA256、设备与系统版本。CI artifact 仅保留 14 天，过期后须为明确候选重新构建并更新记录。
+2. **统一原生功能验收**：按 `docs/05-testing-acceptance.md` 第 11.5 节，用固定非敏感数据执行权限、快捷键/中文输入法、取词与完整剪贴板、Keychain、同帧多屏截图、Spaces/全屏、菜单栏/主题和 LaunchAgent。每项记录步骤、预期、实际、通过/失败/未执行及错误类型，不记录凭据或测试内容；失败回到对应阶段修复，缺设备项目不能记为通过。
+3. **实现签名与公证流程**：完整功能验收通过后，准备 Developer ID Application 证书及私钥、Team ID 和公证凭据，通过 CI secrets 提供；实现并验证签名、公证与 staple，记录签名身份、公证请求 ID 及最终 DMG SHA256。当前工作流使用 `--no-sign`，配置 secrets 本身不表示此流程已经实现。
+4. **验证最终安装包再分发**：在最终安装位置复验 Gatekeeper、TCC、Keychain、安装/卸载/旧版升级、登录自启与禁用后的清理，覆盖两架构和所声明的系统范围；签名身份变化后的行为必须重新验证。只有最终产物全部通过后才发布正式版本，自动更新另立后续阶段。
