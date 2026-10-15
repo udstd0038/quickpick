@@ -286,11 +286,12 @@ QuickPick 的 UI 应该像一个安静、轻快的 Windows 11 原生工具。
 
 资源要求：
 
-- 可编辑源稿放在 `src-tauri/icons/source/`。
-- 应用打包图标使用 `src-tauri/icons/icon.ico` 和 `src-tauri/icons/icon.png`。
-- 托盘运行时图标使用 `src-tauri/icons/tray-icon.png`，该文件为纯白线性托盘图标。
+- 可编辑源稿放在 `apps/desktop/src-tauri/icons/source/`。
+- 应用打包图标使用 `apps/desktop/src-tauri/icons/icon.ico` 和 `apps/desktop/src-tauri/icons/icon.png`。
+- 托盘运行时图标使用 `apps/desktop/src-tauri/icons/tray-icon.png`，该文件为纯白线性托盘图标。
 - 不保留彩色版托盘图标，避免后续混用。
-- 生成脚本放在 `tools/generate-quickpick-icons.ps1`，不得联网或引入额外 npm/Cargo 依赖。
+- 使用 `pnpm tools:icons` 调用 `tools/generate-quickpick-icons.mjs`，复用已安装 Tauri CLI，输出到 `apps/desktop/src-tauri/icons`；生成时不联网，不引入额外 npm/Cargo 依赖。
+- 安装包 BMP 使用 `pnpm tools:installer-assets` 从自包含 SVG 字形路径生成，固定为 150×57 和 164×314；`pnpm test:tools` 解码实际资源像素并检查 PNG、ICO 多尺寸、ICNS 和 BMP 尺寸/排版。
 
 ## 10. 文案规范
 

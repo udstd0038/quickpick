@@ -34,6 +34,11 @@
     "test": "pnpm --filter quickpick-desktop test",
     "security:audit": "node scripts/security-audit.mjs",
     "desktop:dev": "pnpm --filter quickpick-desktop tauri:dev",
-    "desktop:build": "pnpm --filter quickpick-desktop tauri:build"
+    "desktop:build": "pnpm --filter quickpick-desktop tauri:build",
+    "tools:icons": "node tools/generate-quickpick-icons.mjs",
+    "tools:installer-assets": "node tools/generate-installer-assets.mjs",
+    "verify:hotkeys": "node scripts/verify-hotkeys.mjs",
+    "capture:readme": "node tools/capture-readme-screenshots.mjs",
+    "test:tools": "node tools/resource-tools.test.mjs"
   }
 }

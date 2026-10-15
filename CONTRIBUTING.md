@@ -53,6 +53,6 @@ pnpm --filter quickpick-desktop exec tauri build --no-bundle --ci
 
 ## Security and Privacy
 
-Before a release, install `cargo-audit` with `cargo install cargo-audit --locked`, then run `pnpm security:audit` from the repository root. This runs the production npm dependency audit and `cargo audit` on Windows, macOS, and Linux.
+Before a release, install `cargo-audit` with `cargo install cargo-audit --locked`, then run `pnpm security:audit` from the repository root. This runs the production npm dependency audit and `cargo audit` for both the desktop app and the isolated `tools/native-helper` on Windows, macOS, and Linux.
 
 QuickPick is local-first. New features must not add content history or transmit user content without an explicit user action. Report security issues according to `SECURITY.md`, not in a public issue.

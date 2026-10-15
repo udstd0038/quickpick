@@ -9,17 +9,30 @@
 - 截图功能条只在松开鼠标后显示，并定位到选框右下角。
 - 前端文案必须通过 key-based `t()` 渲染，不能依赖 DOM 自动翻译。
 - 设置模型默认值、归一化、供应商默认填充必须由 `lib/settingsTypes.ts` 提供。
-- 每个功能合入前至少跑：`pnpm build`、`pnpm test`、`cargo check`、`cargo test`、release 构建、`scripts/verify-hotkeys.ps1`。
+- 每个功能合入前至少跑：`pnpm build`、`pnpm test`、`cargo check`、`cargo test`、release 构建、`pnpm verify:hotkeys --fixture-exe <独立 fixture.exe>`。
+
+## 0.1 开发工具验收边界
+
+- `pnpm test:tools` 必须解码真实生成图标和安装包资源，检查图像内容、多尺寸 ICO/ICNS、BMP 24 位行对齐及固定尺寸。
+- Windows 快捷键验收使用 `pnpm verify:hotkeys --fixture-exe <独立 fixture.exe>`，发送完整 `SendInput` 组合键并释放按键，验证 `main`、`selection`、`screenshot_overlay`、`input` 的准确 label、可见性、焦点和关闭状态；不发送私有 `WM_HOTKEY` 消息，不以任意可见窗口判定通过。
+- fixture 使用 `dev-tools` 默认关闭 feature 和独立 binary；构建前先 `pnpm build`，再 `cargo build --locked --release --features dev-tools,tauri/custom-protocol --bin quickpick-fixture --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir apps/desktop/src-tauri/target`，必须内置前端资源，不访问本机开发服务器。
+- fixture 只能使用新建临时目录与自有 WebView profile、固定合成数据、模拟 Key/AI、关闭自启和剪贴板兜底；用户点击任何按钮或调用 RPC 也不能读取真实屏幕、真实 Key 或写入用户剪贴板。
+- `pnpm capture:readme --fixture-exe <独立 fixture.exe> --themes light,dark --languages zh-Hans,en --include-screenshot` 仅采集 fixture 自身固定内容窗口；窗口不透明且禁用材质采样，不修改用户配置，不关闭其他 QuickPick 进程。
+- 默认 release 不包含 fixture 模块/控制 RPC，也不读取 fixture 命令行或环境变量。
+- 交互桌面、前台激活或 `PrintWindow` 不可用时必须返回退出码 2，明确标记“未执行”；CI 的资源/编译成功不能替代实体桌面的完整快捷键和截图验收。
+- Windows 主线截图坐标/窗口实现继续保持原有行为；macOS 阶段 2/3 的剪贴板、权限和同帧截图实现属于独立 macOS 分支。
+
+下文旧“原生 Win32”窗口与白窗排障条目保留为历史场景；当前执行以第 0 节 Tauri/WebView 基线为准。
 
 ## 1. 通用验收
 
 - 应用能在 Windows 11 x64 启动。
 - 启动后默认静默常驻托盘，不主动弹出主页面。
 - 开机自启后默认静默常驻托盘，不主动弹出主页面。
-- 程序图标和窗口标题栏小图标应显示 QuickPick 专属蓝白 Q 形拾取标识；托盘图标应显示纯灰 Q 形拾取标识；不再使用默认 Tauri 图标或旧版绿色图标。
+- 程序与标题栏图标应保持已验收 E 套蓝紫渐变背板、白色四角框选括号与三行文本线；托盘保持 D 套透明底纯白线性图形，不使用默认 Tauri 图标或旧版图标。
 - 托盘图标在 Windows 11 深浅任务栏和 100%/150% 缩放下都应可辨认，不应糊成单色块。
 - 主图标阴影应保持上一版简洁蓝白效果；托盘图标质感应柔和清晰，不应出现厚重发光、脏灰投影或小尺寸复杂纹理。
-- 托盘图标应使用纯灰版本，不保留彩色托盘图标分支。
+- 托盘图标应使用 D 套纯白版本，不保留彩色托盘图标分支。
 - 托盘右键“设置”能显示设置页，设置页关闭后托盘仍存在。
 - 双击托盘图标能显示设置页，设置页关闭后托盘仍存在。
 - 托盘菜单能退出应用。
@@ -296,3 +309,5 @@
 - 没有明显阻塞错误。
 - 更新当天开发日志。
 - 记录未完成事项。
+
+第四阶段共享工具按 fixture 明确的截图失焦契约验收：macOS 开发分支的窗口应失焦隐藏，Windows 主线保留既有失焦后可见行为；两者都必须通过真实 `Esc` 关闭，缺少或未知契约视为失败。fixture 不伪造关闭来替代产品事件。
