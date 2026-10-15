@@ -28,6 +28,7 @@ QuickPick 是运行在 Windows 11 上的轻量划词与截图 AI 工具。
 - 开发工作流：`docs/06-dev-workflow.md`
 - 参考代码移植：`docs/07-reference-migration-spec.md`
 - Snow Shot 截图审计：`docs/08-snow-shot-screenshot-audit.md`
+- macOS 分阶段状态与工具迁移：`docs/09-macos-port.md`
 
 开发日志目录：
 
@@ -76,6 +77,16 @@ QuickPick 是运行在 Windows 11 上的轻量划词与截图 AI 工具。
   - 验证结果。
   - 下次建议。
 - 如果需求、架构、UI、安全或测试规则变化，同步更新对应 `docs/` 文件。
+
+## 活跃开发工具入口
+
+- 依赖审计：`pnpm security:audit`，覆盖生产前端、应用 Rust 与原生 helper。
+- 图标与安装器资源：`pnpm tools:icons`、`pnpm tools:installer-assets`；先用 `--output-dir <临时目录>` 比对生成结果。
+- 资源集成检查：`pnpm test:tools`；原生 helper 单测使用独立 `tools/native-helper/Cargo.lock` 和 `--locked`。
+- Windows 快捷键及 README 截图：`pnpm verify:hotkeys --fixture-exe <专用 quickpick-fixture.exe>`、`pnpm capture:readme --fixture-exe <专用 quickpick-fixture.exe>`。必须使用独立 `dev-tools` fixture，普通 release 不可用；构建命令、参数和隔离边界见 `docs/06-dev-workflow.md` 第 9 节。
+- 无交互式 Windows 桌面或图片无法取得时，退出码 2 表示“未执行”，不记为验收通过。macOS 实机项目同样独立记录，不以 CI 编译替代。
+
+这些入口使用 Node.js/Rust，历史日志中的旧脚本命令不再作为活跃执行入口。
 
 ## 当前阶段路线
 

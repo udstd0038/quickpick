@@ -84,6 +84,9 @@ jobs:
       - name: Rust tests on runner architecture
         working-directory: apps/desktop/src-tauri
         run: cargo test --locked
+      - name: Compile opt-in development feature on macOS
+        working-directory: apps/desktop/src-tauri
+        run: cargo check --locked --features dev-tools --lib
       - name: Universal build
         working-directory: apps/desktop
         run: pnpm exec tauri build --target universal-apple-darwin --bundles dmg --no-sign --ci -- --locked

@@ -28,7 +28,7 @@ Current releases:
 
 - Windows 11 v0.1.4 is the stable release.
 - macOS v0.1.3-macos is a universal pre-release built from `feature/macos-port`.
-- The published macOS package passed CI, but it is unsigned and not notarized. Later shortcut fixes still need a successful build and another acceptance run on physical Mac hardware.
+- The published macOS package passed CI, but it is unsigned and not notarized. The current development work has passed three separate Windows/macOS CI stages, including universal builds; it still needs physical Mac acceptance. See the [macOS development status](./docs/09-macos-port.md) for the exact commits and artifacts.
 
 ## Screenshots
 
@@ -138,7 +138,27 @@ pnpm install --frozen-lockfile
 pnpm --filter quickpick-desktop exec tauri build --target universal-apple-darwin --bundles dmg --ci --no-sign
 ```
 
-The screenshot capture helper is available at `tools/capture-readme-screenshots.ps1`.
+Development tools use Node.js and Rust:
+
+| Command | Purpose |
+|---------|---------|
+| `pnpm security:audit` | Audit production frontend, app Rust, and native helper dependencies |
+| `pnpm tools:icons` | Generate desktop PNG/ICO/ICNS and tray icons |
+| `pnpm tools:installer-assets` | Generate NSIS header/sidebar BMPs |
+| `pnpm test:tools` | Generate and inspect resources in temporary directories |
+| `pnpm verify:hotkeys` | Exercise registered hotkeys on an interactive Windows desktop |
+| `pnpm capture:readme` | Capture fixed sample UI from an isolated Windows fixture |
+
+The two interactive tools require the dedicated `quickpick-fixture.exe`; pass its path explicitly. Build the frontend first and embed it using `tauri/custom-protocol`:
+
+```text
+pnpm build
+cargo build --locked --release --features dev-tools,tauri/custom-protocol --bin quickpick-fixture --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir apps/desktop/src-tauri/target
+pnpm verify:hotkeys --fixture-exe apps/desktop/src-tauri/target/release/quickpick-fixture.exe
+pnpm capture:readme --fixture-exe apps/desktop/src-tauri/target/release/quickpick-fixture.exe --output-dir tool-validation --themes light,dark --languages zh-Hans,en --include-screenshot
+```
+
+Run from the repository root. The ordinary release executable is not a fixture and is rejected before launch. The fixture isolates configuration, WebView profiles, credentials, startup settings, clipboard and AI from real user data. Capture uses only its owned window clients, with fixed sample content and an opaque background; it never falls back to capturing the desktop. `--output-dir` defaults to the caller's current directory; files retain the `screenshots/en` and `screenshots/zh-cn` names and a maximum width of 1280 px. The optional `--include-screenshot` adds the synthetic screenshot UI. Unsupported or unavailable interactive desktops return exit code 2 (not run); compilation alone does not pass interactive acceptance. See [development workflow](./docs/06-dev-workflow.md) for checks and current validation limits.
 
 ## Tech Stack
 

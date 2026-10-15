@@ -220,6 +220,10 @@ impl Default for AppSettings {
 pub fn load_app_settings(app: &AppHandle) -> Result<AppSettings, String> {
     let path = settings_path(app)?;
     if !path.exists() {
+        #[cfg(feature = "dev-tools")]
+        if crate::dev_fixture::active() {
+        return Ok(crate::dev_fixture::defaults());
+    }
         return Ok(AppSettings::default());
     }
 
@@ -231,6 +235,15 @@ pub fn load_app_settings(app: &AppHandle) -> Result<AppSettings, String> {
 
 pub fn save_app_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
     let settings = normalize_settings_for_save(settings.clone())?;
+    #[cfg(feature = "dev-tools")]
+    let settings = if crate::dev_fixture::active() {
+        let mut settings = settings;
+        settings.autostart_enabled = false;
+        settings.allow_clipboard_fallback = false;
+        settings
+    } else {
+        settings
+    };
 
     let path = settings_path(app)?;
     if let Some(parent) = path.parent() {
@@ -256,6 +269,10 @@ pub fn normalize_settings_for_save(mut settings: AppSettings) -> Result<AppSetti
 }
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
+    #[cfg(feature = "dev-tools")]
+    if let Some(path) = crate::dev_fixture::settings_path() {
+        return Ok(path);
+    }
     let dir = app
         .path()
         .app_config_dir()

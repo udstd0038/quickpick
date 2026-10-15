@@ -123,7 +123,8 @@ pnpm security:audit
 跨平台入口 `scripts/security-audit.mjs` 会从仓库根目录和 Rust 项目目录依次执行以下命令；任一步失败都会返回非零退出码：
 
 - `pnpm --filter quickpick-desktop audit --prod`
-- `cargo audit`
+- 应用 Rust 目录的 `cargo audit`
+- `tools/native-helper/` 目录的 `cargo audit`
 
 如果本机未安装 `cargo-audit`，先执行：
 
@@ -133,7 +134,48 @@ cargo install cargo-audit --locked
 
 仓库同时提供 `.github/workflows/security-audit.yml`，在 push、PR 和每周计划任务中使用 Ubuntu/Bash 调用相同审计入口。Windows、macOS 和 Linux 本地开发均可使用 `pnpm security:audit`，无需 PowerShell。高危漏洞不允许进入 release。
 
-## 9. 收尾说明
+## 9. 开发工具
+
+先使用仓库锁定版本安装 Node.js/pnpm 依赖，并准备 Rust 工具链。资源生成使用已安装的 Tauri CLI 和仓库原生 helper，不下载独立渲染器、不依赖 PowerShell。
+
+```bash
+pnpm tools:icons
+pnpm tools:installer-assets
+```
+
+默认输出分别为 `apps/desktop/src-tauri/icons/` 和 `apps/desktop/src-tauri/installer/`。开发新资源时先使用 `--output-dir <临时目录>` 验证文件结构、尺寸、透明度及实际外观，再替换已验收资源。应用 PNG/ICO/ICNS、透明托盘图标和安装器 BMP 不能仅凭文件存在就报告生成正确。任何子工具失败都必须返回非零。
+
+图标 SVG 源稿保留在 `apps/desktop/src-tauri/icons/source/`；安装器布局源稿保留在 `tools/assets/`，文字使用轮廓以避免系统字体差异。Rust helper 有独立 `Cargo.lock`，构建使用 `--locked`。生成器会清理中间文件，仅发布桌面应用需要的资源。
+
+资源集成检查在临时目录真实渲染 PNG/ICO/ICNS/托盘/BMP，运行：
+
+```bash
+pnpm test:tools
+cargo test --locked --manifest-path tools/native-helper/Cargo.toml --target-dir tools/native-helper/target
+```
+
+快捷键与 README 截图工具必须在交互式 Windows 桌面运行，并使用 opt-in 的专用 fixture，不能将正在运行的正式应用或普通 release 程序作为输入。fixture binary 名称为 `quickpick-fixture`，没有 `dev-tools` feature 时不会构建；该 feature 不加入默认发行构建。
+
+从仓库根目录执行以下命令。显式 `--target-dir` 固定产物位置，避免本地 Cargo 默认目录与示例路径不同；`tauri/custom-protocol` 将刚构建的前端嵌入 fixture，不依赖开发服务器。
+
+```text
+pnpm build
+cargo build --locked --release --features dev-tools,tauri/custom-protocol --bin quickpick-fixture --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir apps/desktop/src-tauri/target
+pnpm verify:hotkeys --fixture-exe apps/desktop/src-tauri/target/release/quickpick-fixture.exe
+pnpm capture:readme --fixture-exe apps/desktop/src-tauri/target/release/quickpick-fixture.exe --output-dir tool-validation --themes light,dark --languages zh-Hans,en --include-screenshot
+```
+
+Node.js 入口分别为 `scripts/verify-hotkeys.mjs` 和 `tools/capture-readme-screenshots.mjs`。它们按调用者工作目录解析路径，自动以独立锁文件构建原生 helper，并保留 helper 的退出码。必须显式提供 `--fixture-exe`；启动前检查编译标记，启动后核实身份、随机 token、隔离目录和 loopback 控制接口，禁止附着其他进程。
+
+fixture 使用独立应用标识、设置、窗口状态和 WebView profile；取词、截图 RGBA、Key 配置状态与 AI 结果都是固定样例，不读取真实用户配置、Key、选区、剪贴板或屏幕，不修改真实自启、不向 AI 服务发请求。导出只用 `PrintWindow` 读取 owned 窗口客户区，关闭透明玻璃以避免背景穿透，禁止桌面 `BitBlt` 兜底；只结束工具拥有的 PID 并清理本次临时目录。
+
+`capture:readme` 默认导出 zh-Hans/en、light/dark 的设置、划词与输入窗口；`--themes` 和 `--languages` 允许选择其子集，`--include-screenshot` 额外导出合成截图界面。`--output-dir` 默认是调用者当前目录，内部仍使用 `screenshots/zh-cn/<窗口>-<主题>.png` 与 `screenshots/en/<窗口>-<主题>.png`，最大宽度 1280 px。建议先输出到 `tool-validation`，检查实际界面后再替换 README 图片。
+
+退出码 0 表示请求的动作或图片全部验证成功；1 表示失败；2 表示“未执行”，包括非 Windows、无可用交互桌面、无法激活 owned 窗口或无法获取非空白 WebView 图片。`.github/workflows/development-tools.yml` 检查资源、编译并测试 helper/fixture，同时尝试交互检查；遇到 2 时在 Summary 显示 `NOT RUN` 并保留人工验收待办，不能因其他步骤通过就将交互检查标为通过。
+
+第四阶段完整独立 CI 与实际交互桌面结果尚待执行；各阶段 CI 与手动验收必须按精确源码及产物提交分别记录，不能把编译成功计作真实桌面动作通过。当前已验收的二进制图标与安装器资源未替换，生成工具只在临时目录验证新结果。
+
+## 10. 收尾说明
 
 每次回复用户时应简要说明：
 

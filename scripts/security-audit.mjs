@@ -5,6 +5,7 @@ const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const rustRoot = fileURLToPath(
   new URL("../apps/desktop/src-tauri/", import.meta.url),
 );
+const nativeToolsRoot = fileURLToPath(new URL("../tools/native-helper/", import.meta.url));
 
 function runCommand(label, command, args, cwd, options = {}) {
   const result = spawnSync(command, args, {
@@ -61,6 +62,8 @@ try {
 
   console.log("Running cargo dependency audit...");
   runCommand("cargo audit", "cargo", ["audit"], rustRoot);
+  console.log("Auditing isolated development helper dependencies...");
+  runCommand("native helper cargo audit", "cargo", ["audit"], nativeToolsRoot);
   console.log("Security audit passed.");
 } catch (error) {
   console.error(`Security audit failed: ${error.message}`);
