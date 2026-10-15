@@ -1152,10 +1152,13 @@ pub fn run() {
         capture_region_rect
     ];
     #[cfg(feature = "dev-tools")]
+    let fixture_handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool =
+        tauri::generate_handler![dev_fixture::fixture_frontend_ready];
+    #[cfg(feature = "dev-tools")]
     let builder = builder
         .invoke_handler(move |invoke| {
             if invoke.message.command() == "fixture_frontend_ready" {
-                tauri::generate_handler![dev_fixture::fixture_frontend_ready](invoke)
+                fixture_handler(invoke)
             } else {
                 handler(invoke)
             }
