@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { LogicalSize } from "@tauri-apps/api/dpi";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   clearPopupState,
@@ -33,27 +34,67 @@ const actions = [
 export function SelectionWindow() {
   const t = useI18n();
   const [snapshot, setSnapshot] = useState<SelectionSnapshot | null>(null);
+  const [readError, setReadError] = useState("");
   const [busy, setBusy] = useState(false);
   const toolbarRef = useRef<HTMLElement | null>(null);
+  const snapshotRevision = useRef(0);
+  const hasSelection = snapshot?.status === "captured" && !!snapshot.text.trim();
+  const statusMessage = hasSelection
+    ? ""
+    : t(
+        readError ||
+          snapshot?.message ||
+          (snapshot ? "selection.noText" : "selection.reading"),
+      );
 
   const clearSelection = () => {
+    snapshotRevision.current += 1;
     setSnapshot(null);
+    setReadError("");
     void clearPopupState("selection");
   };
 
   useEffect(() => {
     const currentWindow = getCurrentWindow();
     let disposed = false;
+    let unlisten: (() => void) | undefined;
 
-    getSelectionSnapshot()
-      .then((value) => {
-        if (!disposed) {
-          setSnapshot(value);
+    const refreshSnapshot = () => {
+      const revision = ++snapshotRevision.current;
+      setSnapshot(null);
+      setReadError("");
+      void getSelectionSnapshot()
+        .then((value) => {
+          if (!disposed && revision === snapshotRevision.current) {
+            setSnapshot(value);
+          }
+        })
+        .catch((error) => {
+          if (!disposed && revision === snapshotRevision.current) {
+            setReadError(typeof error === "string" ? error : "selection.readFailed");
+          }
+        });
+    };
+
+    // Hidden WebViews stay mounted; each activation must replace the old selection.
+    void listen<SelectionSnapshot>("selection-ready", (event) => {
+      if (!disposed) {
+        snapshotRevision.current += 1;
+        setReadError("");
+        setSnapshot(event.payload);
+      }
+    })
+      .then((cleanup) => {
+        if (disposed) {
+          cleanup();
+          return;
         }
+        unlisten = cleanup;
+        refreshSnapshot();
       })
       .catch(() => {
         if (!disposed) {
-          setSnapshot(null);
+          refreshSnapshot();
         }
       });
 
@@ -68,13 +109,14 @@ export function SelectionWindow() {
       }
     };
 
-    void currentWindow.setFocus();
-    window.focus();
+    window.addEventListener("focus", refreshSnapshot);
     window.addEventListener("blur", closeOnBlur);
     window.addEventListener("keydown", closeOnEscape);
 
     return () => {
       disposed = true;
+      unlisten?.();
+      window.removeEventListener("focus", refreshSnapshot);
       window.removeEventListener("blur", closeOnBlur);
       window.removeEventListener("keydown", closeOnEscape);
     };
@@ -92,13 +134,13 @@ export function SelectionWindow() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [statusMessage]);
 
   const run = async (
     command: string,
     args?: Record<string, unknown>,
   ) => {
-    if (busy) {
+    if (busy || !hasSelection) {
       return;
     }
 
@@ -137,6 +179,7 @@ export function SelectionWindow() {
       onPointerDown={startDrag}
       style={{
         display: "flex",
+        flexDirection: "column",
         gap: 8,
         alignItems: "center",
         width: "fit-content",
@@ -147,25 +190,34 @@ export function SelectionWindow() {
         cursor: "grab",
         userSelect: "none",
       }}
-      title={snapshot?.preview || snapshot?.message || t("selection.title")}
+      title={hasSelection ? snapshot.preview : statusMessage || t("selection.title")}
     >
-      {actions.map((action) => (
-        <ActionButton
-          key={action.key}
-          type="button"
-          className="screenshot-tool-button"
-          disabled={busy}
-          onClick={() => run(action.command, "args" in action ? action.args : undefined)}
-          style={{
-            minHeight: 32,
-            padding: "0 14px",
-            cursor: busy ? "wait" : "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {t(action.key)}
-        </ActionButton>
-      ))}
+      {statusMessage && (
+        <div role="status" style={{ maxWidth: 420, fontSize: 12, cursor: "default" }}>
+          {statusMessage}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8 }}>
+        {actions.map((action) => (
+          <ActionButton
+            key={action.key}
+            type="button"
+            className="screenshot-tool-button"
+            disabled={busy || !hasSelection}
+            onClick={() =>
+              run(action.command, "args" in action ? action.args : undefined)
+            }
+            style={{
+              minHeight: 32,
+              padding: "0 14px",
+              cursor: busy ? "wait" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {t(action.key)}
+          </ActionButton>
+        ))}
+      </div>
     </main>
   );
 }

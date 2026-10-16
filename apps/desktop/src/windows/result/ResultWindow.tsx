@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -59,32 +60,21 @@ export function ResultWindow() {
   const setLanguages = useResultStore((state) => state.setLanguages);
   const setPinned = useResultStore((state) => state.setPinned);
   const [busy, setBusy] = useState(false);
+  const snapshotRevision = useRef(0);
 
   const closeResult = () => {
+    snapshotRevision.current += 1;
     void clearPopupState("result");
     useResultStore.getState().reset();
     void getCurrentWindow().hide();
   };
 
   useEffect(() => {
+    let disposed = false;
     let unlisten: (() => void) | undefined;
+    const initialRevision = snapshotRevision.current;
 
-    getResultSnapshot()
-      .then((payload) => {
-        setContent(payload.content, payload.detail);
-        setStatus(payload.status);
-        setLanguages(
-          payload.sourceLanguage,
-          payload.targetLanguage,
-          payload.translationDirection,
-        );
-      })
-      .catch(() => {
-        // The Rust event path still covers first paint for normally-opened windows.
-      });
-
-    listen<ResultSnapshotPayload>("result-ready", (event) => {
-      const payload = event.payload;
+    const applySnapshot = (payload: ResultSnapshotPayload) => {
       setContent(payload.content, payload.detail);
       setStatus(payload.status);
       setLanguages(
@@ -92,9 +82,40 @@ export function ResultWindow() {
         payload.targetLanguage,
         payload.translationDirection,
       );
-    }).then((cleanup) => {
-      unlisten = cleanup;
-    });
+    };
+
+    const readInitialSnapshot = () => {
+      if (disposed || initialRevision !== snapshotRevision.current) {
+        return;
+      }
+      void getResultSnapshot()
+        .then((payload) => {
+          if (!disposed && initialRevision === snapshotRevision.current) {
+            applySnapshot(payload);
+          }
+        })
+        .catch(() => {
+          // Normally-opened windows also receive the result-ready event.
+        });
+    };
+
+    // Subscribe before reading so a new screenshot result cannot be replaced by
+    // the previous selection result returned by a slower initial snapshot.
+    void listen<ResultSnapshotPayload>("result-ready", (event) => {
+      if (!disposed) {
+        snapshotRevision.current += 1;
+        applySnapshot(event.payload);
+      }
+    })
+      .then((cleanup) => {
+        if (disposed) {
+          cleanup();
+          return;
+        }
+        unlisten = cleanup;
+        readInitialSnapshot();
+      })
+      .catch(readInitialSnapshot);
 
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -104,6 +125,8 @@ export function ResultWindow() {
     window.addEventListener("keydown", closeOnEscape);
 
     return () => {
+      disposed = true;
+      snapshotRevision.current += 1;
       unlisten?.();
       window.removeEventListener("keydown", closeOnEscape);
     };
@@ -269,7 +292,9 @@ export function ResultWindow() {
             containerTestId="result-loading-skeleton"
           />
         ) : (
-          content || detail || t("result.noResult")
+          content
+            ? status === "error" ? t(content) : content
+            : t(detail || "result.noResult")
         )}
       </div>
       <footer

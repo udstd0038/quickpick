@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactCrop, {
   type PercentCrop,
   type PixelCrop,
@@ -28,57 +28,77 @@ export function ScreenshotOverlay() {
   const [pixelCrop, setPixelCrop] = useState<PixelCrop | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const snapshotRevision = useRef(0);
 
   useEffect(() => {
     let disposed = false;
+    const initialRevision = snapshotRevision.current;
 
     let unlistenReady: (() => void) | undefined;
     let unlistenError: (() => void) | undefined;
 
-    getScreenshotSnapshot()
-      .then((payload) => {
-        if (!payload || disposed) {
-          return;
-        }
-        setError("");
-        setCrop(undefined);
-        setPixelCrop(null);
-        setScreenshot(payload);
-      })
-      .catch((error) => {
-        if (disposed) {
-          return;
-        }
-        setCrop(undefined);
-        setPixelCrop(null);
-        setScreenshot(null);
-        setError(typeof error === "string" ? error : t("screenshot.reading"));
-      });
+    const applyScreenshot = (payload: MonitorScreenshotPayload) => {
+      setBusy(false);
+      setError("");
+      setCrop(undefined);
+      setPixelCrop(null);
+      setScreenshot(payload);
+    };
+    const applyError = (message: string) => {
+      setBusy(false);
+      setCrop(undefined);
+      setPixelCrop(null);
+      setScreenshot(null);
+      setError(message);
+    };
 
-    listen<MonitorScreenshotPayload>("screenshot-ready", (event) => {
+    const ready = listen<MonitorScreenshotPayload>("screenshot-ready", (event) => {
       if (!disposed) {
-        setError("");
-        setCrop(undefined);
-        setPixelCrop(null);
-        setScreenshot(event.payload);
+        snapshotRevision.current += 1;
+        applyScreenshot(event.payload);
       }
     }).then((cleanup) => {
-      unlistenReady = cleanup;
+      if (disposed) {
+        cleanup();
+      } else {
+        unlistenReady = cleanup;
+      }
     });
 
-    listen<string>("screenshot-error", (event) => {
+    const failed = listen<string>("screenshot-error", (event) => {
       if (!disposed) {
-        setCrop(undefined);
-        setPixelCrop(null);
-        setScreenshot(null);
-        setError(event.payload);
+        snapshotRevision.current += 1;
+        applyError(event.payload);
       }
     }).then((cleanup) => {
-      unlistenError = cleanup;
+      if (disposed) {
+        cleanup();
+      } else {
+        unlistenError = cleanup;
+      }
+    });
+
+    // The WebView is reused. A newer activation or error always wins over the
+    // initial snapshot, including events received during listener registration.
+    void Promise.allSettled([ready, failed]).then(async () => {
+      if (disposed || initialRevision !== snapshotRevision.current) {
+        return;
+      }
+      try {
+        const payload = await getScreenshotSnapshot();
+        if (payload && !disposed && initialRevision === snapshotRevision.current) {
+          applyScreenshot(payload);
+        }
+      } catch (error) {
+        if (!disposed && initialRevision === snapshotRevision.current) {
+          applyError(typeof error === "string" ? error : "result.error");
+        }
+      }
     });
 
     return () => {
       disposed = true;
+      snapshotRevision.current += 1;
       unlistenReady?.();
       unlistenError?.();
     };
@@ -97,6 +117,8 @@ export function ScreenshotOverlay() {
   }, []);
 
   const closeOverlay = () => {
+    snapshotRevision.current += 1;
+    setBusy(false);
     setScreenshot(null);
     setCrop(undefined);
     setPixelCrop(null);
@@ -112,12 +134,16 @@ export function ScreenshotOverlay() {
 
     const scaleX = screenshot.width / window.innerWidth;
     const scaleY = screenshot.height / window.innerHeight;
+    const revision = ++snapshotRevision.current;
     setBusy(true);
-    await getCurrentWindow().hide();
-    setScreenshot(null);
-    setError("");
-    void clearPopupState("screenshot_overlay");
     try {
+      await getCurrentWindow().hide();
+      if (revision !== snapshotRevision.current) {
+        return;
+      }
+      setScreenshot(null);
+      setError("");
+      void clearPopupState("screenshot_overlay").catch(() => undefined);
       await captureRegionRect({
         screenX: screenshot.monitorX + Math.round(pixelCrop.x * scaleX),
         screenY: screenshot.monitorY + Math.round(pixelCrop.y * scaleY),
@@ -125,10 +151,17 @@ export function ScreenshotOverlay() {
         height: Math.round(pixelCrop.height * scaleY),
         action,
       });
+    } catch (error) {
+      if (revision === snapshotRevision.current) {
+        setScreenshot(null);
+        setError(typeof error === "string" ? error : "result.error");
+      }
     } finally {
-      setBusy(false);
-      setCrop(undefined);
-      setPixelCrop(null);
+      if (revision === snapshotRevision.current) {
+        setBusy(false);
+        setCrop(undefined);
+        setPixelCrop(null);
+      }
     }
   };
 
@@ -152,14 +185,20 @@ export function ScreenshotOverlay() {
     >
       {error ? (
         <div
+          role="alert"
           style={{
             display: "grid",
             minHeight: "100vh",
             placeItems: "center",
+            alignContent: "center",
+            gap: 16,
             color: "var(--qp-text-primary)",
           }}
         >
-          {error}
+          {t(error)}
+          <ActionButton type="button" onClick={closeOverlay}>
+            {t("common.close")}
+          </ActionButton>
         </div>
       ) : screenshot ? (
         <ReactCrop
