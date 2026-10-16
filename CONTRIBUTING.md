@@ -4,7 +4,7 @@ Thanks for helping improve QuickPick. Contributions, bug reports, translations, 
 
 ## Before You Start
 
-- Read `AGENT.md` and the relevant documents under `docs/`.
+- Read `AGENTS.md` and the relevant documents under `docs/`.
 - Check existing issues and pull requests before opening a new one.
 - Keep changes focused on one bug, feature, or documentation improvement.
 - Do not include API keys, selected text, screenshots, clipboard contents, or complete AI responses in code, logs, issues, pull requests, or CI artifacts.

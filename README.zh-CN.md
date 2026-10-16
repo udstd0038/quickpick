@@ -156,7 +156,7 @@ README 截图生成脚本位于 `tools/capture-readme-screenshots.ps1`。
 
 ## 🤝 参与贡献
 
-欢迎提交代码、Issue、翻译和设计建议。创建 Pull Request 前请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)、[AGENT.md](./AGENT.md) 和 [docs/](./docs) 下的项目文档，并查看 [dev-logs/](./dev-logs) 了解当前进度与决策。
+欢迎提交代码、Issue、翻译和设计建议。创建 Pull Request 前请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)、[AGENTS.md](./AGENTS.md) 和 [docs/](./docs) 下的项目文档，并查看 [dev-logs/](./dev-logs) 了解当前进度与决策。
 
 请勿把 API Key、用户文本、截图内容或 AI 返回全文写入提交、日志、Issue 或 CI 产物。
 
