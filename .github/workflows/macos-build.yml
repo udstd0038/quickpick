@@ -4,10 +4,29 @@ on:
   push:
     branches: [main, feature/macos-port]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner type for this manual validation
+        type: choice
+        options:
+          - github-hosted
+          - self-hosted
+        default: github-hosted
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TARGET_DIR: ${{ github.workspace }}/apps/desktop/src-tauri/target
 
 jobs:
   windows-regression:
-    runs-on: windows-latest
+    runs-on: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.runner == 'self-hosted' && '["self-hosted", "Windows"]' || '["windows-latest"]') }}
+    defaults:
+      run:
+        shell: cmd
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -16,6 +35,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
       - name: Frontend tests
@@ -24,13 +46,16 @@ jobs:
         run: pnpm --filter quickpick-desktop build
       - name: Rust check
         working-directory: apps/desktop/src-tauri
-        run: cargo check
+        run: cargo check --locked
       - name: Rust tests
         working-directory: apps/desktop/src-tauri
-        run: cargo test
+        run: cargo test --locked
 
   macos-build:
-    runs-on: macos-latest
+    runs-on: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.runner == 'self-hosted' && '["self-hosted", "macOS"]' || '["macos-latest"]') }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -41,6 +66,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
       - name: Frontend tests
@@ -49,13 +77,32 @@ jobs:
         run: pnpm --filter quickpick-desktop build
       - name: Rust check aarch64
         working-directory: apps/desktop/src-tauri
-        run: cargo check --target aarch64-apple-darwin
+        run: cargo check --locked --target aarch64-apple-darwin
       - name: Rust check x86_64
         working-directory: apps/desktop/src-tauri
-        run: cargo check --target x86_64-apple-darwin
-      - name: Rust tests aarch64
+        run: cargo check --locked --target x86_64-apple-darwin
+      - name: Rust tests on runner architecture
         working-directory: apps/desktop/src-tauri
-        run: cargo test --target aarch64-apple-darwin
+        run: cargo test --locked
       - name: Universal build
         working-directory: apps/desktop
-        run: pnpm exec tauri build --target universal-apple-darwin --no-bundle --ci
+        run: pnpm exec tauri build --target universal-apple-darwin --bundles dmg --no-sign --ci -- --locked
+      - name: Verify DMG and record validation commit
+        env:
+          VALIDATION_SHA: ${{ github.sha }}
+          VALIDATION_EVENT: ${{ github.event_name }}
+        run: |
+          lipo "$CARGO_TARGET_DIR/universal-apple-darwin/release/quickpick" -verify_arch arm64 x86_64
+          compgen -G "$CARGO_TARGET_DIR/universal-apple-darwin/release/bundle/dmg/*.dmg" > /dev/null
+          printf 'Commit: %s\nEvent: %s\nRunner: %s %s\nUnsigned universal DMG for manual acceptance.\n' \
+            "$VALIDATION_SHA" "$VALIDATION_EVENT" "$RUNNER_OS" "$RUNNER_ARCH" > build-info.txt
+          cat build-info.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload universal DMG for manual acceptance
+        uses: actions/upload-artifact@v4
+        with:
+          name: quickpick-macos-universal-${{ github.sha }}
+          path: |
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            build-info.txt
+          if-no-files-found: error
+          retention-days: 14

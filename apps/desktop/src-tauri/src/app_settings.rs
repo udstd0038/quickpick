@@ -588,6 +588,10 @@ fn is_http_host_allowed(base_url: &str) -> bool {
 fn format_shortcut(shortcut: Shortcut) -> String {
     let mut parts = Vec::new();
 
+    #[cfg(target_os = "macos")]
+    if shortcut.mods.contains(Modifiers::SUPER) {
+        parts.push("Command".to_string());
+    }
     if shortcut.mods.contains(Modifiers::CONTROL) {
         parts.push("Ctrl".to_string());
     }
@@ -600,10 +604,8 @@ fn format_shortcut(shortcut: Shortcut) -> String {
         #[cfg(not(target_os = "macos"))]
         parts.push("Alt".to_string());
     }
+    #[cfg(not(target_os = "macos"))]
     if shortcut.mods.contains(Modifiers::SUPER) {
-        #[cfg(target_os = "macos")]
-        parts.push("Command".to_string());
-        #[cfg(not(target_os = "macos"))]
         parts.push("Win".to_string());
     }
 
@@ -713,6 +715,45 @@ mod tests {
             assert_eq!(settings.screenshot_hotkey, "Command+Option+3");
             assert_eq!(settings.input_translate_hotkey, "Command+Option+4");
         }
+    }
+
+    #[test]
+    fn hotkey_formatter_keeps_platform_modifier_order() {
+        let shortcut = Shortcut::new(
+            Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT),
+            Code::KeyQ,
+        );
+
+        #[cfg(target_os = "macos")]
+        assert_eq!(format_shortcut(shortcut), "Command+Ctrl+Shift+Option+Q");
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!(format_shortcut(shortcut), "Ctrl+Shift+Alt+Win+Q");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_hotkey_aliases_and_order_normalize_to_stable_values() {
+        let settings = settings_with_hotkeys(
+            "Option+Command+2",
+            "Ctrl+Option+Shift+Command+3",
+            "Super+Alt+4",
+        );
+        let normalized = normalize_settings_for_save(settings).unwrap();
+
+        assert_eq!(normalized.selection_hotkey, "Command+Option+2");
+        assert_eq!(normalized.screenshot_hotkey, "Command+Ctrl+Shift+Option+3");
+        assert_eq!(normalized.input_translate_hotkey, "Command+Option+4");
+        assert_eq!(
+            normalize_hotkey_for_load(&normalized.selection_hotkey, &default_selection_hotkey()),
+            normalized.selection_hotkey,
+        );
+
+        let duplicate = settings_with_hotkeys(
+            "Command+Option+2",
+            "Alt+Super+Digit2",
+            "Command+Option+4",
+        );
+        assert!(normalize_settings_for_save(duplicate).is_err());
     }
 
     #[test]
