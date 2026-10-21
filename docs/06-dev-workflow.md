@@ -173,7 +173,18 @@ fixture 使用独立应用标识、设置、窗口状态和 WebView profile；�
 
 退出码 0 表示请求的动作或图片全部验证成功；1 表示失败；2 表示“未执行”，包括非 Windows、无可用交互桌面、无法激活 owned 窗口或无法获取非空白 WebView 图片。`.github/workflows/development-tools.yml` 检查资源、编译并测试 helper/fixture，同时尝试交互检查；遇到 2 时在 Summary 显示 `NOT RUN` 并保留人工验收待办，不能因其他步骤通过就将交互检查标为通过。
 
-第四阶段完整独立 CI 正在运行，实际交互桌面结果待核验；各阶段 CI 与手动验收必须按精确源码及产物提交分别记录，不能把编译成功计作真实桌面动作通过。当前已验收的二进制图标与安装器资源未替换，生成工具只在临时目录验证新结果。
+该工作流另外提供独立的 `windows-release` job：不启用 `dev-tools` 运行默认应用 Rust 测试，再使用 `tauri build --bundles nsis --ci --no-sign -- --locked` 构建默认 Windows release 和 NSIS 安装包。`scripts/record-windows-build.mjs` 核对实际 checkout 与 workflow 提交一致，并将提交、源码树、版本、默认 feature 状态、可执行文件及安装包的 SHA256 写入 `build-info.json`。产物 `quickpick-windows-default-<完整提交 SHA>` 保留 14 天，仅供验收，不发布 Release。
+
+`windows-acceptance` job 还上传平铺的 `quickpick-windows-desktop-check-<完整提交 SHA>`，包含 `quickpick-fixture.exe`、`quickpick-native-helper.exe` 和 `source-commit.txt`。在已登录、未锁屏的 Windows 11 桌面解压后，可以从该目录的前台终端直接运行以下命令，不需要安装 Node.js、pnpm 或 Rust：
+
+```text
+.\quickpick-native-helper.exe verify-hotkeys --fixture-exe .\quickpick-fixture.exe
+.\quickpick-native-helper.exe capture-readme --fixture-exe .\quickpick-fixture.exe --output-dir tool-validation --themes light,dark --languages zh-Hans,en --include-screenshot
+```
+
+每条命令分别记录退出码及完整结果，并用 `source-commit.txt` 关联本次候选；fixture 不得当作日常应用使用。默认应用与安装包构建通过不代表上述交互命令通过，fixture 交互通过也不替代真实跨应用取词、剪贴板、多屏截图或安装/升级/登录自启验收。
+
+macOS 工具 PR #5 保持草稿，等待其本次提交的完整 CI 及 Windows 11 交互结果；实体 Mac 验收继续延期，签名、公证与正式分发尚未完成。各阶段 CI 与手动验收必须按精确源码及产物提交分别记录，不能把编译成功计作真实桌面动作通过。当前已验收的二进制图标与安装器资源未替换，生成工具只在临时目录验证新结果。
 
 ## 10. 收尾说明
 
