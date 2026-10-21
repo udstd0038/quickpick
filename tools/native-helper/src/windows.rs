@@ -855,7 +855,7 @@ mod native {
             let mut actual_pid = 0;
             GetWindowThreadProcessId(hwnd as HWND, &mut actual_pid);
             if IsWindow(hwnd as HWND) == 0 || actual_pid != pid {
-                return Err(DriverError::failed("窗口不属于本次启动的 fixture PID"));
+                return Err(DriverError::failed("窗口不属于本次验收拥有的 PID"));
             }
         }
         Ok(())
@@ -888,17 +888,43 @@ mod native {
             Ok(Self(hwnd))
         }
         fn focus(&self) -> Result<(), DriverError> {
+            let pid = std::process::id();
+            let hwnd = self.0 as usize;
+            owned_window(pid, hwnd)?;
             unsafe {
                 ShowWindow(self.0, SW_SHOW);
-                SetForegroundWindow(self.0);
             }
-            pause(Duration::from_millis(150));
-            if unsafe { GetForegroundWindow() } != self.0 {
-                return Err(DriverError::pending(
-                    "系统拒绝前台切换，不能可靠发送真实快捷键",
-                ));
+
+            let deadline = Instant::now() + Duration::from_secs(2);
+            let mut next_attempt = Instant::now();
+            let mut attempts = 0;
+            let mut activation_accepted = false;
+            loop {
+                pump();
+                owned_window(pid, hwnd)?;
+                if unsafe {
+                    IsWindowVisible(self.0) != 0 && GetForegroundWindow() == self.0
+                } {
+                    return Ok(());
+                }
+
+                let now = Instant::now();
+                if now >= deadline {
+                    return Err(DriverError::pending(format!(
+                        "owned 合成窗口在 2 秒内未成为实际前台；激活尝试 {attempts}/3，\
+                         SetForegroundWindow 曾返回成功：{activation_accepted}；真实快捷键未执行"
+                    )));
+                }
+                if attempts < 3 && now >= next_attempt {
+                    attempts += 1;
+                    activation_accepted |= unsafe { SetForegroundWindow(self.0) != 0 };
+                    next_attempt = now + Duration::from_millis(500);
+                }
+                pause(
+                    Duration::from_millis(25)
+                        .min(deadline.saturating_duration_since(Instant::now())),
+                );
             }
-            Ok(())
         }
     }
     impl Drop for SourceWindow {
