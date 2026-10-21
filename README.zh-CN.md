@@ -28,7 +28,7 @@ QuickPick 默认坚持本地优先：
 
 - Windows 11 v0.1.4 为正式版本。
 - macOS v0.1.3-macos 是基于 `feature/macos-port` 的 universal 预发布版本。
-- macOS 包已通过 CI universal 构建，但尚未签名、未公证，也尚未在实体 Mac 上完成人工验收。
+- 已发布的 macOS 包通过过 CI 构建，但尚未签名、未公证；后续快捷键修复仍需新的构建验证和实体 Mac 复验。
 
 ## 应用截图
 
@@ -126,13 +126,15 @@ pnpm desktop:dev
 
 构建 Windows NSIS 安装包：
 
-```powershell
+```text
 pnpm --filter quickpick-desktop exec tauri build --bundles nsis --ci --no-sign
 ```
 
-在 macOS 上构建 universal DMG：
+在 macOS 上从 `feature/macos-port` 分支构建 universal DMG；`main` 当前仍为 Windows 实现：
 
 ```bash
+git switch feature/macos-port
+pnpm install --frozen-lockfile
 pnpm --filter quickpick-desktop exec tauri build --target universal-apple-darwin --bundles dmg --ci --no-sign
 ```
 
