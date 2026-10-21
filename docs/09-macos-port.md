@@ -2,7 +2,7 @@
 
 ## 状态
 
-macOS 移植的目标开发分支为 `feature/macos-port`，开发版本为 `0.1.4`。PR #2 → #3 → #4 已按顺序保留祖先关系合入该开发分支；整合源码提交 `0b493773753061b5f1f8240252228333474987b3` 的原生 CI 和当前依赖审计均已通过。第四阶段工具迁移 PR #5 仍为草稿、尚未合入，实体 Mac 验收仍未完成：
+macOS 移植的目标开发分支为 `feature/macos-port`，开发版本为 `0.1.4`。PR #2 → #3 → #4 已按顺序保留祖先关系合入该开发分支，整合源码提交 `0b493773753061b5f1f8240252228333474987b3` 的新原生 CI 和当前依赖审计均已通过。本工具补验候选包含第四阶段 PR #5 的工具实现，并接入上述阶段整合祖先；工具源码 `d9d4fbbed8397753f39d327dd1a63eeeaf87cba5` 的构建、测试和审计通过，但两项 Windows 桌面动作均退出 2，PR #5 仍为草稿、尚未合入目标开发分支。实体 Mac 验收继续延期：
 
 - Windows 保留默认快捷键与 DPAPI/NSIS 流程，第一阶段 Windows 回归已通过。
 - macOS 使用 Tauri 2、React、xcap 和 Rust 原生/官方插件能力。
@@ -14,11 +14,11 @@ macOS 移植的目标开发分支为 `feature/macos-port`，开发版本为 `0.1
 - 第二阶段 PR 实际验证的合并提交为 `d536ff8679a1b95b225c59ce5e9bfd1d64f40b7e`；[artifact `11835018469`](https://github.com/udstd0038/quickpick/actions/runs/38440004266/artifacts/11835018469) 对应该合并提交，未签名，仅用于验收。私有剪贴板 round-trip 验证原生恢复，模拟后端验证时序与 Keychain 错误；这些结果不能代替用户桌面的完整实机验收。
 - 第三阶段源码为 [`4e6d3ec46a54d61f3a0dc5f051621f45599cf61c`](https://github.com/udstd0038/quickpick/commit/4e6d3ec46a54d61f3a0dc5f051621f45599cf61c)，源码树为 `51557c4416e5fa39a548a3932446917091679032`。[CI run `38498994618`](https://github.com/udstd0038/quickpick/actions/runs/38498994618) 通过：两平台前端各 141/141、Windows Rust 66/66、macOS Rust 86/86、Windows 回归、macOS ARM/Intel check 及 universal DMG 构建/lipo 验证。[安全审计 run `38498994568`](https://github.com/udstd0038/quickpick/actions/runs/38498994568) 通过。
 - 第三阶段 PR 实际验证的合并提交为 `4906125a4072e832807f130417101f9bfae9e131`；[artifact `11865053097`](https://github.com/udstd0038/quickpick/actions/runs/38498994618/artifacts/11865053097) 对应该提交，未签名，保留至 2026-10-28。代码与自动化验收通过，不计作权限、Retina、多屏、Spaces/全屏的真实设备验收通过。
-- 本次整合在补依赖前的提交为 `6414ba110b445394703836397fed9dad10e83598`，源码树与第三阶段原源码完全一致。应用锁文件另将 `rustls 0.23.45` 精确更新至 `0.23.46`，处理 2026-10-14 公布的 RUSTSEC-2026-0346/0347/0348/0349。
-- 10 月 19/20 日又公布证书信任公告 RUSTSEC-2026-0382/0383，本次候选追加 `rustls-webpki 0.103.16` 与 `webpki-root-certs 1.0.10` 的精确安全更新，校验和来自 crates.io 官方索引。除上述三个包的版本/校验和外，其他包与全部依赖边保持；当前检查结果以最终候选提交的新运行记录为准。
-- 整合源码 `0b493773753061b5f1f8240252228333474987b3` 的 [CI run `39528695225`](https://github.com/udstd0038/quickpick/actions/runs/39528695225) 已通过前端、Windows 回归、macOS 双架构检查、原生 Rust 测试与未签名 universal DMG 构建；[安全审计 run `39528695123`](https://github.com/udstd0038/quickpick/actions/runs/39528695123) 通过。[验收 artifact `12314739243`](https://github.com/udstd0038/quickpick/actions/runs/39528695225/artifacts/12314739243) 对应该源码提交，不代表签名、公证或实体 Mac 验收完成。
+- 阶段整合在补依赖前的提交为 `6414ba110b445394703836397fed9dad10e83598`，源码树与第三阶段原源码完全一致。与该阶段源码相比，本次应用锁文件精确更新 `rustls 0.23.45 → 0.23.46`、`rustls-webpki 0.103.15 → 0.103.16` 和 `webpki-root-certs 1.0.9 → 1.0.10` 的版本及校验和，其他包与全部依赖边保持不变。
+- 上述更新分别处理 2026-10-14 公布的 RUSTSEC-2026-0346/0347/0348/0349，以及 10 月 19/20 日公布的证书信任公告 RUSTSEC-2026-0382/0383；新增校验和来自 crates.io 官方索引。整合源码 `0b493773753061b5f1f8240252228333474987b3` 的 [CI run `39528695225`](https://github.com/udstd0038/quickpick/actions/runs/39528695225) 和 [当前安全审计 run `39528695123`](https://github.com/udstd0038/quickpick/actions/runs/39528695123) 均通过，不复用公告前的旧审计结论。
 - 用户目前没有可用的实体 Mac；第一阶段通过说明构建与自动化基线可用，完整原生行为和手动检查保持待验收。
-- 当前仅推进开发链整合，不自动发布 Release。本次整合与三项依赖更新已取得上述新 CI；真实设备验收项目仍独立待办。
+- 当前仅推进开发链整合与工具补验，CI 产物用于验收，不自动发布 Release。工具源码 `d9d4fbbed8397753f39d327dd1a63eeeaf87cba5` 的 [开发工具 run `39530687020`](https://github.com/udstd0038/quickpick/actions/runs/39530687020)、[macOS/Windows 原生 run `39530687012`](https://github.com/udstd0038/quickpick/actions/runs/39530687012) 及 [当前安全审计 run `39530687001`](https://github.com/udstd0038/quickpick/actions/runs/39530687001) 通过；实际 checkout 为 PR 合并提交 `6d3836220c02eb1a5976e6d8a77d9b69097c0703`，与源码 head 分别记录。
+- 本工具候选已删除原五个 PowerShell 脚本，审计、资源生成、快捷键验收与 README 截图入口使用 Node.js/Rust；不能据此宣称目标开发分支或默认 `main` 已完成迁移。上述新运行已构建默认 Windows release/NSIS 和独立桌面验收包；两项桌面命令均退出 2（`NOT RUN`），2 秒内激活尝试 3/3，系统 API 均未返回成功，真实快捷键与界面采集未执行。当前没有连接用户 Windows 11 的执行终端，须在可执行的交互式 Windows 环境完成验收后再合入。
 
 ## 平台差异
 
@@ -78,20 +78,31 @@ macOS 移植的目标开发分支为 `feature/macos-port`，开发版本为 `0.1
 - pnpm 使用 `--frozen-lockfile`；Rust 与 Tauri 构建使用 `--locked`，防止 CI 静默改写依赖锁文件。
 - DMG 与 `build-info.txt` 上传为 `quickpick-macos-universal-<完整 github.sha>`，保留 14 天。验收记录必须写入该提交和对应 workflow run。PR 的 `github.sha` 是 GitHub 为该 PR 生成的合并提交，与 checkout 的验证代码对应。
 
+第四阶段新增 `.github/workflows/development-tools.yml`：Ubuntu/Bash 生成并验证临时资源、测试 helper、检查 Windows 目标 API；Windows/cmd 测试 opt-in fixture 并构建内嵌前端的 `quickpick-fixture.exe`，尝试真实注册快捷键与 owned 窗口导出。交互宿主不可用或 WebView 图片不可读时工具返回 2，Summary 记为 `NOT RUN`；此状态不能算交互验收通过。安全审计同时覆盖 `tools/native-helper/Cargo.lock`。工具命令与隔离规则见 `docs/06-dev-workflow.md` 第 9 节。
+
+本次工具补验另增加不启用 `dev-tools` 的默认应用 Rust 测试、Windows release 与 NSIS 构建，以及记录源码身份和 SHA256 的 `build-info.json`。工作流还准备平铺的专用 fixture、原生 driver 和源码提交记录，供 Windows 11 前台终端直接执行真实快捷键及固定界面导出；不需要安装 Node.js、pnpm 或 Rust。生成与上传验收包不等于真实桌面动作通过，完整命令与验证边界见 `docs/06-dev-workflow.md`。
+
 push 和 pull request 始终使用 `windows-latest`、`macos-latest`。手动 `workflow_dispatch` 默认也使用托管 Runner；只有明确选择 `self-hosted` 时，才分别使用同时带有 `self-hosted` + `Windows` 或 `self-hosted` + `macOS` 标签的 Runner。自托管 Windows 需要可用的 `cmd` 和 Rust/MSVC 工具链，macOS 需要可用的 `bash`、Xcode 工具链及 DMG 打包工具。Runner 还需能访问本工作流使用的 Actions 和依赖源。自托管模式仅用于手动运行，不接收 push/PR 自动任务。
 
 GitHub 的手动触发入口要求此工作流同时存在于仓库默认分支。仅合入 macOS 功能分支时，不能保证 Actions 页面已提供该入口；需要先将工作流纳入默认分支，再手动选择待验证分支和 Runner。PR 自动验证不依赖手动入口。
 
-第一、二、三阶段已完成开发链整合；本次整合源码与三项依赖更新通过上文记录的新原生 CI 和安全审计。受控后端与时序的自动化用例用于验证逻辑，不能代替真实 Mac 的 Accessibility、键盘事件、NSPasteboard、Keychain、显示器和窗口行为。详细条目见 `docs/05-testing-acceptance.md` 的 macOS 分阶段清单。
+第一、二、三阶段已完成开发链整合；本次阶段整合、工具补验及三项依赖更新通过上文记录的新原生 CI、默认 Windows release/NSIS、工具检查和当前安全审计。两项桌面命令仍为退出 2，不能从 workflow 成功推断交互验收通过。受控后端与时序的自动化用例用于验证逻辑，不能代替真实 Mac 的 Accessibility、键盘事件、NSPasteboard、Keychain、显示器和窗口行为。详细条目见 `docs/05-testing-acceptance.md` 的分阶段清单。
 
 ## 后续分步计划与验收门槛
 
 1. **统一开发基线与 CI（已通过）**：验收提交 `2ab5a52`，CI run `38381632543`；Windows 回归、macOS 双架构 check、原生测试、universal DMG 及架构/产物验证已完成。
 2. **取词与 Keychain 正确性（代码与 CI 已通过）**：源码 `e48f45592f40a2eb167ac4333dc5e7aff124ae84`，CI run `38440004266`，安全审计 run `38440004418`。剪贴板事务、按键清理、Keychain 错误处理及设置页未知状态已取得自动化结果；真实 Mac 手动检查保留待执行，不提前标为通过。
 3. **权限与多屏截图体验（代码与 CI 已通过）**：源码 `4e6d3ec46a54d61f3a0dc5f051621f45599cf61c`，CI run `38498994618`，安全审计 run `38498994568`。权限引导、同帧截图会话、取消/过期清理、macOS 窗口行为、平台外观名称及 `AlwaysDeny`/歧义 nil 防护取得独立自动化结果；Retina、外接屏、混合缩放、负坐标、TCC、Spaces/全屏继续待实机验收。
-4. **移除剩余 PowerShell 工具（PR #5 仍为草稿、尚未合入）**：该工具增量位于独立 `codex/powershell-tools-macos-20261015` 分支，不能将其代码或 CI 结果计作本开发链已有能力。工具源码 `d9d4fbbed8397753f39d327dd1a63eeeaf87cba5` 已通过独立构建、测试和当前安全审计，但两项桌面命令均返回退出码 2（`NOT RUN`）；2 秒内激活尝试 3/3，系统 API 均未返回成功，真实快捷键与界面采集未执行。当前未连接用户 Windows 11 的执行终端，须在可执行的交互式 Windows 环境完成验收后再合入。本开发链仍保留四个 PowerShell 开发工具，第一阶段审计入口已使用 Node.js。
+4. **移除剩余 PowerShell 工具（构建、测试、审计通过，PR #5 仍为草稿待交互补验）**：快捷键验收、README 截图、图标与安装器资源生成已替换为 `pnpm verify:hotkeys`、`pnpm capture:readme`、`pnpm tools:icons`、`pnpm tools:installer-assets`，加上第一阶段 `pnpm security:audit`，本工具候选原五脚本已删除并同步现行规范，尚未合入目标开发分支。资源生成复用现有工具链；快捷键验证真实 `SendInput` 和对应窗口，README 截图使用隔离的专用 `dev-tools` fixture。`pnpm test:tools` 检查真实生成资源，现有已验收二进制资源保留；上述新 CI 已通过默认 Windows release/NSIS、原生和工具检查，真实快捷键和固定界面采集均退出 2（`NOT RUN`），须补齐交互结果，不能以其他构建成功替代。
 5. **实体 Mac 完整验收与正式分发**：使用准确提交的产物复验四组快捷键、中文输入法、常见应用取词、截图粘贴、Keychain、菜单栏、LaunchAgent、Spaces/全屏及深浅主题，记录 Apple Silicon/Intel 与系统版本及每项结果。完整功能验收通过后配置 Developer ID 签名、公证和 staple，验证 DMG 安装、卸载、升级与登录自启，再发布正式版本。自动更新尚未实现，另立后续阶段。
 
 用户已确定：各阶段代码与 CI 按 1 → 2 → 3 → 4 → 5 的顺序推进，每阶段自动化验证通过后再推进下一阶段；Mac 实体验收延后，不因当前缺少设备阻挡第四阶段。待验收的实机项目独立保留，不能标为通过；第五阶段正式分发仍须完成真实设备验收及签名、公证验证。
 
 签名和公证需要配置 Apple 证书及对应 CI secrets；本轮 CI 不依赖这些凭据，也不发布 GitHub Release。
+
+## 第五阶段执行顺序（等待真实 Mac）
+
+1. **确定支持范围并冻结候选**：根据 Tauri/依赖能力明确最低支持 macOS 版本，再配置发布要求；准备 Apple Silicon、Intel、Retina/外屏及 macOS 15.4+ 访问策略测试条件。记录源码 SHA、PR 构建合并 SHA、workflow run、artifact、DMG SHA256、设备与系统版本。CI artifact 仅保留 14 天，过期后须为明确候选重新构建并更新记录。
+2. **统一原生功能验收**：按 `docs/05-testing-acceptance.md` 第 11.5 节，用固定非敏感数据执行权限、快捷键/中文输入法、取词与完整剪贴板、Keychain、同帧多屏截图、Spaces/全屏、菜单栏/主题和 LaunchAgent。每项记录步骤、预期、实际、通过/失败/未执行及错误类型，不记录凭据或测试内容；失败回到对应阶段修复，缺设备项目不能记为通过。
+3. **实现签名与公证流程**：完整功能验收通过后，准备 Developer ID Application 证书及私钥、Team ID 和公证凭据，通过 CI secrets 提供；实现并验证签名、公证与 staple，记录签名身份、公证请求 ID 及最终 DMG SHA256。当前工作流使用 `--no-sign`，配置 secrets 本身不表示此流程已经实现。
+4. **验证最终安装包再分发**：在最终安装位置复验 Gatekeeper、TCC、Keychain、安装/卸载/旧版升级、登录自启与禁用后的清理，覆盖两架构和所声明的系统范围；签名身份变化后的行为必须重新验证。只有最终产物全部通过后才发布正式版本，自动更新另立后续阶段。

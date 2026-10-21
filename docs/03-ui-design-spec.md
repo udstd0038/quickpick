@@ -1,6 +1,6 @@
 # QuickPick UI 设计规范
 
-Windows 的 Mica、自绘标题栏和原生 Win32 叙述保留对应平台设计与历史实现背景；当前共享用户窗口使用预创建的 Tauri/WebView，现行基线见 `docs/02-technical-architecture.md` 第 0 节。旧白窗恢复限制不禁止 macOS 使用已配置的预创建窗口。下述 macOS 第三阶段要求正在实施，不能视作代码、CI 或实机已通过。
+Windows 的 Mica、自绘标题栏和原生 Win32 叙述保留对应平台设计与历史实现背景；当前共享用户窗口使用预创建的 Tauri/WebView，现行基线见 `docs/02-technical-architecture.md` 第 0 节。旧白窗恢复限制不禁止 macOS 使用已配置的预创建窗口。macOS 第三阶段代码与独立 CI 已通过，证据见 `docs/09-macos-port.md`；权限、Retina、多屏及 Spaces/全屏的真实设备项目仍待验收。
 
 ## 1. 设计目标
 
@@ -237,7 +237,7 @@ QuickPick 的 UI 应该像一个安静、轻快的 Windows 11 原生工具。
 - 设置页 AI 接入导航拆分为“划词模型、截图模型、输入模型”三个独立导航项；每个导航项对应一张独立 AI 配置卡片，包含供应商、Base URL、模型和 API Key，三套配置互不复用。
 - 输入模型卡片额外包含输入翻译行为设置：默认快捷键 `Alt+4`、默认源语言（支持自动检测）、默认目标语言。
 
-### macOS 权限引导与窗口外观（第三阶段要求，待验收）
+### macOS 权限引导与窗口外观（第三阶段代码与 CI 已通过，实机待验收）
 
 - 设置页分别说明辅助功能用于选区读取、屏幕录制用于截图、输入监控用于可靠判断按键释放；只展示与实际功能相关的权限和操作。
 - 打开设置页只查询状态，不能自动弹出授权请求。未知、未授权、已授权与查询失败应有明确区分；某项失败不覆盖其他权限的状态。
@@ -304,11 +304,12 @@ QuickPick 的 UI 应该像一个安静、轻快的 Windows 11 原生工具。
 
 资源要求：
 
-- 可编辑源稿放在 `src-tauri/icons/source/`。
-- 应用打包图标使用 `src-tauri/icons/icon.ico` 和 `src-tauri/icons/icon.png`。
-- 托盘运行时图标使用 `src-tauri/icons/tray-icon.png`，该文件为纯白线性托盘图标。
+- 可编辑源稿放在 `apps/desktop/src-tauri/icons/source/`。
+- 应用打包图标使用 `apps/desktop/src-tauri/icons/icon.ico`、`icon.icns` 和 `icon.png`。
+- 托盘运行时图标使用 `apps/desktop/src-tauri/icons/tray-icon.png`，该文件为纯白线性托盘图标。
 - 不保留彩色版托盘图标，避免后续混用。
-- 生成脚本放在 `tools/generate-quickpick-icons.ps1`，不得联网或引入额外 npm/Cargo 依赖。
+- 通过 `pnpm tools:icons` 调用 `tools/generate-quickpick-icons.mjs`，复用已安装的 Tauri CLI；不得联网或引入额外 npm/Cargo 依赖。默认写入现行图标目录，可用 `--output-dir <目录>` 先生成到临时目录比对外观。
+- NSIS header/sidebar 的可编辑布局放在 `tools/assets/installer-header.svg` 和 `installer-sidebar.svg`，通过 `pnpm tools:installer-assets` 调用 Node.js 入口及 Rust helper，默认写入 `apps/desktop/src-tauri/installer/`。输出为 `150×57` 和 `164×314` 的 24 位 BMP，文字轮廓不依赖本机字体；同样支持 `--output-dir <目录>`。
 
 ## 10. 文案规范
 

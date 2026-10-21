@@ -28,7 +28,7 @@ QuickPick 默认坚持本地优先：
 
 - Windows 11 v0.1.4 为正式版本。
 - macOS v0.1.3-macos 是基于 `feature/macos-port` 的 universal 预发布版本。
-- 已发布的 macOS 包通过过 CI 构建，但尚未签名、未公证；后续快捷键修复仍需新的构建验证和实体 Mac 复验。
+- 已发布的 macOS 包通过过 CI 构建，但尚未签名、未公证。目前开发代码已通过三个独立阶段的 Windows/macOS CI 和 universal 构建，完整实体 Mac 验收仍待设备；精确提交与产物见 [macOS 开发状态](./docs/09-macos-port.md)。
 
 ## 应用截图
 
@@ -138,7 +138,27 @@ pnpm install --frozen-lockfile
 pnpm --filter quickpick-desktop exec tauri build --target universal-apple-darwin --bundles dmg --ci --no-sign
 ```
 
-README 截图生成脚本位于 `tools/capture-readme-screenshots.ps1`。
+开发工具使用 Node.js 与 Rust：
+
+| 命令 | 用途 |
+|------|------|
+| `pnpm security:audit` | 审计生产前端、应用 Rust 与原生 helper 依赖 |
+| `pnpm tools:icons` | 生成桌面 PNG/ICO/ICNS 与托盘图标 |
+| `pnpm tools:installer-assets` | 生成 NSIS header/sidebar BMP |
+| `pnpm test:tools` | 在临时目录生成并验证资源 |
+| `pnpm verify:hotkeys` | 在交互式 Windows 桌面验证真实注册的快捷键 |
+| `pnpm capture:readme` | 从隔离 Windows fixture 导出固定样例界面 |
+
+两个交互工具必须显式传入专用 `quickpick-fixture.exe`。先构建前端，再用 `tauri/custom-protocol` 将其嵌入 fixture：
+
+```text
+pnpm build
+cargo build --locked --release --features dev-tools,tauri/custom-protocol --bin quickpick-fixture --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir apps/desktop/src-tauri/target
+pnpm verify:hotkeys --fixture-exe apps/desktop/src-tauri/target/release/quickpick-fixture.exe
+pnpm capture:readme --fixture-exe apps/desktop/src-tauri/target/release/quickpick-fixture.exe --output-dir tool-validation --themes light,dark --languages zh-Hans,en --include-screenshot
+```
+
+以上命令从仓库根目录执行。正式 release 程序不包含 fixture 标记，工具在启动前拒绝使用它。fixture 的配置、WebView 数据、凭据、自启、剪贴板和 AI 均与真实用户数据隔离；截图只读取它自己窗口的客户区，使用固定样例与不透明背景，不改用桌面截图作兜底。`--output-dir` 默认是调用者当前目录，生成文件保留 `screenshots/en`、`screenshots/zh-cn` 原命名，最大宽度 1280 px；可选 `--include-screenshot` 增加合成截图界面。非 Windows 或没有可用交互桌面时退出码为 2，表示“未执行”，不能把编译成功当作交互验收通过。检查步骤与当前限制见 [开发工作流](./docs/06-dev-workflow.md)。
 
 ## 🔧 技术栈
 
