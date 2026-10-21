@@ -433,8 +433,10 @@ function SettingsWindow() {
     hotkeyStatuses.find((item) => item.name === name)?.status;
   const [textApiKeyInput, setTextApiKeyInput] = useState("");
   const [visionApiKeyInput, setVisionApiKeyInput] = useState("");
-  const [textApiKeyConfigured, setTextApiKeyConfigured] = useState(false);
-  const [visionApiKeyConfigured, setVisionApiKeyConfigured] = useState(false);
+  const [textApiKeyConfigured, setTextApiKeyConfigured] =
+    useState<boolean | null>(null);
+  const [visionApiKeyConfigured, setVisionApiKeyConfigured] =
+    useState<boolean | null>(null);
   const [textApiKeyStatus, setTextApiKeyStatus] = useState<SettingsStatus>({
     kind: "loading",
     message: t("settings.checkingTextKey"),
@@ -444,7 +446,8 @@ function SettingsWindow() {
     message: t("settings.checkingVisionKey"),
   });
   const [inputApiKeyInput, setInputApiKeyInput] = useState("");
-  const [inputApiKeyConfigured, setInputApiKeyConfigured] = useState(false);
+  const [inputApiKeyConfigured, setInputApiKeyConfigured] =
+    useState<boolean | null>(null);
   const [inputApiKeyStatus, setInputApiKeyStatus] = useState<SettingsStatus>({
     kind: "loading",
     message: t("settings.checkingInputKey"),
@@ -462,7 +465,7 @@ function SettingsWindow() {
         });
       })
       .catch((error) => {
-        setInputApiKeyConfigured(false);
+        setInputApiKeyConfigured(null);
         setInputApiKeyStatus({
           kind: "error",
           message:
@@ -533,7 +536,7 @@ function SettingsWindow() {
       })
       .catch((error) => {
         if (isMounted) {
-          setTextApiKeyConfigured(false);
+          setTextApiKeyConfigured(null);
           setTextApiKeyStatus({
             kind: "error",
             message:
@@ -558,7 +561,7 @@ function SettingsWindow() {
       })
       .catch((error) => {
         if (isMounted) {
-          setVisionApiKeyConfigured(false);
+          setVisionApiKeyConfigured(null);
           setVisionApiKeyStatus({
             kind: "error",
             message:
@@ -770,7 +773,10 @@ function SettingsWindow() {
 
   const updateTextApiKeyInput = (value: string) => {
     setTextApiKeyInput(value);
-    if (textApiKeyStatus.kind === "success" || textApiKeyStatus.kind === "error") {
+    if (
+      textApiKeyConfigured !== null &&
+      (textApiKeyStatus.kind === "success" || textApiKeyStatus.kind === "error")
+    ) {
       setTextApiKeyStatus({
         kind: "idle",
         message: textApiKeyConfigured
@@ -782,7 +788,10 @@ function SettingsWindow() {
 
   const updateVisionApiKeyInput = (value: string) => {
     setVisionApiKeyInput(value);
-    if (visionApiKeyStatus.kind === "success" || visionApiKeyStatus.kind === "error") {
+    if (
+      visionApiKeyConfigured !== null &&
+      (visionApiKeyStatus.kind === "success" || visionApiKeyStatus.kind === "error")
+    ) {
       setVisionApiKeyStatus({
         kind: "idle",
         message: visionApiKeyConfigured
@@ -794,7 +803,10 @@ function SettingsWindow() {
 
   const updateInputApiKeyInput = (value: string) => {
     setInputApiKeyInput(value);
-    if (inputApiKeyStatus.kind === "success" || inputApiKeyStatus.kind === "error") {
+    if (
+      inputApiKeyConfigured !== null &&
+      (inputApiKeyStatus.kind === "success" || inputApiKeyStatus.kind === "error")
+    ) {
       setInputApiKeyStatus({
         kind: "idle",
         message: inputApiKeyConfigured
@@ -895,6 +907,11 @@ function SettingsWindow() {
   const clearScopedApiKey = (scope: "text" | "vision" | "input") => {
     const isText = scope === "text";
     const isVision = scope === "vision";
+    const configured = isText
+      ? textApiKeyConfigured
+      : isVision
+        ? visionApiKeyConfigured
+        : inputApiKeyConfigured;
     const status = isText
       ? textApiKeyStatus
       : isVision
@@ -922,7 +939,11 @@ function SettingsWindow() {
         : "settings.inputKeyLabel";
     const label = t(labelKey);
 
-    if (status.kind === "saving") {
+    if (
+      configured === false ||
+      status.kind === "loading" ||
+      status.kind === "saving"
+    ) {
       return;
     }
 
@@ -942,6 +963,13 @@ function SettingsWindow() {
               : `${label} ${t("settings.clearFailed")}`,
         });
       });
+  };
+
+  const apiKeyStatusLabel = (configured: boolean | null) => {
+    if (configured === null) {
+      return t("security.readFailed");
+    }
+    return configured ? t("settings.encrypted") : t("settings.notConfigured");
   };
 
   const scrollToSettingsSection = (sectionId: SettingsSectionId) => {
@@ -1293,7 +1321,7 @@ function SettingsWindow() {
                   type="button"
                   onClick={() => clearScopedApiKey("text")}
                   disabled={
-                    !textApiKeyConfigured ||
+                    textApiKeyConfigured === false ||
                     textApiKeyStatus.kind === "loading" ||
                     textApiKeyStatus.kind === "saving"
                   }
@@ -1304,11 +1332,7 @@ function SettingsWindow() {
             </SettingField>
             <TextRow
               label={t("settings.textKeyStatus")}
-              value={
-                textApiKeyConfigured
-                  ? t("settings.encrypted")
-                  : t("settings.notConfigured")
-              }
+              value={apiKeyStatusLabel(textApiKeyConfigured)}
               loading={textApiKeyStatus.kind === "loading"}
             />
             <div className="settings-key-feedback">
@@ -1392,7 +1416,7 @@ function SettingsWindow() {
                   type="button"
                   onClick={() => clearScopedApiKey("vision")}
                   disabled={
-                    !visionApiKeyConfigured ||
+                    visionApiKeyConfigured === false ||
                     visionApiKeyStatus.kind === "loading" ||
                     visionApiKeyStatus.kind === "saving"
                   }
@@ -1403,11 +1427,7 @@ function SettingsWindow() {
             </SettingField>
             <TextRow
               label={t("settings.visionKeyStatus")}
-              value={
-                visionApiKeyConfigured
-                  ? t("settings.encrypted")
-                  : t("settings.notConfigured")
-              }
+              value={apiKeyStatusLabel(visionApiKeyConfigured)}
               loading={visionApiKeyStatus.kind === "loading"}
             />
             <div className="settings-key-feedback">
@@ -1491,7 +1511,7 @@ function SettingsWindow() {
                   type="button"
                   onClick={() => clearScopedApiKey("input")}
                   disabled={
-                    !inputApiKeyConfigured ||
+                    inputApiKeyConfigured === false ||
                     inputApiKeyStatus.kind === "loading" ||
                     inputApiKeyStatus.kind === "saving"
                   }
@@ -1502,11 +1522,7 @@ function SettingsWindow() {
             </SettingField>
             <TextRow
               label={t("settings.inputKeyStatus")}
-              value={
-                inputApiKeyConfigured
-                  ? t("settings.encrypted")
-                  : t("settings.notConfigured")
-              }
+              value={apiKeyStatusLabel(inputApiKeyConfigured)}
               loading={inputApiKeyStatus.kind === "loading"}
             />
             <div className="settings-key-feedback">

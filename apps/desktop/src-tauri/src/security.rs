@@ -44,12 +44,7 @@ pub fn api_key_status(app: &AppHandle, scope: &str) -> Result<ApiKeyStatus, Stri
 pub fn api_key_status(app: &AppHandle, scope: &str) -> Result<ApiKeyStatus, String> {
     let _ = app;
     let entry = mac_keyring_entry(scope)?;
-    Ok(ApiKeyStatus {
-        configured: match entry.get_password() {
-            Ok(value) => !value.is_empty(),
-            Err(_) => false,
-        },
-    })
+    mac_api_key_status_from_store(&entry)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -89,7 +84,7 @@ pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), S
     let entry = mac_keyring_entry(scope)?;
     entry
         .set_password(trimmed)
-        .map_err(|error| error_key_with_detail("security.saveFailed", &error.to_string()))
+        .map_err(|error| mac_keyring_error("security.saveFailed", error))
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -112,16 +107,7 @@ pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
 pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
     let _ = app;
     let entry = mac_keyring_entry(scope)?;
-    let configured = matches!(
-        entry.get_password(),
-        Ok(value) if !value.is_empty()
-    );
-    if !configured {
-        return Ok(());
-    }
-    entry
-        .delete_credential()
-        .map_err(|error| error_key_with_detail("security.clearFailed", &error.to_string()))
+    clear_mac_api_key_from_store(&entry)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -157,20 +143,105 @@ pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<Zeroizing<Str
 pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<Zeroizing<String>>, String> {
     let _ = app;
     let entry = mac_keyring_entry(scope)?;
-    match entry.get_password() {
-        Ok(value) if !value.is_empty() => Ok(Some(Zeroizing::new(value))),
-        Ok(_) => Ok(None),
-        Err(error) => Err(error_key_with_detail(
-            "security.readFailed",
-            &error.to_string(),
-        )),
+    load_mac_api_key_from_store(&entry)
+}
+
+#[cfg(target_os = "macos")]
+trait MacKeyStore {
+    fn get_password(&self) -> keyring::Result<String>;
+    fn delete_credential(&self) -> keyring::Result<()>;
+}
+
+#[cfg(target_os = "macos")]
+impl MacKeyStore for keyring::Entry {
+    fn get_password(&self) -> keyring::Result<String> {
+        keyring::Entry::get_password(self)
+    }
+
+    fn delete_credential(&self) -> keyring::Result<()> {
+        keyring::Entry::delete_credential(self)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn mac_api_key_status_from_store(store: &impl MacKeyStore) -> Result<ApiKeyStatus, String> {
+    // The temporary password is zeroized when it is dropped after this check.
+    Ok(ApiKeyStatus {
+        configured: load_mac_api_key_from_store(store)?.is_some(),
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn load_mac_api_key_from_store(
+    store: &impl MacKeyStore,
+) -> Result<Option<Zeroizing<String>>, String> {
+    match store.get_password() {
+        Ok(value) => {
+            let value = Zeroizing::new(value);
+            Ok((!value.is_empty()).then_some(value))
+        }
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(mac_keyring_error("security.readFailed", error)),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn clear_mac_api_key_from_store(store: &impl MacKeyStore) -> Result<(), String> {
+    // Delete directly: a read can be denied even when deletion is permitted.
+    match store.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(mac_keyring_error("security.clearFailed", error)),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn mac_keyring_error(key: &str, mut error: keyring::Error) -> String {
+    error_key_with_detail(key, mac_keyring_error_detail(&mut error))
+}
+
+#[cfg(target_os = "macos")]
+fn mac_keyring_error_detail(error: &mut keyring::Error) -> &'static str {
+    // Backend Display/Debug implementations can include credential data.
+    // Return fixed categories and scrub malformed plaintext before dropping it.
+    match error {
+        keyring::Error::PlatformFailure(_) => "keychain backend failure",
+        keyring::Error::NoStorageAccess(_) => "keychain access denied or locked",
+        keyring::Error::NoEntry => "keychain entry missing",
+        keyring::Error::BadEncoding(bytes) => {
+            bytes.zeroize();
+            "keychain data is not valid UTF-8"
+        }
+        keyring::Error::BadDataFormat(bytes, _) => {
+            bytes.zeroize();
+            "keychain data format invalid"
+        }
+        keyring::Error::BadStoreFormat(reason) => {
+            reason.zeroize();
+            "keychain store format invalid"
+        }
+        keyring::Error::TooLong(name, _) => {
+            name.zeroize();
+            "keychain value too long"
+        }
+        keyring::Error::Invalid(attribute, reason) => {
+            attribute.zeroize();
+            reason.zeroize();
+            "keychain parameter invalid"
+        }
+        keyring::Error::Ambiguous(_) => "multiple keychain entries matched",
+        keyring::Error::NoDefaultStore => "keychain store unavailable",
+        keyring::Error::NotSupportedByStore(reason) => {
+            reason.zeroize();
+            "keychain operation unsupported"
+        }
+        _ => "keychain operation failed",
     }
 }
 
 #[cfg(target_os = "macos")]
 fn mac_keyring_entry(scope: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new("com.quickpick.desktop", &normalize_scope(scope))
-        .map_err(|error| error_key_with_detail("security.readFailed", &error.to_string()))
+        .map_err(|error| mac_keyring_error("security.readFailed", error))
 }
 
 fn api_key_path(app: &AppHandle, scope: &str) -> Result<PathBuf, String> {
@@ -220,6 +291,198 @@ mod tests {
         assert_eq!(api_key_file_name("vision"), "vision_api_key.dpapi");
         assert_eq!(api_key_file_name("input"), "input_api_key.dpapi");
         assert_eq!(api_key_file_name("unknown"), "text_api_key.dpapi");
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod mac_tests {
+    use super::*;
+    use std::cell::{Cell, RefCell};
+
+    struct FakeKeyStore {
+        password: RefCell<Option<keyring::Result<String>>>,
+        deletion: RefCell<Option<keyring::Result<()>>>,
+        reads: Cell<usize>,
+        deletes: Cell<usize>,
+    }
+
+    impl FakeKeyStore {
+        fn new(password: keyring::Result<String>, deletion: keyring::Result<()>) -> Self {
+            Self {
+                password: RefCell::new(Some(password)),
+                deletion: RefCell::new(Some(deletion)),
+                reads: Cell::new(0),
+                deletes: Cell::new(0),
+            }
+        }
+    }
+
+    impl MacKeyStore for FakeKeyStore {
+        fn get_password(&self) -> keyring::Result<String> {
+            self.reads.set(self.reads.get() + 1);
+            self.password
+                .borrow_mut()
+                .take()
+                .expect("one read expected")
+        }
+
+        fn delete_credential(&self) -> keyring::Result<()> {
+            self.deletes.set(self.deletes.get() + 1);
+            self.deletion
+                .borrow_mut()
+                .take()
+                .expect("one delete expected")
+        }
+    }
+
+    fn access_denied() -> keyring::Error {
+        keyring::Error::NoStorageAccess(Box::new(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "keychain access denied",
+        )))
+    }
+
+    fn assert_read_failure(make_error: impl Fn() -> keyring::Error) {
+        let store = FakeKeyStore::new(Err(make_error()), Ok(()));
+        let error = mac_api_key_status_from_store(&store)
+            .err()
+            .expect("status must report the read failure");
+        assert!(error.starts_with("i18n:security.readFailed:"));
+
+        let store = FakeKeyStore::new(Err(make_error()), Ok(()));
+        let error = load_mac_api_key_from_store(&store)
+            .err()
+            .expect("load must report the read failure");
+        assert!(error.starts_with("i18n:security.readFailed:"));
+    }
+
+    #[test]
+    fn missing_entry_is_unconfigured_and_can_be_loaded_as_none() {
+        let store = FakeKeyStore::new(Err(keyring::Error::NoEntry), Ok(()));
+        assert!(!mac_api_key_status_from_store(&store).unwrap().configured);
+
+        let store = FakeKeyStore::new(Err(keyring::Error::NoEntry), Ok(()));
+        assert!(load_mac_api_key_from_store(&store).unwrap().is_none());
+    }
+
+    #[test]
+    fn nonempty_entry_is_configured_and_loadable() {
+        let store = FakeKeyStore::new(Ok("test-keychain-key".to_string()), Ok(()));
+        assert!(mac_api_key_status_from_store(&store).unwrap().configured);
+
+        let store = FakeKeyStore::new(Ok("test-keychain-key".to_string()), Ok(()));
+        let value = load_mac_api_key_from_store(&store).unwrap().unwrap();
+        assert_eq!(value.as_str(), "test-keychain-key");
+    }
+
+    #[test]
+    fn empty_entry_is_unconfigured_and_loads_none() {
+        let store = FakeKeyStore::new(Ok(String::new()), Ok(()));
+        assert!(!mac_api_key_status_from_store(&store).unwrap().configured);
+
+        let store = FakeKeyStore::new(Ok(String::new()), Ok(()));
+        assert!(load_mac_api_key_from_store(&store).unwrap().is_none());
+    }
+
+    #[test]
+    fn access_denied_is_not_reported_as_a_missing_entry() {
+        assert_read_failure(access_denied);
+    }
+
+    #[test]
+    fn backend_failure_is_not_reported_as_a_missing_entry() {
+        assert_read_failure(|| {
+            keyring::Error::PlatformFailure(Box::new(std::io::Error::other(
+                "keychain backend unavailable",
+            )))
+        });
+    }
+
+    #[test]
+    fn clear_attempts_deletion_even_when_reading_would_be_denied() {
+        let store = FakeKeyStore::new(Err(access_denied()), Ok(()));
+        assert!(clear_mac_api_key_from_store(&store).is_ok());
+        assert_eq!(store.reads.get(), 0);
+        assert_eq!(store.deletes.get(), 1);
+    }
+
+    #[test]
+    fn clear_deletes_an_empty_entry_without_reading_it() {
+        let store = FakeKeyStore::new(Ok(String::new()), Ok(()));
+        assert!(clear_mac_api_key_from_store(&store).is_ok());
+        assert_eq!(store.reads.get(), 0);
+        assert_eq!(store.deletes.get(), 1);
+    }
+
+    #[test]
+    fn clearing_a_missing_entry_is_successful() {
+        let store = FakeKeyStore::new(Err(access_denied()), Err(keyring::Error::NoEntry));
+        assert!(clear_mac_api_key_from_store(&store).is_ok());
+        assert_eq!(store.reads.get(), 0);
+        assert_eq!(store.deletes.get(), 1);
+    }
+
+    #[test]
+    fn denied_deletion_does_not_report_success() {
+        let store = FakeKeyStore::new(Err(access_denied()), Err(access_denied()));
+        let error = clear_mac_api_key_from_store(&store)
+            .err()
+            .expect("denied deletion must fail");
+        assert!(error.starts_with("i18n:security.clearFailed:"));
+        assert_eq!(store.reads.get(), 0);
+        assert_eq!(store.deletes.get(), 1);
+    }
+
+    #[test]
+    fn errors_do_not_expose_backend_or_invalid_payload_details() {
+        const TEST_KEY: &str = "test-keychain-sensitive-key";
+        for operation in [
+            "security.readFailed",
+            "security.saveFailed",
+            "security.clearFailed",
+        ] {
+            let errors = [
+                keyring::Error::PlatformFailure(Box::new(std::io::Error::other(TEST_KEY))),
+                keyring::Error::NoStorageAccess(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    TEST_KEY,
+                ))),
+                keyring::Error::BadEncoding(TEST_KEY.as_bytes().to_vec()),
+                keyring::Error::BadDataFormat(
+                    TEST_KEY.as_bytes().to_vec(),
+                    Box::new(std::io::Error::other(TEST_KEY)),
+                ),
+                keyring::Error::BadStoreFormat(TEST_KEY.to_string()),
+                keyring::Error::TooLong(TEST_KEY.to_string(), 0),
+                keyring::Error::Invalid(TEST_KEY.to_string(), TEST_KEY.to_string()),
+                keyring::Error::NotSupportedByStore(TEST_KEY.to_string()),
+            ];
+            for error in errors {
+                let output = mac_keyring_error(operation, error);
+                assert!(output.starts_with(&format!("i18n:{operation}:")));
+                assert!(!output.contains(TEST_KEY));
+            }
+        }
+    }
+
+    #[test]
+    fn malformed_password_bytes_are_zeroized_before_error_is_discarded() {
+        let mut errors = [
+            keyring::Error::BadEncoding(b"test-keychain-key".to_vec()),
+            keyring::Error::BadDataFormat(
+                b"test-keychain-key".to_vec(),
+                Box::new(std::io::Error::other("invalid data")),
+            ),
+        ];
+        for error in &mut errors {
+            let _ = mac_keyring_error_detail(error);
+            match error {
+                keyring::Error::BadEncoding(bytes) | keyring::Error::BadDataFormat(bytes, _) => {
+                    assert!(bytes.is_empty());
+                }
+                _ => unreachable!(),
+            }
+        }
     }
 }
 
