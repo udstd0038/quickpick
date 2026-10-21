@@ -1,5 +1,7 @@
 mod ai;
 mod app_settings;
+#[cfg(feature = "dev-tools")]
+mod dev_fixture;
 mod localized_error;
 mod screenshot;
 mod security;
@@ -656,6 +658,23 @@ fn get_input_snapshot(state: tauri::State<'_, AppState>) -> Option<InputReadyPay
 fn get_screenshot_snapshot(
     state: tauri::State<'_, AppState>,
 ) -> Result<Option<screenshot::MonitorScreenshotPayload>, String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        if let Some(error) = state
+            .last_screenshot_error
+            .lock()
+            .ok()
+            .and_then(|current| current.clone())
+        {
+            return Err(error);
+        }
+        return Ok(state
+            .last_screenshot_payload
+            .lock()
+            .ok()
+            .and_then(|current| current.clone()));
+    }
+
     if let Some(error) = state
         .last_screenshot_error
         .lock()
@@ -810,6 +829,13 @@ fn copy_selection_text(state: tauri::State<'_, AppState>) -> Result<SelectionAct
 }
 
 fn copy_selection_text_from_state(state: &AppState) -> Result<SelectionActionResult, String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(SelectionActionResult {
+            message: "Synthetic fixture operation suppressed".into(),
+        });
+    }
+
     let text = current_selection_text(state)?;
 
     clipboard_win::set_clipboard_string(&text)
@@ -828,6 +854,13 @@ fn search_selection_text(
 }
 
 fn search_selection_text_from_state(state: &AppState) -> Result<SelectionActionResult, String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(SelectionActionResult {
+            message: "Synthetic fixture operation suppressed".into(),
+        });
+    }
+
     const MAX_SEARCH_CHARS: usize = 500;
 
     let text = current_selection_text(state)?;
@@ -851,6 +884,13 @@ fn search_selection_text_from_state(state: &AppState) -> Result<SelectionActionR
 
 #[tauri::command]
 fn copy_result_content(state: tauri::State<'_, AppState>) -> Result<SelectionActionResult, String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(SelectionActionResult {
+            message: "Synthetic fixture operation suppressed".into(),
+        });
+    }
+
     let snapshot = state
         .result_snapshot
         .lock()
@@ -875,6 +915,13 @@ fn copy_result_content(state: tauri::State<'_, AppState>) -> Result<SelectionAct
 
 #[tauri::command]
 fn copy_input_result(state: tauri::State<'_, AppState>) -> Result<SelectionActionResult, String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(SelectionActionResult {
+            message: "Synthetic fixture operation suppressed".into(),
+        });
+    }
+
     let result = state
         .last_input_result
         .lock()
@@ -1047,38 +1094,98 @@ fn set_hotkey_capture_mode(
     })
 }
 
+#[cfg(feature = "dev-tools")]
+pub fn run_fixture(build_marker: &'static str) {
+    if tauri::is_dev() {
+        eprintln!("QuickPick fixture requires embedded production assets");
+        std::process::exit(2);
+    }
+    if let Err(error) = dev_fixture::initialize(build_marker) {
+        eprintln!("QuickPick fixture startup rejected: {error}");
+        std::process::exit(2);
+    }
+    run();
+}
+
 pub fn run() {
-    tauri::Builder::default()
+    #[cfg(feature = "dev-tools")]
+    let fixture_active = dev_fixture::active();
+    #[cfg(not(feature = "dev-tools"))]
+    let fixture_active = false;
+    #[allow(unused_mut)]
+    let mut context = tauri::generate_context!();
+    #[cfg(feature = "dev-tools")]
+    dev_fixture::configure_context(&mut context);
+    let builder = tauri::Builder::default()
         .manage(AppState::default())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
-        .plugin(
+        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}));
+    let builder = if fixture_active {
+        builder
+    } else {
+        builder.plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_denylist(&["main"])
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![
-            get_selection_snapshot,
-            get_result_snapshot,
-            get_input_snapshot,
-            get_screenshot_snapshot,
-            get_app_settings,
-            save_app_settings,
-            get_api_key_status,
-            save_api_key,
-            clear_api_key,
-            clear_popup_state,
-            copy_selection_text,
-            search_selection_text,
-            copy_result_content,
-            copy_input_result,
-            run_text_ai_action,
-            set_hotkey_capture_mode,
-            request_input_translation,
-            request_result_translation,
-            capture_region_rect
-        ])
+    };
+    let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
+        get_selection_snapshot,
+        get_result_snapshot,
+        get_input_snapshot,
+        get_screenshot_snapshot,
+        get_app_settings,
+        save_app_settings,
+        get_api_key_status,
+        save_api_key,
+        clear_api_key,
+        clear_popup_state,
+        copy_selection_text,
+        search_selection_text,
+        copy_result_content,
+        copy_input_result,
+        run_text_ai_action,
+        set_hotkey_capture_mode,
+        request_input_translation,
+        request_result_translation,
+        capture_region_rect
+    ];
+    #[cfg(feature = "dev-tools")]
+    let fixture_handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool =
+        tauri::generate_handler![dev_fixture::fixture_frontend_ready];
+    #[cfg(feature = "dev-tools")]
+    let builder = builder
+        .invoke_handler(move |invoke| {
+            if invoke.message.command() == "fixture_frontend_ready" {
+                fixture_handler(invoke)
+            } else {
+                handler(invoke)
+            }
+        })
+        .on_page_load(dev_fixture::observe_page);
+    #[cfg(not(feature = "dev-tools"))]
+    let builder = builder.invoke_handler(handler);
+    builder
         .setup(|app| {
+            #[cfg(feature = "dev-tools")]
+            if dev_fixture::active() {
+                app_settings::save_app_settings(app.handle(), &dev_fixture::defaults())?;
+                let main =
+                    WebviewWindowBuilder::new(app.handle(), "main", dev_fixture::window_url())
+                        .title("QuickPick fixture")
+                        .inner_size(420.0, 600.0)
+                        .min_inner_size(420.0, 600.0)
+                        .center()
+                        .resizable(true)
+                        .transparent(true)
+                        .decorations(false)
+                        .visible(false);
+                dev_fixture::configure_window(main, "main").build()?;
+                for label in ["selection", "result", "input", "screenshot_overlay"] {
+                    get_or_create_window(app.handle(), label)
+                        .ok_or("fixture window creation failed")?;
+                }
+            }
             let settings = app_settings::load_app_settings(app.handle()).unwrap_or_default();
             for label in [
                 "selection",
@@ -1096,6 +1203,8 @@ pub fn run() {
             sync_window_appearance(app.handle(), &settings);
             setup_global_shortcuts(app.handle(), &settings)?;
             setup_tray(app.handle())?;
+            #[cfg(feature = "dev-tools")]
+            dev_fixture::start(app.handle())?;
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -1139,7 +1248,7 @@ pub fn run() {
             }
             _ => {}
         })
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running QuickPick");
 }
 
@@ -1385,6 +1494,21 @@ fn apply_window_vibrancy(
     window: &tauri::WebviewWindow,
     settings: &app_settings::AppSettings,
 ) -> Result<(), String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        window
+            .set_effects(None)
+            .map_err(|_| "fixture effects unavailable")?;
+        let color = if settings.theme_mode == "dark" {
+            Color(28, 32, 39, 255)
+        } else {
+            Color(241, 245, 250, 255)
+        };
+        return window
+            .set_background_color(Some(color))
+            .map_err(|_| "fixture background unavailable".into());
+    }
+
     let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
 
     if settings.window_effect.as_str() == "mica" {
@@ -1899,6 +2023,13 @@ fn capture_region_from_entry(app: &tauri::AppHandle) {
 }
 
 fn capture_region_from_hotkey(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || dev_fixture::show_screenshot(&handle));
+        return;
+    }
+
     let foreground_window = selection::current_foreground_window();
     let app = app.clone();
     std::thread::spawn(move || {
@@ -1942,14 +2073,17 @@ fn get_or_create_window(
         "screenshot_overlay" => "QuickPick 截图",
         _ => "QuickPick",
     };
-    let mut builder =
-        WebviewWindowBuilder::new(app, label, WebviewUrl::App("/".into()))
-            .title(title)
-            .transparent(true)
-            .decorations(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .visible(false);
+    #[cfg(feature = "dev-tools")]
+    let url = dev_fixture::window_url();
+    #[cfg(not(feature = "dev-tools"))]
+    let url = WebviewUrl::App("/".into());
+    let mut builder = WebviewWindowBuilder::new(app, label, url)
+        .title(title)
+        .transparent(true)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .visible(false);
 
     match label {
         "selection" => {
@@ -1967,6 +2101,8 @@ fn get_or_create_window(
         _ => return None,
     }
 
+    #[cfg(feature = "dev-tools")]
+    let builder = dev_fixture::configure_window(builder, label);
     let window = builder.build().ok()?;
     let settings = app_settings::load_app_settings(app).unwrap_or_default();
     sync_window_appearance(app, &settings);
@@ -2040,6 +2176,13 @@ async fn capture_region_rect(
     height: u32,
     action: String,
 ) -> Result<SelectionActionResult, String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Err(
+            "Synthetic screenshot fixture does not read the desktop or write the clipboard".into(),
+        );
+    }
+
     let action = match action.as_str() {
         "extract" => screenshot::RegionMenuAction::Extract,
         "translate" => screenshot::RegionMenuAction::Translate,
@@ -2244,6 +2387,13 @@ fn emit_screenshot_status(app: &tauri::AppHandle, kind: &'static str, message: S
 }
 
 fn activate_selection_bar(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || dev_fixture::show_selection(&handle));
+        return;
+    }
+
     let foreground_window = selection::current_foreground_window();
     let app = app.clone();
     std::thread::spawn(move || {
@@ -2310,6 +2460,13 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
 }
 
 fn activate_input_translate(app: &tauri::AppHandle) {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || dev_fixture::show_input(&handle));
+        return;
+    }
+
     let app = app.clone();
     std::thread::spawn(move || {
         let _ = tauri::async_runtime::block_on(run_input_translate_flow(app.clone()));
@@ -2667,6 +2824,10 @@ fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapsho
 }
 
 fn apply_autostart_setting(enabled: bool) -> Result<(), String> {
+    #[cfg(feature = "dev-tools")]
+    if dev_fixture::active() {
+        return Ok(());
+    }
     if enabled {
         enable_autostart()
     } else {

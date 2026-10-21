@@ -20,6 +20,14 @@
 - 初始截图与选区取样前隐藏 QuickPick 的工具窗口，截图 AI 在完成选区取样后才显示结果 Skeleton；截图动作异常由后端在结果窗口统一显示。
 - 结果快照必须先保存、再显示窗口和发送事件；截图 AI 开始时清除旧结果及划词重译上下文，前端订阅就绪后读取快照，并拒绝过期快照覆盖新事件。截图动作不读取 `selection_snapshot`。
 
+## 0.1 开发验收工具边界（2026-10-14）
+
+Node 工具入口调用独立的 `tools/native-helper` Rust binary，复用 Tauri CLI 和锁定图片依赖。资源检查跨平台运行；快捷键与 README 固定界面采集使用 Windows 交互桌面。默认应用不编译 `dev_fixture`，不暴露 fixture RPC，不读取工具参数；仅 `quickpick-fixture` + `dev-tools` 显式初始化隔离模式。
+
+fixture 在启动前验证全新临时目录与 build marker，使用自有 application identifier、WebView profile 和带 token 的 loopback 控制协议。它绕过真实 DPAPI、自启动、系统剪贴板、桌面截图和 AI 网络调用；所有界面内容固定。Windows 主线保留原有应用逻辑和截图 DTO，fixture 截图仅生成合成帧，不把 macOS 阶段 2/3 实现直接带入主线。
+
+下文关于旧 Win32 弹窗、白窗排障和候选能力的内容保留为历史迁移背景；当前可执行窗口以第 0 节架构快照与代码为准。本阶段只替换开发工具，不重新开放旧诊断入口。
+
 ## 1. 技术栈
 
 首版采用：

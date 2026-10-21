@@ -29,6 +29,11 @@ pub struct ApiKeyStatus {
 }
 
 pub fn api_key_status(app: &AppHandle, scope: &str) -> Result<ApiKeyStatus, String> {
+    #[cfg(feature = "dev-tools")]
+    if crate::dev_fixture::active() {
+        return crate::dev_fixture::key_status(scope).map(|configured| ApiKeyStatus { configured });
+    }
+
     let path = api_key_path(app, scope)?;
     let legacy_path = legacy_api_key_path(app)?;
     Ok(ApiKeyStatus {
@@ -38,6 +43,11 @@ pub fn api_key_status(app: &AppHandle, scope: &str) -> Result<ApiKeyStatus, Stri
 }
 
 pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), String> {
+    #[cfg(feature = "dev-tools")]
+    if crate::dev_fixture::active() {
+        return crate::dev_fixture::set_key(scope, !api_key.trim().is_empty());
+    }
+
     let trimmed = api_key.trim();
     if trimmed.is_empty() {
         return Err(error_key("security.apiKeyEmpty"));
@@ -60,6 +70,11 @@ pub fn save_api_key(app: &AppHandle, scope: &str, api_key: &str) -> Result<(), S
 }
 
 pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
+    #[cfg(feature = "dev-tools")]
+    if crate::dev_fixture::active() {
+        return crate::dev_fixture::set_key(scope, false);
+    }
+
     let path = api_key_path(app, scope)?;
     if path.exists() {
         fs::remove_file(path).map_err(|_| error_key("security.clearFailed"))?;
@@ -75,6 +90,12 @@ pub fn clear_api_key(app: &AppHandle, scope: &str) -> Result<(), String> {
 }
 
 pub fn load_api_key(app: &AppHandle, scope: &str) -> Result<Option<Zeroizing<String>>, String> {
+    #[cfg(feature = "dev-tools")]
+    if crate::dev_fixture::active() {
+        return crate::dev_fixture::key_status(scope)
+            .map(|configured| configured.then(|| Zeroizing::new("synthetic-fixture-key".into())));
+    }
+
     let path = api_key_path(app, scope)?;
     let legacy_path = legacy_api_key_path(app)?;
     let path = if path.exists() {

@@ -28,7 +28,7 @@ Current releases:
 
 - Windows 11 v0.1.4 is the stable release.
 - macOS v0.1.3-macos is a universal pre-release built from `feature/macos-port`.
-- The macOS package is CI-verified but is not signed, not notarized, and has not completed manual acceptance on physical Mac hardware yet.
+- The published macOS package passed CI, but it is unsigned and not notarized. Later shortcut fixes still need a successful build and another acceptance run on physical Mac hardware.
 
 ## Screenshots
 
@@ -126,17 +126,36 @@ pnpm desktop:dev
 
 Build the Windows release with NSIS:
 
-```powershell
+```text
 pnpm --filter quickpick-desktop exec tauri build --bundles nsis --ci --no-sign
 ```
 
-Build a macOS universal package on macOS:
+Build a macOS universal package on macOS from `feature/macos-port`. The `main` branch currently contains the Windows implementation:
 
 ```bash
+git switch feature/macos-port
+pnpm install --frozen-lockfile
 pnpm --filter quickpick-desktop exec tauri build --target universal-apple-darwin --bundles dmg --ci --no-sign
 ```
 
-The screenshot capture helper is available at `tools/capture-readme-screenshots.ps1`.
+Development tools use Node entry points and the isolated Rust helper, without PowerShell:
+
+```bash
+pnpm tools:icons
+pnpm tools:installer-assets
+pnpm test:tools
+```
+
+On an interactive Windows desktop, build the dedicated fixture with embedded frontend assets, then validate real registered hotkeys or capture fixed demonstration windows:
+
+```text
+pnpm build
+cargo build --locked --release --features dev-tools,tauri/custom-protocol --bin quickpick-fixture --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir apps/desktop/src-tauri/target
+pnpm verify:hotkeys --fixture-exe apps/desktop/src-tauri/target/release/quickpick-fixture.exe
+pnpm capture:readme --fixture-exe apps/desktop/src-tauri/target/release/quickpick-fixture.exe --themes light,dark --languages zh-Hans,en --include-screenshot
+```
+
+The tools require the dedicated fixture executable and use a temporary profile, synthetic text and images, and stub AI credentials. They never attach to an existing app, change user settings or startup registration, read a real desktop image, or call an AI service. An unavailable interactive desktop returns exit code 2 with `NOT RUN`; that result is not a passed hotkey or UI acceptance. The `development-tools` workflow checks resources and compiles both default and fixture applications; its summary records interactive coverage separately.
 
 ## Tech Stack
 

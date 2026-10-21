@@ -115,22 +115,23 @@
 
 发布前必须执行：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\security-audit.ps1
+```bash
+pnpm security:audit
 ```
 
-脚本会依次执行：
+跨平台入口 `scripts/security-audit.mjs` 会从仓库根目录和 Rust 项目目录依次执行以下命令；任一步失败都会返回非零退出码：
 
 - `pnpm --filter quickpick-desktop audit --prod`
-- `cargo audit`
+- 应用 `cargo audit`
+- `tools/native-helper` 独立锁文件的 `cargo audit`
 
 如果本机未安装 `cargo-audit`，先执行：
 
-```powershell
-cargo install cargo-audit
+```bash
+cargo install cargo-audit --locked
 ```
 
-仓库同时提供 `.github/workflows/security-audit.yml`，在 push、PR 和每周计划任务中运行 npm 与 Rust 依赖审计。高危漏洞不允许进入 release。
+仓库同时提供 `.github/workflows/security-audit.yml`，在 push、PR 和每周计划任务中使用 Ubuntu/Bash 调用相同审计入口。Windows、macOS 和 Linux 本地开发均可使用 `pnpm security:audit`，无需 PowerShell。高危漏洞不允许进入 release。
 
 ## 9. 收尾说明
 
@@ -142,3 +143,24 @@ cargo install cargo-audit
 - 下一步建议。
 
 如果有检查没跑，必须说明原因。
+
+## 10. 开发资源和 Windows 验收工具
+
+活跃入口为 `pnpm tools:icons`、`pnpm tools:installer-assets`、`pnpm verify:hotkeys --fixture-exe <独立 fixture.exe>` 和 `pnpm capture:readme --fixture-exe <独立 fixture.exe>`；原四个 PowerShell 工具已移除，第一阶段的安全审计入口仍为 `pnpm security:audit`。
+
+资源生成复用项目 Tauri CLI 与已锁定的 `image` PNG 解码器；不使用 PowerShell、系统字体或联网字体。Windows UI 驱动使用标准 Win32 `SendInput`、窗口/focus 检查及自有窗口 `PrintWindow`，无需额外 npm 自动化依赖。
+
+默认发行不启用 `dev-tools`。需要交互验收时，先 `pnpm build`，再使用 `cargo build --locked --release --features dev-tools,tauri/custom-protocol --bin quickpick-fixture --manifest-path apps/desktop/src-tauri/Cargo.toml --target-dir apps/desktop/src-tauri/target` 构建独立工具 binary。只把该 binary 的路径传给工具；PE marker、握手 token/PID/构建标识验证失败即拒绝启动或验收，结束时只回收本次工具创建的进程及临时目录。
+
+`.github/workflows/development-tools.yml` 的 Ubuntu/Bash 阶段检查实际资源、helper 测试及 Windows API 交叉编译；Windows/cmd 的独立 `windows-release` 阶段使用默认 feature 测试应用并构建 release 和 NSIS，上传可执行文件、安装包与包含源码提交、源码树和 SHA256 的 `build-info.json`。独立 `windows-acceptance` 阶段检查 fixture 和实际桌面验收，并上传仅含合成内容的验收程序。无桌面时记录“未执行”，保留人工验收项，不报告功能通过。Linux 开发环境不能启动 Windows release exe，必须在日志记录并通过 Windows CI/桌面补验。
+
+本次变更位于 `codex/powershell-tools-main-20261015` 草稿开发分支，已同步主线划词与 Firefox 截图修复，尚未合并默认 `main`，因此不能把此工作区的无 PowerShell 入口状态当作默认分支已更新。macOS 功能及实体 Mac 验收在独立 macOS 分支推进；没有可用实体 Mac，权限、Retina、外屏、Spaces、安装升级与登录自启验收统一保留待办。
+
+下载 `quickpick-windows-desktop-check-<提交 SHA>` artifact 并解压后，可在已登录且未锁屏的 Windows 11 前台终端运行：
+
+```cmd
+quickpick-native-helper.exe verify-hotkeys --fixture-exe quickpick-fixture.exe
+quickpick-native-helper.exe capture-readme --fixture-exe quickpick-fixture.exe --output-dir tool-validation --themes light,dark --languages zh-Hans,en --include-screenshot
+```
+
+退出码 0 才表示该项通过；退出码 2 仍为未执行。记录 artifact 提交、Windows 版本、两项退出码和错误类型；fixture 通过也不能替代默认应用的真实跨应用取词、截图、安装、升级和自启验收。

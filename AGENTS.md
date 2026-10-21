@@ -15,7 +15,7 @@ QuickPick 是轻量划词、区域截图和输入翻译 AI 工具，使用 Tauri
 - 界面使用 Tauri/WebView，活动窗口 label 为 `main`（设置）、`selection`（划词）、`result`（结果）、`input`（输入翻译）和 `screenshot_overlay`（截图）。独立 `screenshot_preview` 不在当前活动窗口和前端路由中。
 - 截图链路由 Rust `xcap` 捕获、前端 `react-image-crop` 框选和 Rust `capture_region_rect` 处理组成。截图读取和上传的预期边界仍须遵守有效隐私约定，不能仅凭链路现状放宽。
 - 设置窗口默认及最小逻辑尺寸为 `420×600`；隐藏或最小化后重新打开时重置默认尺寸，`main` 不恢复窗口状态文件中的尺寸。不同 DPI 下的尺寸与最小拖动限制仍有人工验收待办。
-- 仓库提供前端测试、Rust 单元测试和 Windows 热键事件链验证脚本；现有 GitHub Actions 运行依赖安全审计，不能当作构建、功能测试或实机验收通过的证据。
+- 仓库提供前端测试、Rust 单元测试、资源检查和 Windows 真实热键/窗口验证工具；GitHub Actions 分别运行依赖安全审计、默认应用 release/NSIS 构建和隔离 fixture 检查。实际通过范围以对应提交的运行结果为准；交互工具返回 2 时仍为未执行，不能把工作流成功当作桌面验收通过。
 
 进度核对入口：包清单与 `apps/desktop/src-tauri/tauri.conf.json`、`apps/desktop/src/App.tsx`、`apps/desktop/src-tauri/src/`，以及最新相关开发日志。日志中的验证结果只覆盖其记录的版本、平台和场景；单次任务“无待办”不能证明其他人工验收已经完成。
 
@@ -103,11 +103,11 @@ QuickPick 是轻量划词、区域截图和输入翻译 AI 工具，使用 Tauri
 | 桌面开发 | 根目录执行 `pnpm desktop:dev` |
 | Windows release 可执行文件 | `pnpm --filter quickpick-desktop exec tauri build --no-bundle --ci` |
 | Windows NSIS 安装包 | `pnpm --filter quickpick-desktop exec tauri build --bundles nsis --ci --no-sign` |
-| Windows 热键事件链 | 在已运行 QuickPick 的 Windows 环境执行 `powershell -ExecutionPolicy Bypass -File scripts\verify-hotkeys.ps1` |
-| 发布前依赖安全审计 | Windows 执行 `powershell -ExecutionPolicy Bypass -File scripts\security-audit.ps1` |
+| Windows 热键事件链 | Windows 前台终端执行 `pnpm verify:hotkeys --fixture-exe <独立 quickpick-fixture.exe>`，或使用 CI 验收包中的原生驱动，详见 `docs/06-dev-workflow.md` |
+| 发布前依赖安全审计 | 根目录执行跨平台 `pnpm security:audit` |
 
 - Node.js 要求 22+；pnpm 版本以根目录 `package.json` 的 `packageManager` 为准；Rust 与平台依赖按 Tauri 2 要求配置。
-- 热键脚本覆盖事件投递、窗口显示和失焦等检查，不能替代真实按键、跨应用取词、剪贴板恢复、截图坐标和 DPI 人工验收。
+- 隔离热键工具发送真实 `SendInput` 并核对注册、窗口、焦点、失焦和 Esc；固定界面导出只读取自有窗口。它们不能替代默认应用的跨应用取词、剪贴板恢复、真实截图坐标和 DPI 人工验收。
 - 纯文档变更核对内容、引用、链接和差异；无需为此构建或启动应用。
 - 在非 Windows 环境不得声称已完成 Windows Rust、桌面运行或打包验收；不能执行的检查说明具体原因和待验证范围。
 
