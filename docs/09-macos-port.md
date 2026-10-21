@@ -2,7 +2,7 @@
 
 ## 状态
 
-macOS 移植的目标开发分支为 `feature/macos-port`，开发版本为 `0.1.4`。第一、二、三阶段的原提交均已取得各自 CI 结果；本地已按 PR #2 → #3 → #4 顺序保留祖先关系整合开发链，尚待上传及本次整合提交的新 CI。第四阶段工具迁移 PR #5 尚未合入，实体 Mac 验收仍未完成：
+macOS 移植的目标开发分支为 `feature/macos-port`，开发版本为 `0.1.4`。第一、二、三阶段的原提交均已取得各自 CI 结果；本次候选在 `codex/macos-integration-20261021` 按 PR #2 → #3 → #4 顺序保留祖先关系整合，取得新 CI 后再推进目标开发分支。第四阶段工具迁移 PR #5 尚未合入，实体 Mac 验收仍未完成：
 
 - Windows 保留默认快捷键与 DPAPI/NSIS 流程，第一阶段 Windows 回归已通过。
 - macOS 使用 Tauri 2、React、xcap 和 Rust 原生/官方插件能力。
@@ -15,6 +15,7 @@ macOS 移植的目标开发分支为 `feature/macos-port`，开发版本为 `0.1
 - 第三阶段源码为 [`4e6d3ec46a54d61f3a0dc5f051621f45599cf61c`](https://github.com/udstd0038/quickpick/commit/4e6d3ec46a54d61f3a0dc5f051621f45599cf61c)，源码树为 `51557c4416e5fa39a548a3932446917091679032`。[CI run `38498994618`](https://github.com/udstd0038/quickpick/actions/runs/38498994618) 通过：两平台前端各 141/141、Windows Rust 66/66、macOS Rust 86/86、Windows 回归、macOS ARM/Intel check 及 universal DMG 构建/lipo 验证。[安全审计 run `38498994568`](https://github.com/udstd0038/quickpick/actions/runs/38498994568) 通过。
 - 第三阶段 PR 实际验证的合并提交为 `4906125a4072e832807f130417101f9bfae9e131`；[artifact `11865053097`](https://github.com/udstd0038/quickpick/actions/runs/38498994618/artifacts/11865053097) 对应该提交，未签名，保留至 2026-10-28。代码与自动化验收通过，不计作权限、Retina、多屏、Spaces/全屏的真实设备验收通过。
 - 本次本地整合在补依赖前的提交为 `6414ba110b445394703836397fed9dad10e83598`，源码树与第三阶段原源码完全一致。应用锁文件另将 `rustls 0.23.45` 精确更新至 `0.23.46`，处理 2026-10-14 公布的 RUSTSEC-2026-0346/0347/0348/0349；其他包和依赖边不变。旧审计成功不能证明当前安全审计通过，更新后的整合代码仍待独立原生 CI 和当前依赖审计。
+- 10 月 19/20 日又公布证书信任公告 RUSTSEC-2026-0382/0383，本次候选追加 `rustls-webpki 0.103.16` 与 `webpki-root-certs 1.0.10` 的精确安全更新，校验和来自 crates.io 官方索引。除上述三个包的版本/校验和外，其他包与全部依赖边保持；当前检查结果以最终候选提交的新运行记录为准。
 - 用户目前没有可用的实体 Mac；第一阶段通过说明构建与自动化基线可用，完整原生行为和手动检查保持待验收。
 - 当前仅推进开发链整合，不自动发布 Release。第三阶段原提交的自动化已通过，本次整合与依赖更新尚未取得新 CI；不把历史结果记作本次整合提交通过。
 
