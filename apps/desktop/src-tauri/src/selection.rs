@@ -1,25 +1,38 @@
+use crate::localized_error::error_key;
 use serde::Serialize;
-use std::{mem::size_of, thread, time::Duration};
-use uiautomation::{patterns::UITextPattern, UIAutomation};
+use std::{
+    collections::VecDeque,
+    mem::size_of,
+    thread,
+    time::{Duration, Instant},
+};
+use uiautomation::{patterns::UITextPattern, types::ControlType, UIAutomation};
 use windows_sys::Win32::{
     Foundation::HWND,
     UI::{
         Input::KeyboardAndMouse::{
             GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
-            KEYEVENTF_KEYUP, VK_C, VK_CONTROL, VK_ESCAPE,
+            KEYEVENTF_KEYUP, VK_C, VK_CONTROL, VK_ESCAPE, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
         },
-        WindowsAndMessaging::{GetForegroundWindow, IsWindow, SetForegroundWindow},
+        WindowsAndMessaging::{
+            GetForegroundWindow, GetGUIThreadInfo, GetWindowThreadProcessId, IsWindow,
+            SetForegroundWindow, GUITHREADINFO, GUI_INMENUMODE, GUI_POPUPMENUMODE,
+            GUI_SYSTEMMENUMODE,
+        },
     },
 };
 
 const MAX_SELECTION_CHARS: i32 = 20_000;
 const MAX_PREVIEW_CHARS: usize = 80;
 const HOTKEY_RELEASE_WAIT_MS: u64 = 25;
-const HOTKEY_RELEASE_ATTEMPTS: usize = 24;
+const HOTKEY_RELEASE_ATTEMPTS: usize = 120;
 const HOTKEY_RELEASE_SETTLE_MS: u64 = 90;
 const FOREGROUND_RESTORE_SETTLE_MS: u64 = 80;
 const CLIPBOARD_COPY_WAIT_MS: u64 = 25;
-const CLIPBOARD_COPY_ATTEMPTS: usize = 12;
+const CLIPBOARD_COPY_ATTEMPTS: usize = 48;
+const UIA_MAX_NODES: usize = 256;
+const UIA_MAX_DEPTH: usize = 16;
+const UIA_SEARCH_BUDGET_MS: u64 = 350;
 
 pub type ForegroundWindow = isize;
 
@@ -110,7 +123,11 @@ pub fn capture_selected_text_for_window(
     allow_clipboard_fallback: bool,
 ) -> SelectionSnapshot {
     match thread::spawn(move || {
-        capture_selected_text_with_fallback(foreground_window, hotkey_keys, allow_clipboard_fallback)
+        capture_selected_text_with_fallback(
+            foreground_window,
+            hotkey_keys,
+            allow_clipboard_fallback,
+        )
     })
     .join()
     {
@@ -124,11 +141,17 @@ fn capture_selected_text_with_fallback(
     hotkey_keys: Vec<i32>,
     allow_clipboard_fallback: bool,
 ) -> SelectionSnapshot {
-    wait_for_selection_hotkey_release(&hotkey_keys);
-    restore_foreground_window(foreground_window);
+    if !wait_for_capture_hotkey_release(&hotkey_keys) {
+        return SelectionSnapshot::empty(error_key("selection.hotkeyHeld"));
+    }
+    if !restore_foreground_window(foreground_window) {
+        return SelectionSnapshot::empty(error_key("selection.sourceUnfocused"));
+    }
     thread::sleep(Duration::from_millis(FOREGROUND_RESTORE_SETTLE_MS));
 
-    let direct_snapshot = capture_selected_text_inner();
+    // Escape can cancel a selection in desktop apps. Only send it for an active menu.
+    clear_alt_menu_mode(foreground_window);
+    let direct_snapshot = capture_selected_text_inner(foreground_window);
     if matches!(&direct_snapshot.status, SelectionStatus::Captured) {
         return direct_snapshot;
     }
@@ -149,33 +172,56 @@ fn capture_selected_text_with_fallback(
     }
 }
 
-fn capture_selected_text_inner() -> SelectionSnapshot {
+fn capture_selected_text_inner(foreground_window: ForegroundWindow) -> SelectionSnapshot {
     let automation = match UIAutomation::new() {
         Ok(automation) => automation,
         Err(_) => return SelectionSnapshot::error("无法初始化 Windows 文本读取能力"),
     };
 
-    let focused = match automation.get_focused_element() {
+    let root = match automation.element_from_handle(foreground_window.into()) {
         Ok(element) => element,
-        Err(_) => return SelectionSnapshot::empty("未找到当前焦点控件，请重新选择文本后再试"),
+        Err(_) => return SelectionSnapshot::unsupported(error_key("selection.controlUnavailable")),
     };
+    let walker = match automation.get_raw_view_walker() {
+        Ok(walker) => walker,
+        Err(_) => return SelectionSnapshot::error(error_key("selection.controlUnavailable")),
+    };
+    let started = Instant::now();
+    let budget = Duration::from_millis(UIA_SEARCH_BUDGET_MS);
 
-    let mut candidates = vec![focused.clone()];
-    if let Ok(walker) = automation.get_control_view_walker() {
-        let mut current = focused;
-        for _ in 0..4 {
-            match walker.get_parent(&current) {
-                Ok(parent) => {
-                    current = parent.clone();
-                    candidates.push(parent);
-                }
-                Err(_) => break,
+    let mut candidates = Vec::new();
+    if let Ok(mut current) = automation.get_focused_element() {
+        for _ in 0..32 {
+            candidates.push(current.clone());
+            if automation
+                .compare_elements(&current, &root)
+                .unwrap_or(false)
+            {
+                break;
             }
+            if started.elapsed() >= budget {
+                candidates.clear();
+                break;
+            }
+            current = match walker.get_parent(&current) {
+                Ok(parent) => parent,
+                Err(_) => break,
+            };
+        }
+        // Only use the focus path when it belongs to the original foreground window.
+        if !candidates
+            .last()
+            .is_some_and(|element| automation.compare_elements(element, &root).unwrap_or(false))
+        {
+            candidates.clear();
         }
     }
 
     let mut saw_text_pattern = false;
     for element in candidates {
+        if current_foreground_window() != foreground_window {
+            return SelectionSnapshot::empty(error_key("selection.sourceUnfocused"));
+        }
         if let Ok(pattern) = element.get_pattern::<UITextPattern>() {
             saw_text_pattern = true;
             match read_text_pattern_selection(&pattern) {
@@ -183,6 +229,37 @@ fn capture_selected_text_inner() -> SelectionSnapshot {
                 Ok(None) => {}
                 Err(_) => {}
             }
+        }
+    }
+
+    // WebViews and custom desktop controls often expose selection on a descendant,
+    // rather than the focused control or one of its ancestors.
+    let mut pending = VecDeque::from([(root, 0usize)]);
+    let mut visited = 0;
+    while let Some((element, depth)) = pending.pop_front() {
+        if visited >= UIA_MAX_NODES || started.elapsed() >= budget {
+            break;
+        }
+        if current_foreground_window() != foreground_window {
+            break;
+        }
+        visited += 1;
+        if let Ok(pattern) = element.get_pattern::<UITextPattern>() {
+            saw_text_pattern = true;
+            if let Ok(Some(text)) = read_text_pattern_selection(&pattern) {
+                return SelectionSnapshot::captured(text);
+            }
+        }
+        if depth >= UIA_MAX_DEPTH {
+            continue;
+        }
+        let mut child = walker.get_first_child(&element).ok();
+        while let Some(element) = child {
+            if visited + pending.len() >= UIA_MAX_NODES || started.elapsed() >= budget {
+                break;
+            }
+            child = walker.get_next_sibling(&element).ok();
+            pending.push_back((element, depth + 1));
         }
     }
 
@@ -201,49 +278,60 @@ struct ClipboardFormatSnapshot {
 fn capture_selected_text_from_clipboard(
     foreground_window: ForegroundWindow,
 ) -> Option<(String, bool)> {
-    let before_seq = clipboard_win::seq_num().map(|value| value.get());
-    let clipboard_snapshot = snapshot_clipboard_formats();
+    // Never accept an old clipboard value as newly copied selection text.
+    let (clipboard_snapshot, before_seq) = snapshot_clipboard_formats()?;
 
-    restore_foreground_window(foreground_window);
-    clear_alt_menu_mode();
-    thread::sleep(Duration::from_millis(40));
-    if !send_ctrl_c() {
-        restore_clipboard_formats(clipboard_snapshot);
+    if current_foreground_window() != foreground_window
+        || !selection_keys_released(&[])
+        || clipboard_win::seq_num().map(|value| value.get()) != Some(before_seq)
+        || !send_ctrl_c()
+    {
         return None;
     }
 
-    let copied = wait_for_copied_text(before_seq);
-    let restored = restore_clipboard_formats(clipboard_snapshot);
-    copied.map(|text| (text, restored))
+    let (text, sequence) = wait_for_copied_text(before_seq, foreground_window)?;
+    let restored = restore_clipboard_formats(clipboard_snapshot, sequence);
+    Some((text, restored))
 }
 
-fn snapshot_clipboard_formats() -> Vec<ClipboardFormatSnapshot> {
-    let _clipboard = match clipboard_win::Clipboard::new_attempts(10) {
-        Ok(clipboard) => clipboard,
-        Err(_) => return Vec::new(),
-    };
+fn snapshot_clipboard_formats() -> Option<(Vec<ClipboardFormatSnapshot>, u32)> {
+    let _clipboard = clipboard_win::Clipboard::new_attempts(10).ok()?;
 
-    clipboard_win::EnumFormats::new()
+    let mut had_formats = false;
+    let formats: Vec<_> = clipboard_win::EnumFormats::new()
         .filter_map(|format| {
+            had_formats = true;
             let mut data = Vec::new();
             clipboard_win::raw::get_vec(format, &mut data)
                 .ok()
                 .filter(|_| !data.is_empty())
                 .map(|_| ClipboardFormatSnapshot { format, data })
         })
-        .collect()
+        .collect();
+    // A genuinely empty clipboard must be cleared again after the temporary copy.
+    // If nothing could be backed up, leave the original clipboard untouched.
+    if had_formats && formats.is_empty() {
+        None
+    } else {
+        // Reading delayed formats can itself change the sequence number. Sample
+        // only after the backup is complete and while the clipboard is still locked.
+        Some((formats, clipboard_win::seq_num()?.get()))
+    }
 }
 
-fn restore_clipboard_formats(snapshot: Vec<ClipboardFormatSnapshot>) -> bool {
-    if snapshot.is_empty() {
-        return true;
-    }
-
+fn restore_clipboard_formats(
+    snapshot: Vec<ClipboardFormatSnapshot>,
+    expected_sequence: u32,
+) -> bool {
     let _clipboard = match clipboard_win::Clipboard::new_attempts(10) {
         Ok(clipboard) => clipboard,
         Err(_) => return false,
     };
 
+    // Do not overwrite a clipboard update that arrived after the temporary copy.
+    if clipboard_win::seq_num().map(|value| value.get()) != Some(expected_sequence) {
+        return false;
+    }
     if clipboard_win::raw::empty().is_err() {
         return false;
     }
@@ -257,18 +345,32 @@ fn restore_clipboard_formats(snapshot: Vec<ClipboardFormatSnapshot>) -> bool {
     restored
 }
 
-fn wait_for_copied_text(before_seq: Option<u32>) -> Option<String> {
+fn wait_for_copied_text(
+    before_seq: u32,
+    foreground_window: ForegroundWindow,
+) -> Option<(String, u32)> {
     for _ in 0..CLIPBOARD_COPY_ATTEMPTS {
         thread::sleep(Duration::from_millis(CLIPBOARD_COPY_WAIT_MS));
-        let after_seq = clipboard_win::seq_num().map(|value| value.get());
-        if before_seq.is_some() && after_seq == before_seq {
+        if current_foreground_window() != foreground_window {
+            return None;
+        }
+        let Some(after_seq) = clipboard_win::seq_num().map(|value| value.get()) else {
+            continue;
+        };
+        if after_seq == before_seq {
             continue;
         }
 
         if let Ok(value) = clipboard_win::get_clipboard_string() {
             let text = value.trim();
-            if !text.is_empty() {
-                return Some(text.to_string());
+            if !text.is_empty()
+                && current_foreground_window() == foreground_window
+                && clipboard_win::seq_num().map(|value| value.get()) == Some(after_seq)
+            {
+                return Some((
+                    text.chars().take(MAX_SELECTION_CHARS as usize).collect(),
+                    after_seq,
+                ));
             }
         }
     }
@@ -276,25 +378,32 @@ fn wait_for_copied_text(before_seq: Option<u32>) -> Option<String> {
     None
 }
 
-fn wait_for_selection_hotkey_release(hotkey_keys: &[i32]) {
+pub(crate) fn wait_for_capture_hotkey_release(hotkey_keys: &[i32]) -> bool {
     for _ in 0..HOTKEY_RELEASE_ATTEMPTS {
-        if hotkey_keys.iter().all(|key| !is_key_down(*key)) {
+        if selection_keys_released(hotkey_keys) {
             thread::sleep(Duration::from_millis(HOTKEY_RELEASE_SETTLE_MS));
-            return;
+            return selection_keys_released(hotkey_keys);
         }
         thread::sleep(Duration::from_millis(HOTKEY_RELEASE_WAIT_MS));
     }
 
-    thread::sleep(Duration::from_millis(HOTKEY_RELEASE_SETTLE_MS));
+    false
+}
+
+fn selection_keys_released(hotkey_keys: &[i32]) -> bool {
+    hotkey_keys.iter().all(|key| !is_key_down(*key))
+        && [VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN]
+            .iter()
+            .all(|key| !is_key_down(*key as i32))
 }
 
 fn is_key_down(key: i32) -> bool {
     (unsafe { GetAsyncKeyState(key) }) < 0
 }
 
-fn restore_foreground_window(foreground_window: ForegroundWindow) {
+fn restore_foreground_window(foreground_window: ForegroundWindow) -> bool {
     if foreground_window == 0 {
-        return;
+        return false;
     }
 
     let hwnd = foreground_window as HWND;
@@ -303,9 +412,39 @@ fn restore_foreground_window(foreground_window: ForegroundWindow) {
             let _ = SetForegroundWindow(hwnd);
         }
     }
+    current_foreground_window() == foreground_window
 }
 
-fn clear_alt_menu_mode() {
+pub(crate) fn clear_alt_menu_mode(foreground_window: ForegroundWindow) {
+    if current_foreground_window() != foreground_window {
+        return;
+    }
+    let mut info = GUITHREADINFO {
+        cbSize: size_of::<GUITHREADINFO>() as u32,
+        ..Default::default()
+    };
+    let native_menu_active = unsafe {
+        let thread_id = GetWindowThreadProcessId(foreground_window as HWND, std::ptr::null_mut());
+        thread_id != 0
+            && GetGUIThreadInfo(thread_id, &mut info) != 0
+            && info.flags & (GUI_INMENUMODE | GUI_POPUPMENUMODE | GUI_SYSTEMMENUMODE) != 0
+    };
+    // Firefox and Electron can expose a custom menu only through accessibility.
+    let accessible_menu_active = UIAutomation::new()
+        .and_then(|automation| automation.get_focused_element())
+        .and_then(|element| element.get_control_type())
+        .is_ok_and(|control| {
+            matches!(
+                control,
+                ControlType::Menu | ControlType::MenuBar | ControlType::MenuItem
+            )
+        });
+    if !native_menu_active && !accessible_menu_active {
+        return;
+    }
+    if current_foreground_window() != foreground_window || !selection_keys_released(&[]) {
+        return;
+    }
     let mut inputs = [
         keyboard_input(VK_ESCAPE, 0),
         keyboard_input(VK_ESCAPE, KEYEVENTF_KEYUP),
@@ -318,6 +457,7 @@ fn clear_alt_menu_mode() {
             size_of::<INPUT>() as i32,
         );
     }
+    thread::sleep(Duration::from_millis(FOREGROUND_RESTORE_SETTLE_MS));
 }
 
 fn send_ctrl_c() -> bool {

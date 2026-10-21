@@ -175,7 +175,7 @@ The frontend renders the settings page and WebView popups. Rust owns the OS-faci
 
 ## Contributing
 
-Contributions, bug reports, translations, and design feedback are welcome. Before opening a pull request, read [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENT.md](./AGENT.md), and the project documents under [docs/](./docs). The repository keeps current progress and decisions in [dev-logs/](./dev-logs).
+Contributions, bug reports, translations, and design feedback are welcome. Before opening a pull request, read [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md), and the project documents under [docs/](./docs). The repository keeps current progress and decisions in [dev-logs/](./dev-logs).
 
 Do not add API keys, selected text, screenshots, or AI response contents to commits, logs, issues, or CI artifacts.
 

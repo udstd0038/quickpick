@@ -25,6 +25,7 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 struct AppState {
     selection_snapshot: Mutex<SelectionSnapshot>,
+    capture_entry: Mutex<()>,
     result_snapshot: Mutex<ResultSnapshot>,
     last_text_translation: Mutex<Option<LastTextTranslation>>,
     last_image_translation: Mutex<Option<LastImageTranslation>>,
@@ -63,6 +64,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             selection_snapshot: Mutex::new(SelectionSnapshot::default()),
+            capture_entry: Mutex::new(()),
             result_snapshot: Mutex::new(ResultSnapshot::default()),
             last_text_translation: Mutex::new(None),
             last_image_translation: Mutex::new(None),
@@ -997,8 +999,7 @@ async fn run_text_ai_action_inner(
     )?;
 
     if preflight_snapshot.status == "error" {
-        show_native_result_popup(&app, &preflight_snapshot);
-        set_result_snapshot(&state, preflight_snapshot)?;
+        show_native_result_popup(&app, &preflight_snapshot)?;
 
         return Ok(SelectionActionResult {
             message: "请先补齐 AI 配置".to_string(),
@@ -1024,8 +1025,7 @@ async fn run_text_ai_action_inner(
             source_char_count,
         });
     }
-    show_webview_result_snapshot(&app, &loading_snapshot);
-    set_result_snapshot(&state, loading_snapshot)?;
+    show_webview_result_snapshot(&app, &loading_snapshot)?;
 
     let ai_result = match security::load_api_key(&app, "text") {
         Ok(Some(mut api_key)) => {
@@ -1065,8 +1065,7 @@ async fn run_text_ai_action_inner(
             translation_direction.clone(),
         )?,
     };
-    show_webview_result_snapshot(&app, &final_snapshot);
-    set_result_snapshot(&state, final_snapshot)?;
+    show_webview_result_snapshot(&app, &final_snapshot)?;
 
     Ok(SelectionActionResult {
         message: "AI 请求已完成".to_string(),
@@ -1322,9 +1321,6 @@ fn setup_global_shortcuts(
     app.plugin(
         tauri_plugin_global_shortcut::Builder::new()
             .with_handler(|app, shortcut, event| {
-                if event.state != ShortcutState::Released {
-                    return;
-                }
                 let capture_mode = app
                     .state::<AppState>()
                     .hotkey_capture_mode
@@ -1342,12 +1338,28 @@ fn setup_global_shortcuts(
                     .ok()
                     .and_then(|bindings| bindings.action_for(shortcut));
 
+                // Record the source window while the shortcut is pressed. The
+                // capture worker waits for all keys to be released before reading.
+                if matches!(action, Some(HotkeyAction::Selection | HotkeyAction::Screenshot)) {
+                    if event.state == ShortcutState::Pressed {
+                        match action {
+                            Some(HotkeyAction::Selection) => {
+                                activate_selection_bar(app, shortcut_release_keys(shortcut));
+                            }
+                            Some(HotkeyAction::Screenshot) => {
+                                capture_region_from_hotkey(app, shortcut_release_keys(shortcut));
+                            }
+                            _ => {}
+                        }
+                    }
+                    return;
+                }
+                if event.state != ShortcutState::Released {
+                    return;
+                }
                 match action {
                     Some(HotkeyAction::Settings) => show_settings_window(app),
-                    Some(HotkeyAction::Selection) => {
-                        activate_selection_bar(app, shortcut_release_keys(shortcut))
-                    }
-                    Some(HotkeyAction::Screenshot) => capture_region_from_entry(app),
+                    Some(HotkeyAction::Selection | HotkeyAction::Screenshot) => {}
                     Some(HotkeyAction::InputTranslate) => {
                         activate_input_translate(app);
                     }
@@ -2007,6 +2019,10 @@ fn toggle_autostart_from_tray(app: &tauri::AppHandle) {
 }
 
 fn capture_region_from_entry(app: &tauri::AppHandle) {
+    capture_region_from_hotkey(app, Vec::new());
+}
+
+fn capture_region_from_hotkey(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
     #[cfg(feature = "dev-tools")]
     if dev_fixture::active() {
         let handle = app.clone();
@@ -2014,11 +2030,32 @@ fn capture_region_from_entry(app: &tauri::AppHandle) {
         return;
     }
 
-    if show_screenshot_overlay(app) {
-        return;
-    }
-
-    eprintln!("QuickPick screenshot WebView window is unavailable");
+    let foreground_window = selection::current_foreground_window();
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let Ok(_capture) = state.capture_entry.try_lock() else {
+            return;
+        };
+        let preparation = if !selection::wait_for_capture_hotkey_release(&hotkey_keys) {
+            Err(error_key("screenshot.hotkeyHeld"))
+        } else if !hotkey_keys.is_empty()
+            && selection::current_foreground_window() != foreground_window
+        {
+            Err(error_key("screenshot.sourceUnfocused"))
+        } else {
+            selection::clear_alt_menu_mode(foreground_window);
+            show_screenshot_overlay(&app)
+        };
+        if let Err(error) = preparation {
+            show_native_message_popup(
+                &app,
+                "截图失败".to_string(),
+                error,
+                "请重新启动截图后再试。".to_string(),
+            );
+        }
+    });
 }
 
 fn get_or_create_window(
@@ -2072,10 +2109,24 @@ fn get_or_create_window(
     Some(window)
 }
 
-fn show_screenshot_overlay(app: &tauri::AppHandle) -> bool {
-    let Some(window) = get_or_create_window(app, "screenshot_overlay") else {
-        return false;
-    };
+fn hide_capture_windows(app: &tauri::AppHandle) -> Result<(), String> {
+    for label in ["selection", "result", "input", "screenshot_overlay"] {
+        if let Some(previous) = app.get_webview_window(label) {
+            previous.hide().map_err(|_| error_key("screenshot.focusFailed"))?;
+        }
+    }
+    Ok(())
+}
+
+fn show_screenshot_overlay(app: &tauri::AppHandle) -> Result<(), String> {
+    let window = get_or_create_window(app, "screenshot_overlay")
+        .ok_or_else(|| error_key("screenshot.focusFailed"))?;
+    // Hide QuickPick's old tool windows before sampling the desktop. In
+    // particular, an old selection error must not become part of the OCR image.
+    hide_capture_windows(app)?;
+    clear_popup_state_internal(app, "selection");
+    clear_popup_state_internal(app, "screenshot_overlay");
+    std::thread::sleep(Duration::from_millis(80));
     match screenshot::capture_current_monitor_screenshot() {
         Ok(payload) => {
             if let Ok(mut current) = app.state::<AppState>().last_screenshot_payload.lock() {
@@ -2090,10 +2141,30 @@ fn show_screenshot_overlay(app: &tauri::AppHandle) -> bool {
             let _ = app.emit_to("screenshot_overlay", "screenshot-error", error);
         }
     }
-    let _ = window.set_always_on_top(true);
-    let _ = window.show();
-    let _ = window.set_focus();
-    true
+    window.set_always_on_top(true)
+        .map_err(|_| error_key("screenshot.focusFailed"))?;
+    window.show().map_err(|_| error_key("screenshot.focusFailed"))?;
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::SetForegroundWindow;
+        if let Ok(hwnd) = window.hwnd() {
+            unsafe {
+                SetForegroundWindow(hwnd.0);
+            }
+        }
+    }
+    if window.set_focus().is_ok() {
+        // Focus changes are dispatched to the window thread; allow it to finish.
+        for _ in 0..8 {
+            if window.is_focused().unwrap_or(false) {
+                return Ok(());
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+    }
+    let _ = window.hide();
+    clear_popup_state_internal(app, "screenshot_overlay");
+    Err(error_key("screenshot.focusFailed"))
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -2124,7 +2195,22 @@ async fn capture_region_rect(
         width,
         height,
     };
-    handle_region_menu_selection(app, selection).await
+    // The command also owns error presentation for Copy and window-hide failures.
+    // Its caller can always dismiss the overlay without losing an error message.
+    let result = async {
+        hide_capture_windows(&app)?;
+        std::thread::sleep(Duration::from_millis(80));
+        handle_region_menu_selection(app.clone(), selection).await
+    }.await;
+    if let Err(error) = &result {
+        show_native_message_popup(
+            &app,
+            "截图操作失败".to_string(),
+            error.clone(),
+            "请重新框选截图后再试。".to_string(),
+        );
+    }
+    result
 }
 
 async fn handle_region_menu_selection(
@@ -2157,6 +2243,7 @@ async fn run_screenshot_ai_action(
     selection: screenshot::RegionMenuSelection,
     action: &'static str,
 ) -> Result<SelectionActionResult, String> {
+    clear_popup_state_internal(&app, "result");
     let source_preview = format!("区域截图 {}x{}", selection.width, selection.height);
     let settings = match app_settings::load_app_settings(&app) {
         Ok(settings) => settings,
@@ -2190,8 +2277,7 @@ async fn run_screenshot_ai_action(
     )?;
 
     if preflight.status == "error" {
-        show_native_result_popup(&app, &preflight);
-        set_app_result_snapshot(&app, preflight)?;
+        show_native_result_popup(&app, &preflight)?;
         emit_screenshot_status(&app, "error", "请先补齐 AI 配置".to_string());
 
         return Ok(SelectionActionResult {
@@ -2202,15 +2288,6 @@ async fn run_screenshot_ai_action(
     let source_language = initial_source_language();
     let target_language = settings.translation_target_language.clone();
     let translation_direction = default_translation_direction();
-    let loading = ResultSnapshot::image_loading(
-        action,
-        source_preview.clone(),
-        source_language.clone(),
-        target_language.clone(),
-        translation_direction.clone(),
-    )?;
-    show_webview_result_snapshot(&app, &loading);
-    set_app_result_snapshot(&app, loading)?;
     emit_screenshot_status(&app, "success", "正在读取截图区域".to_string());
 
     let image = match screenshot::capture_selected_region(selection) {
@@ -2224,8 +2301,7 @@ async fn run_screenshot_ai_action(
                 target_language.clone(),
                 translation_direction.clone(),
             )?;
-            show_webview_result_snapshot(&app, &snapshot);
-            set_app_result_snapshot(&app, snapshot)?;
+            show_webview_result_snapshot(&app, &snapshot)?;
             emit_screenshot_status(&app, "error", error.clone());
             return Err(error);
         }
@@ -2249,8 +2325,7 @@ async fn run_screenshot_ai_action(
         target_language.clone(),
         translation_direction.clone(),
     )?;
-    show_webview_result_snapshot(&app, &loading);
-    set_app_result_snapshot(&app, loading)?;
+    show_webview_result_snapshot(&app, &loading)?;
     emit_screenshot_status(&app, "success", "正在处理截图文字".to_string());
 
     let ai_result = match security::load_api_key(&app, "vision") {
@@ -2297,8 +2372,7 @@ async fn run_screenshot_ai_action(
             )?,
         ),
     };
-    show_webview_result_snapshot(&app, &final_snapshot);
-    set_app_result_snapshot(&app, final_snapshot)?;
+    show_webview_result_snapshot(&app, &final_snapshot)?;
     emit_screenshot_status(&app, kind, message.clone());
 
     Ok(SelectionActionResult { message })
@@ -2323,6 +2397,10 @@ fn activate_selection_bar(app: &tauri::AppHandle, hotkey_keys: Vec<i32>) {
     let foreground_window = selection::current_foreground_window();
     let app = app.clone();
     std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        let Ok(_capture) = state.capture_entry.try_lock() else {
+            return;
+        };
         refresh_selection_snapshot(&app, foreground_window, hotkey_keys);
         let _ = show_selection_webview(&app);
     });
@@ -2332,6 +2410,9 @@ fn show_selection_webview(app: &tauri::AppHandle) -> bool {
     let Some(window) = get_or_create_window(app, "selection") else {
         return false;
     };
+    if let Ok(snapshot) = app.state::<AppState>().selection_snapshot.lock() {
+        let _ = app.emit_to("selection", "selection-ready", snapshot.clone());
+    }
     #[cfg(windows)]
     {
         use windows_sys::Win32::{
@@ -2703,6 +2784,7 @@ fn show_native_message_popup(
     content: String,
     detail: String,
 ) {
+    clear_popup_state_internal(app, "result");
     let snapshot = ResultSnapshot {
         status: "error".to_string(),
         kind: "message".to_string(),
@@ -2718,17 +2800,19 @@ fn show_native_message_popup(
         translation_direction: default_translation_direction(),
         can_switch_language: false,
     };
-    show_webview_result_snapshot(app, &snapshot);
+    let _ = show_webview_result_snapshot(app, &snapshot);
 }
 
-fn show_native_result_popup(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
-    show_webview_result_snapshot(app, snapshot);
+fn show_native_result_popup(app: &tauri::AppHandle, snapshot: &ResultSnapshot) -> Result<(), String> {
+    show_webview_result_snapshot(app, snapshot)
 }
 
-fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapshot) {
-    let Some(window) = get_or_create_window(app, "result") else {
-        return;
-    };
+fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapshot) -> Result<(), String> {
+    // A newly mounted/focused result window may request its snapshot immediately.
+    // Publish state first so that request cannot return a previous selection error.
+    set_app_result_snapshot(app, snapshot.clone())?;
+    let window = get_or_create_window(app, "result")
+        .ok_or_else(|| error_key("result.windowUnavailable"))?;
 
     let _ = window.set_title(&snapshot.title);
     let _ = window.set_always_on_top(true);
@@ -2736,6 +2820,7 @@ fn show_webview_result_snapshot(app: &tauri::AppHandle, snapshot: &ResultSnapsho
     refresh_current_window_glass(app, &window);
     let _ = window.set_focus();
     let _ = app.emit_to("result", "result-ready", snapshot.clone());
+    Ok(())
 }
 
 fn apply_autostart_setting(enabled: bool) -> Result<(), String> {
