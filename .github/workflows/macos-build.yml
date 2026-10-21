@@ -2,7 +2,7 @@ name: macos-port
 
 on:
   push:
-    branches: [main, feature/macos-port]
+    branches: [main, feature/macos-port, 'codex/macos-integration-*']
   pull_request:
   workflow_dispatch:
     inputs:

@@ -2,7 +2,7 @@
 
 ## 状态
 
-macOS 移植在 `feature/macos-port` 分支开发。本轮同步 Windows 主线修复，将开发版本统一到 `0.1.4`；第一、二、三阶段已通过各自提交的 CI 验收，第四阶段开发工具替换代码已完成，独立 CI 运行中，交互桌面结果待核验：
+macOS 移植的目标开发分支为 `feature/macos-port`，开发版本为 `0.1.4`。第一、二、三阶段的原提交均已取得各自 CI 结果；阶段整合候选在 `codex/macos-integration-20261021` 按 PR #2 → #3 → #4 顺序保留祖先关系整合，取得新 CI 后再推进目标开发分支。本工具补验候选包含第四阶段 PR #5 的工具实现，并接入上述阶段整合祖先；PR #5 仍为草稿，待本次最终提交的 CI 及 Windows 11 交互验收，尚未合入目标开发分支。实体 Mac 验收继续延期：
 
 - Windows 保留默认快捷键与 DPAPI/NSIS 流程，第一阶段 Windows 回归已通过。
 - macOS 使用 Tauri 2、React、xcap 和 Rust 原生/官方插件能力。
@@ -14,9 +14,11 @@ macOS 移植在 `feature/macos-port` 分支开发。本轮同步 Windows 主线�
 - 第二阶段 PR 实际验证的合并提交为 `d536ff8679a1b95b225c59ce5e9bfd1d64f40b7e`；[artifact `11835018469`](https://github.com/udstd0038/quickpick/actions/runs/38440004266/artifacts/11835018469) 对应该合并提交，未签名，仅用于验收。私有剪贴板 round-trip 验证原生恢复，模拟后端验证时序与 Keychain 错误；这些结果不能代替用户桌面的完整实机验收。
 - 第三阶段源码为 [`4e6d3ec46a54d61f3a0dc5f051621f45599cf61c`](https://github.com/udstd0038/quickpick/commit/4e6d3ec46a54d61f3a0dc5f051621f45599cf61c)，源码树为 `51557c4416e5fa39a548a3932446917091679032`。[CI run `38498994618`](https://github.com/udstd0038/quickpick/actions/runs/38498994618) 通过：两平台前端各 141/141、Windows Rust 66/66、macOS Rust 86/86、Windows 回归、macOS ARM/Intel check 及 universal DMG 构建/lipo 验证。[安全审计 run `38498994568`](https://github.com/udstd0038/quickpick/actions/runs/38498994568) 通过。
 - 第三阶段 PR 实际验证的合并提交为 `4906125a4072e832807f130417101f9bfae9e131`；[artifact `11865053097`](https://github.com/udstd0038/quickpick/actions/runs/38498994618/artifacts/11865053097) 对应该提交，未签名，保留至 2026-10-28。代码与自动化验收通过，不计作权限、Retina、多屏、Spaces/全屏的真实设备验收通过。
+- 阶段整合在补依赖前的提交为 `6414ba110b445394703836397fed9dad10e83598`，源码树与第三阶段原源码完全一致。与该阶段源码相比，本次应用锁文件精确更新 `rustls 0.23.45 → 0.23.46`、`rustls-webpki 0.103.15 → 0.103.16` 和 `webpki-root-certs 1.0.9 → 1.0.10` 的版本及校验和，其他包与全部依赖边保持不变。
+- 上述更新分别处理 2026-10-14 公布的 RUSTSEC-2026-0346/0347/0348/0349，以及 10 月 19/20 日公布的证书信任公告 RUSTSEC-2026-0382/0383；新增校验和来自 crates.io 官方索引。旧审计成功不能证明当前安全审计通过，最终候选仍待独立原生 CI 和当前依赖审计。
 - 用户目前没有可用的实体 Mac；第一阶段通过说明构建与自动化基线可用，完整原生行为和手动检查保持待验收。
-- 当前阶段生成供验收的 CI 产物，不自动发布 Release；第四阶段需取得其自身最新提交的独立 CI，不能复用前三阶段结果。
-- 本工作分支已删除原五个 PowerShell 脚本，审计、资源生成、快捷键验收与 README 截图入口使用 Node.js/Rust；修改仍需通过草稿 PR 审阅合入，不能据此宣称默认分支已完成迁移。当前本地资源检查 3 项、原生 helper 15 项纯逻辑测试（BMP 3、driver 12）及 Windows 目标 API check 通过，完整第四阶段 CI 运行中，实际交互结果待核验。
+- 当前仅推进开发链整合与工具补验，CI 产物用于验收，不自动发布 Release。本次最终整合、依赖更新和 Windows 验收 CI 尚未取得完整新结果，不把历史结果记作本次提交通过。
+- 本工具候选已删除原五个 PowerShell 脚本，审计、资源生成、快捷键验收与 README 截图入口使用 Node.js/Rust；不能据此宣称目标开发分支或默认 `main` 已完成迁移。PR #5 原源码 `addbbd26ea08c903c82d1c6286fd9ecc6a2b381b` 的独立 CI 已通过资源、helper、fixture 和原生编译检查，Windows 交互动作仍为 `NOT RUN`；本次新增的默认 release/NSIS 和独立桌面验收包须取得最终提交的新运行记录。
 
 ## 平台差异
 
@@ -78,20 +80,22 @@ macOS 移植在 `feature/macos-port` 分支开发。本轮同步 Windows 主线�
 
 第四阶段新增 `.github/workflows/development-tools.yml`：Ubuntu/Bash 生成并验证临时资源、测试 helper、检查 Windows 目标 API；Windows/cmd 测试 opt-in fixture 并构建内嵌前端的 `quickpick-fixture.exe`，尝试真实注册快捷键与 owned 窗口导出。交互宿主不可用或 WebView 图片不可读时工具返回 2，Summary 记为 `NOT RUN`；此状态不能算交互验收通过。安全审计同时覆盖 `tools/native-helper/Cargo.lock`。工具命令与隔离规则见 `docs/06-dev-workflow.md` 第 9 节。
 
+本次工具补验另增加不启用 `dev-tools` 的默认应用 Rust 测试、Windows release 与 NSIS 构建，以及记录源码身份和 SHA256 的 `build-info.json`。工作流还准备平铺的专用 fixture、原生 driver 和源码提交记录，供 Windows 11 前台终端直接执行真实快捷键及固定界面导出；不需要安装 Node.js、pnpm 或 Rust。生成与上传验收包不等于真实桌面动作通过，完整命令与验证边界见 `docs/06-dev-workflow.md`。
+
 push 和 pull request 始终使用 `windows-latest`、`macos-latest`。手动 `workflow_dispatch` 默认也使用托管 Runner；只有明确选择 `self-hosted` 时，才分别使用同时带有 `self-hosted` + `Windows` 或 `self-hosted` + `macOS` 标签的 Runner。自托管 Windows 需要可用的 `cmd` 和 Rust/MSVC 工具链，macOS 需要可用的 `bash`、Xcode 工具链及 DMG 打包工具。Runner 还需能访问本工作流使用的 Actions 和依赖源。自托管模式仅用于手动运行，不接收 push/PR 自动任务。
 
 GitHub 的手动触发入口要求此工作流同时存在于仓库默认分支。仅合入 macOS 功能分支时，不能保证 Actions 页面已提供该入口；需要先将工作流纳入默认分支，再手动选择待验证分支和 Runner。PR 自动验证不依赖手动入口。
 
 历史 CI 曾在 `8db8485` 和已发布包对应的 `c6bf3b3` 上成功。快捷键修复后，日志记载当时遇到 Actions 付款/额度阻塞；本次审查时 `feature/macos-port` 的 `9354796` CI 失败且没有执行验证步骤。这些历史结果都不能作为本轮最新提交通过验证的证据，也不能证明当前失败原因仍是付款问题。
 
-第一、二、三阶段已经通过上文记录的各自提交完整 CI。第四阶段仍需针对其最新提交执行前端、Windows 回归、macOS 双架构检查、原生 Rust 测试、原生开发工具编译和 universal 打包；受控后端与时序的自动化用例用于验证逻辑，不能代替真实 Mac 的 Accessibility、键盘事件、NSPasteboard、Keychain、显示器和窗口行为，也不能将工具编译视为交互式 Windows 桌面验收通过。详细条目见 `docs/05-testing-acceptance.md` 的分阶段清单。
+第一、二、三阶段原提交已经通过上文记录的各自完整 CI。本次阶段整合、工具补验及三项依赖更新仍需针对最终提交执行前端、Windows 回归、默认 Windows release/NSIS、macOS 双架构检查、原生 Rust 测试、开发工具编译、universal 打包和当前依赖安全审计；尚未取得本次完整新结果。受控后端与时序的自动化用例用于验证逻辑，不能代替真实 Mac 的 Accessibility、键盘事件、NSPasteboard、Keychain、显示器和窗口行为，也不能将工具编译视为交互式 Windows 桌面验收通过。详细条目见 `docs/05-testing-acceptance.md` 的分阶段清单。
 
 ## 后续分步计划与验收门槛
 
 1. **统一开发基线与 CI（已通过）**：验收提交 `2ab5a52`，CI run `38381632543`；Windows 回归、macOS 双架构 check、原生测试、universal DMG 及架构/产物验证已完成。
 2. **取词与 Keychain 正确性（代码与 CI 已通过）**：源码 `e48f45592f40a2eb167ac4333dc5e7aff124ae84`，CI run `38440004266`，安全审计 run `38440004418`。剪贴板事务、按键清理、Keychain 错误处理及设置页未知状态已取得自动化结果；真实 Mac 手动检查保留待执行，不提前标为通过。
 3. **权限与多屏截图体验（代码与 CI 已通过）**：源码 `4e6d3ec46a54d61f3a0dc5f051621f45599cf61c`，CI run `38498994618`，安全审计 run `38498994568`。权限引导、同帧截图会话、取消/过期清理、macOS 窗口行为、平台外观名称及 `AlwaysDeny`/歧义 nil 防护取得独立自动化结果；Retina、外接屏、混合缩放、负坐标、TCC、Spaces/全屏继续待实机验收。
-4. **移除剩余 PowerShell 工具（当前阶段，代码已实现，独立 CI 运行中，交互结果待核验）**：快捷键验收、README 截图、图标与安装器资源生成已替换为 `pnpm verify:hotkeys`、`pnpm capture:readme`、`pnpm tools:icons`、`pnpm tools:installer-assets`，加上第一阶段 `pnpm security:audit`，本分支原五脚本已删除并同步现行规范。资源生成复用现有工具链；快捷键验证真实 `SendInput` 和对应窗口，README 截图使用隔离的专用 `dev-tools` fixture。`pnpm test:tools` 检查真实生成资源，现有已验收二进制资源保留；最新提交仍须取得完整独立 CI。未执行的交互桌面检查返回非零且单独记录，不能以 CI 编译替代。
+4. **移除剩余 PowerShell 工具（工具候选已实现，PR #5 仍为草稿待补验）**：快捷键验收、README 截图、图标与安装器资源生成已替换为 `pnpm verify:hotkeys`、`pnpm capture:readme`、`pnpm tools:icons`、`pnpm tools:installer-assets`，加上第一阶段 `pnpm security:audit`，本工具候选原五脚本已删除并同步现行规范，尚未合入目标开发分支。资源生成复用现有工具链；快捷键验证真实 `SendInput` 和对应窗口，README 截图使用隔离的专用 `dev-tools` fixture。`pnpm test:tools` 检查真实生成资源，现有已验收二进制资源保留；最终候选须取得完整独立 CI、默认 Windows release/NSIS 及 Windows 11 真实快捷键和固定界面采集结果。退出码 2 表示 `NOT RUN`，不能以其他构建成功替代。
 5. **实体 Mac 完整验收与正式分发**：使用准确提交的产物复验四组快捷键、中文输入法、常见应用取词、截图粘贴、Keychain、菜单栏、LaunchAgent、Spaces/全屏及深浅主题，记录 Apple Silicon/Intel 与系统版本及每项结果。完整功能验收通过后配置 Developer ID 签名、公证和 staple，验证 DMG 安装、卸载、升级与登录自启，再发布正式版本。自动更新尚未实现，另立后续阶段。
 
 用户已确定：各阶段代码与 CI 按 1 → 2 → 3 → 4 → 5 的顺序推进，每阶段自动化验证通过后再推进下一阶段；Mac 实体验收延后，不因当前缺少设备阻挡第四阶段。待验收的实机项目独立保留，不能标为通过；第五阶段正式分发仍须完成真实设备验收及签名、公证验证。
