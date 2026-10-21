@@ -4,22 +4,25 @@ import {
   cleanup,
   fireEvent,
   render,
+  screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  mac: true,
   invoke: vi.fn(),
   listen: vi.fn(),
   setDecorations: vi.fn(),
+  onFocusChanged: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: mocks.listen }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => mocks }));
 vi.mock("../../lib/platform", () => ({
-  runningOnMac: true,
+  get runningOnMac() { return mocks.mac; },
   setPlatformDataset: vi.fn(),
 }));
 
@@ -60,6 +63,13 @@ function backend(
         ? status()
         : Promise.resolve({ configured: false });
     }
+    if (command === "get_macos_permission_status") {
+      return Promise.resolve({
+        accessibility: true,
+        screenRecording: true,
+        inputMonitoring: true,
+      });
+    }
     if (command === "clear_api_key" && args?.scope === scope) {
       return clear();
     }
@@ -85,8 +95,10 @@ async function sectionControls(config: (typeof scopes)[number]) {
 describe("API key status and clearing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.mac = true;
     mocks.listen.mockResolvedValue(() => undefined);
     mocks.setDecorations.mockResolvedValue(undefined);
+    mocks.onFocusChanged.mockResolvedValue(() => undefined);
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn(() => ({
@@ -103,6 +115,32 @@ describe("API key status and clearing", () => {
   });
 
   afterEach(cleanup);
+
+  it("shows macOS permissions and the actual materials while keeping persisted values", async () => {
+    backend("text", () => Promise.resolve({ configured: false }), () => Promise.resolve({ message: "ok" }));
+    render(<SettingsWindow />);
+    await screen.findByText("macOS 权限");
+    expect(mocks.invoke).toHaveBeenCalledWith("get_macos_permission_status");
+    const effect = screen.getByRole("button", { name: "选择窗口效果" });
+    expect(effect.textContent).toContain("Popover");
+    fireEvent.click(effect);
+    fireEvent.click(screen.getByRole("option", { name: "Content background" }));
+    expect(effect.textContent).toContain("Content background");
+    expect(useSettingsStore.getState().settings.windowEffect).toBe("mica");
+    expect(mocks.invoke.mock.calls.some(([command]) => command === "request_macos_permission")).toBe(false);
+  });
+
+  it("keeps the Windows material labels and does not query macOS permissions", async () => {
+    mocks.mac = false;
+    backend("text", () => Promise.resolve({ configured: false }), () => Promise.resolve({ message: "ok" }));
+    await sectionControls(scopes[0]);
+    expect(screen.queryByText("macOS 权限")).toBeNull();
+    expect(mocks.invoke).not.toHaveBeenCalledWith("get_macos_permission_status");
+    const effect = screen.getByRole("button", { name: "选择窗口效果" });
+    expect(effect.textContent).toContain("Acrylic");
+    fireEvent.click(effect);
+    expect(screen.getByRole("option", { name: "Mica" })).toBeTruthy();
+  });
 
   it.each(scopes)("allows deleting $scope after status access is denied", async (config) => {
     const reading = deferred<{ configured: boolean }>();

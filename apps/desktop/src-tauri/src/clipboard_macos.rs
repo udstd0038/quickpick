@@ -11,9 +11,11 @@ use std::{
 
 use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 use objc2::rc::{autoreleasepool, Retained};
-use objc2::runtime::ProtocolObject;
+use objc2::runtime::{NSObjectProtocol, ProtocolObject};
+use objc2::sel;
 use objc2_app_kit::{
-    NSEvent, NSEventModifierFlags, NSPasteboard, NSPasteboardItem, NSPasteboardWriting,
+    NSEvent, NSEventModifierFlags, NSPasteboard, NSPasteboardAccessBehavior, NSPasteboardItem,
+    NSPasteboardWriting,
 };
 use objc2_foundation::{NSArray, NSData, NSString};
 use zeroize::Zeroizing;
@@ -178,6 +180,7 @@ pub fn capture_selection(
         };
         let mut keyboard = MacKeyboard {
             enigo: None,
+            pasteboard: clipboard.board.clone(),
             command_attempted: false,
             copy_key_attempted: None,
             copy_layout: None,
@@ -211,10 +214,40 @@ struct MacClipboard {
     board: Retained<NSPasteboard>,
 }
 
+fn check_pasteboard_access(
+    supports_access_behavior: bool,
+    read_behavior: impl FnOnce() -> NSPasteboardAccessBehavior,
+) -> Result<(), FallbackError> {
+    // accessBehavior was added in macOS 15.4. Do not send the selector on
+    // older systems. Ask/Default still rely on the OS and a readable snapshot;
+    // passing this check does not grant permission or change the user's policy.
+    if supports_access_behavior && read_behavior() == NSPasteboardAccessBehavior::AlwaysDeny {
+        Err(FallbackError::ClipboardAccessDenied)
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_pasteboard_access(board: &NSPasteboard) -> Result<(), FallbackError> {
+    check_pasteboard_access(board.respondsToSelector(sel!(accessBehavior)), || {
+        board.accessBehavior()
+    })
+}
+
+fn validate_absent_items(type_count: Option<usize>) -> Result<(), FallbackError> {
+    // nil items can mean a retrieval error. A successfully read empty type
+    // list is required to accept this path as an empty pasteboard.
+    match type_count {
+        Some(0) => Ok(()),
+        None | Some(_) => Err(FallbackError::SnapshotIncomplete),
+    }
+}
+
 fn snapshot_board(
     board: &NSPasteboard,
     byte_budget: usize,
 ) -> Result<ClipboardSnapshot, FallbackError> {
+    ensure_pasteboard_access(board)?;
     let change_count = board.changeCount();
     let mut items_snapshot = Vec::new();
     let mut bytes_used = 0usize;
@@ -272,8 +305,8 @@ fn snapshot_board(
             }
             items_snapshot.push(representations);
         }
-    } else if board.types().is_some_and(|types| types.count() != 0) {
-        return Err(FallbackError::SnapshotIncomplete);
+    } else {
+        validate_absent_items(board.types().map(|types| types.count()))?;
     }
     if board.changeCount() != change_count {
         return Err(FallbackError::ClipboardChanged);
@@ -312,6 +345,7 @@ impl ClipboardBackend for MacClipboard {
     }
 
     fn read_text(&mut self) -> Result<Option<String>, FallbackError> {
+        ensure_pasteboard_access(&self.board)?;
         let plain_text = NSString::from_str("public.utf8-plain-text");
         let Some(text) = self.board.stringForType(&plain_text) else {
             return Ok(None);
@@ -348,6 +382,7 @@ impl ClipboardBackend for MacClipboard {
 
 struct MacKeyboard<'a> {
     enigo: Option<Enigo>,
+    pasteboard: Retained<NSPasteboard>,
     command_attempted: bool,
     copy_key_attempted: Option<u16>,
     copy_layout: Option<CopyLayout>,
@@ -410,6 +445,7 @@ impl CopyKeyboard for MacKeyboard<'_> {
     }
 
     fn press_command(&mut self) -> Result<(), FallbackError> {
+        ensure_pasteboard_access(&self.pasteboard)?;
         if !self
             .copy_layout
             .as_ref()
@@ -431,6 +467,7 @@ impl CopyKeyboard for MacKeyboard<'_> {
     }
 
     fn click_copy(&mut self) -> Result<(), FallbackError> {
+        ensure_pasteboard_access(&self.pasteboard)?;
         if !self
             .copy_layout
             .as_ref()
@@ -508,6 +545,47 @@ impl Drop for MacKeyboard<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn older_systems_never_send_the_access_behavior_selector() {
+        assert_eq!(
+            check_pasteboard_access(false, || {
+                panic!("accessBehavior must not be called when unavailable")
+            }),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn denied_pasteboard_access_is_rejected_without_changing_policy() {
+        let reads = std::cell::Cell::new(0);
+        assert_eq!(
+            check_pasteboard_access(true, || {
+                reads.set(reads.get() + 1);
+                NSPasteboardAccessBehavior::AlwaysDeny
+            }),
+            Err(FallbackError::ClipboardAccessDenied)
+        );
+        assert_eq!(reads.get(), 1);
+        for behavior in [
+            NSPasteboardAccessBehavior::Default,
+            NSPasteboardAccessBehavior::Ask,
+            NSPasteboardAccessBehavior::AlwaysAllow,
+        ] {
+            assert_eq!(check_pasteboard_access(true, || behavior), Ok(()));
+        }
+    }
+
+    #[test]
+    fn nil_items_require_a_successfully_read_empty_type_list() {
+        assert_eq!(validate_absent_items(Some(0)), Ok(()));
+        for type_count in [None, Some(1), Some(MAX_TYPES_PER_ITEM)] {
+            assert_eq!(
+                validate_absent_items(type_count),
+                Err(FallbackError::SnapshotIncomplete)
+            );
+        }
+    }
 
     #[test]
     fn native_default_layout_resolves_a_current_command_copy_key() {
