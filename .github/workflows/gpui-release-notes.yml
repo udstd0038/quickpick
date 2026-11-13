@@ -1,0 +1,29 @@
+name: gpui-release-notes
+
+on:
+  push:
+    branches: ['release/gpui-visual-fix4']
+    paths: ['docs/releases/v0.1.4-gpui.1.md', '.github/workflows/gpui-release-notes.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-notes:
+    if: github.ref == 'refs/heads/release/gpui-visual-fix4'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update existing GPUI preview notes without replacing assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v0.1.4-gpui.1
+        run: |
+          set -euo pipefail
+          expected='46e56bbdefb90cb5f6ebbf44eaba62ae047ed6ac'
+          actual=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq .target_commitish)
+          test "$actual" = "$expected"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.prerelease and (.draft | not)')" = true
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --notes-file docs/releases/v0.1.4-gpui.1.md
