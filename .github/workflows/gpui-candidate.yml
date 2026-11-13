@@ -18,6 +18,12 @@ jobs:
         with:
           components: rustfmt, clippy
           targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target/gpui-candidate
+            . -> target/legacy-adapter
+          cache-on-failure: true
       - name: Ensure NSIS is available
         shell: pwsh
         run: |

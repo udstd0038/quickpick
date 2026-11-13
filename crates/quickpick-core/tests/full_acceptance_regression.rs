@@ -37,6 +37,9 @@ impl Server {
                     Err(_) => panic!("loopback accept failed"),
                 }
             };
+            // Accepted sockets can inherit the listener's nonblocking mode on Windows.
+            // Poll only accept; request reads below use their bounded blocking timeout.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .unwrap();
