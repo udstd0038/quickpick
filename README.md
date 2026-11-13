@@ -154,6 +154,8 @@ The screenshot capture helper is available at `tools/capture-readme-screenshots.
 
 The frontend renders the settings page and WebView popups. Rust owns the OS-facing capabilities and AI request flow.
 
+GPUI 全量候选位于 `apps/quickpick-gpui` 与 `crates`。阶段 0 Windows 实机验证已由用户确认；运行 `scripts/build-gpui.ps1 -Launch` 构建并启动，`-Package` 生成 NSIS/ZIP。完整命令和剩余发行验收见 [全量候选验收](docs/11-gpui-full-validation.md)，最终验收前保留旧版发行链路。 全界面外观复刻与即时预览候选见 [视觉实现与验收](docs/19-gpui-visual-replica.md)。
+
 ## Contributing
 
 Contributions, bug reports, translations, and design feedback are welcome. Before opening a pull request, read [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](./AGENTS.md), and the project documents under [docs/](./docs). The repository keeps current progress and decisions in [dev-logs/](./dev-logs).

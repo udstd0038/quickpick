@@ -1,0 +1,93 @@
+name: gpui-candidate
+
+on:
+  push:
+    paths: ['Cargo.toml', 'Cargo.lock', '.cargo/**', 'crates/**', 'apps/quickpick-gpui/**', 'scripts/**', '.github/workflows/gpui-candidate.yml']
+  pull_request:
+    paths: ['Cargo.toml', 'Cargo.lock', '.cargo/**', 'crates/**', 'apps/quickpick-gpui/**', 'scripts/**', '.github/workflows/gpui-candidate.yml']
+  workflow_dispatch:
+
+jobs:
+  windows-candidate:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: x86_64-pc-windows-msvc
+      - name: Ensure NSIS is available
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}/NSIS/makensis.exe")) {
+            choco install nsis --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
+          }
+      - name: Validate stage 5 tools with synthetic fixtures
+        shell: powershell
+        run: ./scripts/tests/verify-gpui-validation.ps1
+      - name: Check and build isolated candidate
+        shell: pwsh
+        run: ./scripts/build-gpui.ps1 -Package
+      - name: Verify candidate package
+        shell: powershell
+        run: ./scripts/verify-gpui-package.ps1 -Executable target/gpui-candidate/release/quickpick.exe
+      - name: Check retained legacy adapter
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --target-dir target/legacy-adapter
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quickpick-gpui-candidate
+          path: |
+            target/gpui-candidate/artifacts/
+            target/gpui-candidate/gpui-stage0-reports/
+          if-no-files-found: error
+      # 无桌面 CI 不证明透明合成、截图、IME 或混合 DPI 实机验收通过。
+  dependency-audit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-audit --locked
+      - run: cargo audit --file Cargo.lock
+
+  publish-gpui-preview:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release/gpui-visual-fix4'
+    needs: [windows-candidate, dependency-audit]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: quickpick-v0.1.4-gpui.1-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: quickpick-gpui-candidate
+          path: release-artifacts
+      - name: Publish GPUI prerelease from checked Windows artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v0.1.4-gpui.1
+        run: |
+          set -euo pipefail
+          assets=()
+          for name in QuickPick_0.1.4_gpui_candidate_x64.zip QuickPick_0.1.4_gpui_candidate_x64_setup.exe SHA256.json package-validation.json; do
+            mapfile -t matches < <(find release-artifacts -type f -name "$name")
+            test "${#matches[@]}" -eq 1
+            assets+=("${matches[0]}")
+          done
+          (cd "$(dirname "${assets[0]}")" && sha256sum QuickPick_0.1.4_gpui_candidate_x64.zip QuickPick_0.1.4_gpui_candidate_x64_setup.exe > SHA256SUMS.txt)
+          assets+=("$(dirname "${assets[0]}")/SHA256SUMS.txt")
+          # Never overwrite an existing release or its assets on a rerun.
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release already exists; inspect it instead of overwriting."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title 'QuickPick v0.1.4-gpui.1 — GPUI 原生界面预览版' \
+            --notes-file docs/releases/v0.1.4-gpui.1.md --prerelease --latest=false

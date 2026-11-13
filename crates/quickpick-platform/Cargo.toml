@@ -1,0 +1,22 @@
+[package]
+name = "quickpick-platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+quickpick-core.workspace = true
+serde = { version = "=1.0.229", features = ["derive"] }
+zeroize = "=1.9.0"
+
+[target.'cfg(windows)'.dependencies]
+async-channel = "=2.5.0"
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_System_Registry", "Win32_System_LibraryLoader", "Win32_System_RemoteDesktop", "Win32_UI_Controls", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Com", "Win32_System_StationsAndDesktops", "Win32_UI_Shell", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
+xcap = { version = "=0.9.7", default-features = false }
+image = { version = "=0.25.10", default-features = false, features = ["bmp", "png"] }
+clipboard-win = "=5.4.3"
+uiautomation = "=0.25.0"
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+
+[dev-dependencies]
+image = { version = "=0.25.10", default-features = false, features = ["bmp"] }

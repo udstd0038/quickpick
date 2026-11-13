@@ -1048,6 +1048,7 @@ fn set_hotkey_capture_mode(
 }
 
 pub fn run() {
+    let Some(_instance)=quickpick_platform::system::InstanceGuard::acquire().ok().flatten()else{return;};
     tauri::Builder::default()
         .manage(AppState::default())
         .plugin(tauri_plugin_opener::init())

@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
@@ -15,7 +15,11 @@ try {
     exit 1
   }
 
-  Write-Host "Running cargo dependency audit..."
+  Write-Host "Running GPUI dependency audit..."
+  cargo audit --file Cargo.lock
+  if ($LASTEXITCODE -ne 0) { throw "GPUI cargo audit failed" }
+
+  Write-Host "Running legacy adapter dependency audit..."
   Push-Location "apps/desktop/src-tauri"
   try {
     cargo audit

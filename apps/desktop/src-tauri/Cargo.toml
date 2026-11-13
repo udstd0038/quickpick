@@ -24,6 +24,8 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+quickpick-core = { path = "../../../crates/quickpick-core" }
+quickpick-platform = { path = "../../../crates/quickpick-platform" }
 base64 = "0.22"
 clipboard-win = "5.4"
 image = { version = "0.25", default-features = false, features = ["png"] }

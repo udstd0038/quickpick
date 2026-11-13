@@ -1,0 +1,719 @@
+use crate::app_settings::AppSettings;
+use crate::localized_error::{error_key, error_key_with_detail};
+use base64::{Engine as _, engine::general_purpose};
+use serde::Deserialize;
+use std::time::Duration;
+
+const MAX_TEXT_INPUT_CHARS: usize = 12_000;
+const MAX_IMAGE_INPUT_BYTES: usize = 8 * 1024 * 1024;
+const MAX_IMAGE_OUTPUT_TOKENS: u16 = 4096;
+const MAX_AI_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+const PROVIDER_OPENAI_COMPATIBLE: &str = "openai_compatible";
+const PROVIDER_DEEPSEEK: &str = "deepseek";
+const PROVIDER_XIAOMI_MIMO: &str = "xiaomi_mimo";
+const PROVIDER_KIMI: &str = "kimi";
+const PROVIDER_GLM: &str = "glm";
+const PROVIDER_MINIMAX: &str = "minimax";
+const PROVIDER_QWEN: &str = "qwen";
+
+pub fn provider_defaults(provider: &str, scope: crate::session::AiScope) -> (String, String) {
+    let mut settings = AppSettings::default();
+    match scope {
+        crate::session::AiScope::Text => {
+            settings.text_ai_provider = provider.into();
+            (
+                effective_text_base_url(&settings, ""),
+                effective_text_model(&settings).unwrap_or_default(),
+            )
+        }
+        crate::session::AiScope::Vision => {
+            settings.vision_ai_provider = provider.into();
+            (
+                effective_vision_base_url(&settings, ""),
+                effective_vision_model(&settings).unwrap_or_default(),
+            )
+        }
+        crate::session::AiScope::Input => {
+            settings.input_ai_provider = provider.into();
+            (
+                effective_input_base_url(&settings, ""),
+                effective_input_model(&settings).unwrap_or_default(),
+            )
+        }
+    }
+}
+
+pub fn validate_configuration(
+    settings: &AppSettings,
+    api_key: &str,
+    scope: crate::session::AiScope,
+) -> Result<(), String> {
+    if api_key.trim().is_empty() {
+        return Err(error_key(match scope {
+            crate::session::AiScope::Vision => "screenshot.apiKeyMissing",
+            crate::session::AiScope::Input => "input.apiKeyMissing",
+            _ => "ai.apiKeyMissing",
+        }));
+    }
+    let kind = match scope {
+        crate::session::AiScope::Vision => {
+            effective_vision_model(settings)?;
+            AiModelKind::Vision
+        }
+        crate::session::AiScope::Input => {
+            effective_input_model(settings)?;
+            AiModelKind::Input
+        }
+        _ => {
+            effective_text_model(settings)?;
+            AiModelKind::Text
+        }
+    };
+    chat_completions_endpoint(settings, api_key, kind)?;
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct ChatCompletionResponse {
+    choices: Vec<ChatChoice>,
+}
+
+#[derive(Deserialize)]
+struct ChatChoice {
+    message: ChatChoiceMessage,
+}
+
+#[derive(Deserialize)]
+struct ChatChoiceMessage {
+    content: Option<String>,
+}
+
+async fn read_chat_completion_response_body(
+    response: reqwest::Response,
+) -> Result<Vec<u8>, String> {
+    if let Some(length) = response.content_length() {
+        ensure_response_within_limit(Some(length), 0)?;
+    }
+
+    let mut response = response;
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| error_key("ai.requestFailed"))?
+    {
+        ensure_response_within_limit(None, bytes.len().saturating_add(chunk.len()))?;
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
+
+fn ensure_response_within_limit(
+    content_length: Option<u64>,
+    body_len: usize,
+) -> Result<(), String> {
+    if content_length
+        .map(|length| length > MAX_AI_RESPONSE_BYTES as u64)
+        .unwrap_or(false)
+        || body_len > MAX_AI_RESPONSE_BYTES
+    {
+        return Err(error_key("ai.responseTooLarge"));
+    }
+
+    Ok(())
+}
+
+pub async fn run_text_action(
+    settings: &AppSettings,
+    api_key: &str,
+    action: &str,
+    selected_text: &str,
+    source_language: &str,
+    target_language: &str,
+) -> Result<String, String> {
+    if selected_text.chars().count() > MAX_TEXT_INPUT_CHARS {
+        return Err(error_key("ai.textTooLong"));
+    }
+
+    let (system_prompt, user_prefix) = text_prompts(action, source_language, target_language)?;
+    let endpoint = chat_completions_endpoint(settings, api_key, AiModelKind::Text)?;
+    let model = effective_text_model(settings)?;
+    let request = text_chat_request(
+        settings,
+        AiModelKind::Text,
+        model,
+        system_prompt,
+        user_prefix,
+        selected_text,
+    );
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(settings.ai_timeout_seconds.into()))
+        .build()
+        .map_err(|_| error_key("ai.clientInitFailed"))?;
+
+    let response = client
+        .post(endpoint)
+        .bearer_auth(api_key)
+        .json(&request)
+        .send()
+        .await
+        .map_err(map_request_error)?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(map_http_status(status.as_u16()));
+    }
+
+    let bytes = read_chat_completion_response_body(response).await?;
+    let body = serde_json::from_slice::<ChatCompletionResponse>(&bytes).map_err(|_| {
+        "AI 返回格式无法解析，请检查 Base URL 和模型是否兼容 OpenAI chat/completions".to_string()
+    })?;
+
+    body.choices
+        .into_iter()
+        .find_map(|choice| choice.message.content)
+        .filter(|content| !content.trim().is_empty())
+        .ok_or_else(|| error_key("ai.emptyResponse"))
+}
+
+pub async fn run_input_text_action(
+    settings: &AppSettings,
+    api_key: &str,
+    action: &str,
+    selected_text: &str,
+    source_language: &str,
+    target_language: &str,
+) -> Result<String, String> {
+    if selected_text.chars().count() > MAX_TEXT_INPUT_CHARS {
+        return Err(error_key("ai.inputTooLong"));
+    }
+
+    let (system_prompt, user_prefix) = text_prompts(action, source_language, target_language)?;
+    let endpoint = chat_completions_endpoint(settings, api_key, AiModelKind::Input)?;
+    let model = effective_input_model(settings)?;
+    let request = text_chat_request(
+        settings,
+        AiModelKind::Input,
+        model,
+        system_prompt,
+        user_prefix,
+        selected_text,
+    );
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(settings.ai_timeout_seconds.into()))
+        .build()
+        .map_err(|_| error_key("ai.clientInitFailed"))?;
+
+    let response = client
+        .post(endpoint)
+        .bearer_auth(api_key)
+        .json(&request)
+        .send()
+        .await
+        .map_err(map_request_error)?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(map_http_status(status.as_u16()));
+    }
+
+    let bytes = read_chat_completion_response_body(response).await?;
+    let body = serde_json::from_slice::<ChatCompletionResponse>(&bytes).map_err(|_| {
+        "AI 返回格式无法解析，请检查输入模型 Base URL 和模型是否兼容 OpenAI chat/completions"
+            .to_string()
+    })?;
+
+    body.choices
+        .into_iter()
+        .find_map(|choice| choice.message.content)
+        .filter(|content| !content.trim().is_empty())
+        .ok_or_else(|| error_key("ai.emptyResponse"))
+}
+
+pub async fn run_image_action(
+    settings: &AppSettings,
+    api_key: &str,
+    action: &str,
+    png_bytes: &[u8],
+    source_language: &str,
+    target_language: &str,
+) -> Result<String, String> {
+    if png_bytes.is_empty() {
+        return Err(error_key("ai.imageEmpty"));
+    }
+    if png_bytes.len() > MAX_IMAGE_INPUT_BYTES {
+        return Err(error_key("ai.imageTooLarge"));
+    }
+
+    let (system_prompt, user_prompt) = image_prompts(action, source_language, target_language)?;
+    let endpoint = chat_completions_endpoint(settings, api_key, AiModelKind::Vision)?;
+    let model = effective_vision_model(settings)?;
+    let encoded_image = general_purpose::STANDARD.encode(png_bytes);
+    let image_url = format!("data:image/png;base64,{encoded_image}");
+    let request = serde_json::json!({
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": image_url,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": user_prompt,
+                    },
+                ],
+            },
+        ],
+        "temperature": 0.0,
+        "max_tokens": MAX_IMAGE_OUTPUT_TOKENS,
+    });
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(settings.ai_timeout_seconds.into()))
+        .build()
+        .map_err(|_| error_key("ai.clientInitFailed"))?;
+
+    let response = client
+        .post(endpoint)
+        .bearer_auth(api_key)
+        .json(&request)
+        .send()
+        .await
+        .map_err(map_request_error)?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(map_image_http_status(status.as_u16()));
+    }
+
+    let bytes = read_chat_completion_response_body(response).await?;
+    let body = serde_json::from_slice::<ChatCompletionResponse>(&bytes).map_err(|_| {
+        "AI 返回格式无法解析，请检查 Base URL 和视觉模型是否兼容 OpenAI chat/completions"
+            .to_string()
+    })?;
+
+    body.choices
+        .into_iter()
+        .find_map(|choice| choice.message.content)
+        .filter(|content| !content.trim().is_empty())
+        .ok_or_else(|| error_key("ai.emptyResponse"))
+}
+
+fn text_prompts(
+    action: &str,
+    source_language: &str,
+    target_language: &str,
+) -> Result<(String, String), String> {
+    let source = translation_source_instruction(source_language);
+    let target = translation_language_label(target_language);
+    match action {
+        "translate" => Ok((
+            format!("你是 QuickPick 的划词翻译助手。{source}，并翻译成自然、准确的{target}。只输出译文，不添加解释。保留专有名词、代码、URL 和数字格式。"),
+            format!("{source}，然后翻译为{target}。只输出译文："),
+        )),
+        "summarize" => Ok((
+            "你是 QuickPick 的划词总结助手。用简体中文概括用户提供的文本，保留关键事实、术语和结论。只输出摘要。".to_string(),
+            "请总结以下文本：".to_string(),
+        )),
+        _ => Err(error_key("ai.unknownAction")),
+    }
+}
+
+fn image_prompts(
+    action: &str,
+    source_language: &str,
+    target_language: &str,
+) -> Result<(String, String), String> {
+    let source = translation_source_instruction(source_language);
+    let target = translation_language_label(target_language);
+    match action {
+        "extract" => Ok((
+            "你是 QuickPick 的截图文字提取助手。识别图片中所有清晰可见的文字，按自然阅读顺序输出原文。不要编造看不清的内容；没有可识别文字时说明未识别到文字。".to_string(),
+            "请提取这张截图中的所有文字，只输出识别结果。".to_string(),
+        )),
+        "translate" => Ok((
+            format!("你是 QuickPick 的截图文字翻译器。只做一件事：读取图片中所有清晰可辨的文字，{source}，然后直接翻译为自然、准确的{target}。禁止描述图片内容，禁止说明识别过程，禁止输出“图片中显示...”“我看到了...”等说明。保留专有名词、数字、URL 和代码格式。如果图片没有可识别文字，只输出“未识别到文字”。"),
+            format!("直接翻译这张截图中的文字为{target}。只输出译文，不要输出原文对照，也不要描述图片内容或识别过程。"),
+        )),
+        _ => Err(error_key("ai.unknownImageAction")),
+    }
+}
+
+fn text_chat_request(
+    settings: &AppSettings,
+    kind: AiModelKind,
+    model: String,
+    system_prompt: String,
+    user_prefix: String,
+    selected_text: &str,
+) -> serde_json::Value {
+    let mut request = serde_json::json!({
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": format!("{user_prefix}\n\n{selected_text}"),
+            },
+        ],
+        "temperature": 0.2,
+    });
+
+    let provider_id = match kind {
+        AiModelKind::Text => text_provider_id(settings),
+        AiModelKind::Input => input_provider_id(settings),
+        AiModelKind::Vision => vision_provider_id(settings),
+    };
+    if provider_id == PROVIDER_DEEPSEEK {
+        request["thinking"] = serde_json::json!({ "type": "disabled" });
+    }
+
+    request
+}
+
+#[derive(Clone, Copy)]
+enum AiModelKind {
+    Text,
+    Vision,
+    Input,
+}
+
+fn chat_completions_endpoint(
+    settings: &AppSettings,
+    api_key: &str,
+    kind: AiModelKind,
+) -> Result<String, String> {
+    let base_url = match kind {
+        AiModelKind::Text => effective_text_base_url(settings, api_key),
+        AiModelKind::Vision => effective_vision_base_url(settings, api_key),
+        AiModelKind::Input => effective_input_base_url(settings, api_key),
+    };
+    let trimmed = base_url.trim().trim_end_matches('/');
+    if trimmed.is_empty() {
+        return Err(error_key("ai.baseUrlMissing"));
+    }
+
+    crate::app_settings::validate_ai_base_url(trimmed)?;
+
+    Ok(format!("{trimmed}/chat/completions"))
+}
+
+fn effective_text_base_url(settings: &AppSettings, api_key: &str) -> String {
+    let configured = settings.text_ai_base_url.trim();
+    if !configured.is_empty() {
+        return configured.to_string();
+    }
+
+    match text_provider_id(settings) {
+        PROVIDER_DEEPSEEK => "https://api.deepseek.com".to_string(),
+        PROVIDER_XIAOMI_MIMO if api_key.trim().starts_with("tp-") => {
+            "https://token-plan-cn.xiaomimimo.com/v1".to_string()
+        }
+        PROVIDER_XIAOMI_MIMO => "https://api.xiaomimimo.com/v1".to_string(),
+        PROVIDER_KIMI => "https://api.moonshot.cn/v1".to_string(),
+        PROVIDER_GLM => "https://open.bigmodel.cn/api/paas/v4".to_string(),
+        PROVIDER_MINIMAX => "https://api.minimaxi.com/v1".to_string(),
+        PROVIDER_QWEN => "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
+        _ => String::new(),
+    }
+}
+
+fn effective_vision_base_url(settings: &AppSettings, api_key: &str) -> String {
+    let configured = settings.vision_ai_base_url.trim();
+    if !configured.is_empty() {
+        return configured.to_string();
+    }
+
+    match vision_provider_id(settings) {
+        PROVIDER_DEEPSEEK => "https://api.deepseek.com".to_string(),
+        PROVIDER_XIAOMI_MIMO if api_key.trim().starts_with("tp-") => {
+            "https://token-plan-cn.xiaomimimo.com/v1".to_string()
+        }
+        PROVIDER_XIAOMI_MIMO => "https://api.xiaomimimo.com/v1".to_string(),
+        PROVIDER_KIMI => "https://api.moonshot.cn/v1".to_string(),
+        PROVIDER_GLM => "https://open.bigmodel.cn/api/paas/v4".to_string(),
+        PROVIDER_MINIMAX => "https://api.minimaxi.com/v1".to_string(),
+        PROVIDER_QWEN => "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
+        _ => String::new(),
+    }
+}
+
+fn effective_input_base_url(settings: &AppSettings, api_key: &str) -> String {
+    let configured = settings.input_ai_base_url.trim();
+    if !configured.is_empty() {
+        return configured.to_string();
+    }
+
+    match input_provider_id(settings) {
+        PROVIDER_DEEPSEEK => "https://api.deepseek.com".to_string(),
+        PROVIDER_XIAOMI_MIMO if api_key.trim().starts_with("tp-") => {
+            "https://token-plan-cn.xiaomimimo.com/v1".to_string()
+        }
+        PROVIDER_XIAOMI_MIMO => "https://api.xiaomimimo.com/v1".to_string(),
+        PROVIDER_KIMI => "https://api.moonshot.cn/v1".to_string(),
+        PROVIDER_GLM => "https://open.bigmodel.cn/api/paas/v4".to_string(),
+        PROVIDER_MINIMAX => "https://api.minimaxi.com/v1".to_string(),
+        PROVIDER_QWEN => "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
+        _ => String::new(),
+    }
+}
+
+fn effective_text_model(settings: &AppSettings) -> Result<String, String> {
+    let configured = settings.text_ai_model.trim();
+    if !configured.is_empty() {
+        return Ok(configured.to_string());
+    }
+
+    match text_provider_id(settings) {
+        PROVIDER_DEEPSEEK => Ok("deepseek-v4-flash".to_string()),
+        PROVIDER_XIAOMI_MIMO => Ok("mimo-v2.5".to_string()),
+        PROVIDER_KIMI => Ok("kimi-k2.6".to_string()),
+        PROVIDER_GLM => Ok("glm-5.2".to_string()),
+        PROVIDER_MINIMAX => Ok("MiniMax-M2.7".to_string()),
+        PROVIDER_QWEN => Ok("qwen-plus".to_string()),
+        _ => Err(error_key("ai.textModelMissing")),
+    }
+}
+
+fn effective_vision_model(settings: &AppSettings) -> Result<String, String> {
+    let configured = settings.vision_ai_model.trim();
+    if !configured.is_empty() {
+        return Ok(configured.to_string());
+    }
+
+    match vision_provider_id(settings) {
+        PROVIDER_DEEPSEEK => Ok("deepseek-v4-flash-vision-exp".to_string()),
+        PROVIDER_XIAOMI_MIMO => Ok("mimo-v2.5".to_string()),
+        PROVIDER_KIMI => Ok("kimi-k2.6".to_string()),
+        PROVIDER_GLM => Ok("glm-4.5v".to_string()),
+        PROVIDER_MINIMAX => Ok("MiniMax-VL-01".to_string()),
+        PROVIDER_QWEN => Ok("qwen3-vl-plus".to_string()),
+        _ => Err(error_key("ai.visionModelMissing")),
+    }
+}
+
+fn effective_input_model(settings: &AppSettings) -> Result<String, String> {
+    let configured = settings.input_ai_model.trim();
+    if !configured.is_empty() {
+        return Ok(configured.to_string());
+    }
+
+    match input_provider_id(settings) {
+        PROVIDER_DEEPSEEK => Ok("deepseek-v4-flash".to_string()),
+        PROVIDER_XIAOMI_MIMO => Ok("mimo-v2.5".to_string()),
+        PROVIDER_KIMI => Ok("kimi-k2.6".to_string()),
+        PROVIDER_GLM => Ok("glm-5.2".to_string()),
+        PROVIDER_MINIMAX => Ok("MiniMax-M2.7".to_string()),
+        PROVIDER_QWEN => Ok("qwen-plus".to_string()),
+        _ => Err(error_key("ai.inputModelMissing")),
+    }
+}
+
+fn text_provider_id(settings: &AppSettings) -> &str {
+    match settings.text_ai_provider.trim() {
+        PROVIDER_DEEPSEEK => PROVIDER_DEEPSEEK,
+        PROVIDER_XIAOMI_MIMO => PROVIDER_XIAOMI_MIMO,
+        PROVIDER_KIMI => PROVIDER_KIMI,
+        PROVIDER_GLM => PROVIDER_GLM,
+        PROVIDER_MINIMAX => PROVIDER_MINIMAX,
+        PROVIDER_QWEN => PROVIDER_QWEN,
+        _ => PROVIDER_OPENAI_COMPATIBLE,
+    }
+}
+
+fn vision_provider_id(settings: &AppSettings) -> &str {
+    match settings.vision_ai_provider.trim() {
+        PROVIDER_DEEPSEEK => PROVIDER_DEEPSEEK,
+        PROVIDER_XIAOMI_MIMO => PROVIDER_XIAOMI_MIMO,
+        PROVIDER_KIMI => PROVIDER_KIMI,
+        PROVIDER_GLM => PROVIDER_GLM,
+        PROVIDER_MINIMAX => PROVIDER_MINIMAX,
+        PROVIDER_QWEN => PROVIDER_QWEN,
+        _ => PROVIDER_OPENAI_COMPATIBLE,
+    }
+}
+
+fn input_provider_id(settings: &AppSettings) -> &str {
+    match settings.input_ai_provider.trim() {
+        PROVIDER_DEEPSEEK => PROVIDER_DEEPSEEK,
+        PROVIDER_XIAOMI_MIMO => PROVIDER_XIAOMI_MIMO,
+        PROVIDER_KIMI => PROVIDER_KIMI,
+        PROVIDER_GLM => PROVIDER_GLM,
+        PROVIDER_MINIMAX => PROVIDER_MINIMAX,
+        PROVIDER_QWEN => PROVIDER_QWEN,
+        _ => PROVIDER_OPENAI_COMPATIBLE,
+    }
+}
+
+fn map_request_error(error: reqwest::Error) -> String {
+    if error.is_timeout() {
+        error_key("ai.requestTimeout")
+    } else if error.is_connect() {
+        error_key("ai.connectFailed")
+    } else {
+        error_key("ai.requestFailed")
+    }
+}
+
+fn map_http_status(status: u16) -> String {
+    match status {
+        400 => error_key("ai.httpBadRequest"),
+        401 | 403 => error_key("ai.httpUnauthorized"),
+        404 => error_key("ai.httpNotFound"),
+        408 | 504 => error_key("ai.httpTimeout"),
+        429 => error_key("ai.httpRateLimited"),
+        500..=599 => error_key("ai.httpServerError"),
+        _ => error_key_with_detail("ai.httpStatus", &status.to_string()),
+    }
+}
+
+fn map_image_http_status(status: u16) -> String {
+    if status == 400 {
+        return error_key("ai.visionRejected");
+    }
+
+    map_http_status(status)
+}
+
+pub fn translation_language_label(code: &str) -> &'static str {
+    match code {
+        "auto" => "自动检测的语言",
+        "zh-Hant" => "繁体中文",
+        "en" => "英文",
+        "ja" => "日文",
+        "ko" => "韩文",
+        "fr" => "法文",
+        "de" => "德文",
+        "es" => "西班牙文",
+        _ => "简体中文",
+    }
+}
+
+fn translation_source_instruction(code: &str) -> String {
+    if code == "auto" {
+        "自动识别原文语言".to_string()
+    } else {
+        format!("将原文按{}理解", translation_language_label(code))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn image_translate_prompt_forbids_description_and_requests_direct_translation() {
+        let (system, user) = image_prompts("translate", "auto", "en").expect("prompts");
+
+        assert!(system.contains("禁止描述图片内容"));
+        assert!(user.contains("直接翻译这张截图中的文字"));
+        assert!(!user.contains("先提取这张截图中的文字"));
+    }
+
+    #[test]
+    fn traditional_chinese_label_is_supported() {
+        assert_eq!(translation_language_label("zh-Hant"), "繁体中文");
+    }
+
+    #[test]
+    fn ai_response_size_limit_rejects_oversized_body() {
+        assert!(ensure_response_within_limit(Some(MAX_AI_RESPONSE_BYTES as u64 + 1), 0).is_err());
+        assert!(ensure_response_within_limit(None, MAX_AI_RESPONSE_BYTES + 1).is_err());
+        assert!(ensure_response_within_limit(None, MAX_AI_RESPONSE_BYTES).is_ok());
+    }
+
+    #[test]
+    fn ai_endpoint_rejects_external_http() {
+        let settings = AppSettings {
+            text_ai_base_url: "http://example.com/v1".to_string(),
+            ..AppSettings::default()
+        };
+        assert!(chat_completions_endpoint(&settings, "test", AiModelKind::Text).is_err());
+    }
+
+    #[test]
+    fn ai_endpoint_allows_loopback_http() {
+        let settings = AppSettings {
+            text_ai_base_url: "http://127.0.0.1:11434/v1".to_string(),
+            ..AppSettings::default()
+        };
+        assert!(chat_completions_endpoint(&settings, "test", AiModelKind::Text).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod transport_tests {
+    use super::*;
+    #[tokio::test]
+    async fn oversized_chunked_response_is_stopped_before_end_of_stream() {
+        use std::{
+            io::{Read, Write},
+            net::TcpListener,
+            sync::mpsc,
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (stop, wait) = mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut request = [0; 4096];
+            let _ = socket.read(&mut request);
+            socket.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Type: application/json\r\n\r\n").unwrap();
+            let chunk = vec![b'x'; MAX_AI_RESPONSE_BYTES + 1];
+            let _ = write!(socket, "{:x}\r\n", chunk.len());
+            let _ = socket.write_all(&chunk);
+            let _ = socket.write_all(b"\r\n");
+            // 不发送结束块：读取整包的实现会等待超时，而有界读取立即返回大小错误。
+            let _ = wait.recv_timeout(Duration::from_secs(5));
+        });
+        let response = reqwest::Client::builder()
+            .timeout(Duration::from_secs(3))
+            .build()
+            .unwrap()
+            .get(format!("http://{address}"))
+            .send()
+            .await
+            .unwrap();
+        let result = read_chat_completion_response_body(response).await;
+        let _ = stop.send(());
+        server.join().unwrap();
+        assert_eq!(result.unwrap_err(), "i18n:ai.responseTooLarge");
+    }
+    #[test]
+    fn model_configuration_never_falls_back_between_domains() {
+        let settings = AppSettings {
+            text_ai_provider: "openai_compatible".into(),
+            text_ai_model: "text".into(),
+            text_ai_base_url: "https://text.example/v1".into(),
+            vision_ai_provider: "openai_compatible".into(),
+            vision_ai_model: String::new(),
+            input_ai_provider: "openai_compatible".into(),
+            input_ai_model: "input".into(),
+            input_ai_base_url: "https://input.example/v1".into(),
+            ..Default::default()
+        };
+        assert_eq!(effective_input_model(&settings).unwrap(), "input");
+        assert!(effective_vision_model(&settings).is_err());
+        assert_eq!(
+            chat_completions_endpoint(&settings, "synthetic", AiModelKind::Input).unwrap(),
+            "https://input.example/v1/chat/completions"
+        );
+    }
+}

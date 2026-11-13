@@ -1,5 +1,7 @@
 # QuickPick 测试与验收清单
 
+GPUI 全量候选位于根 Cargo workspace 的 `apps/quickpick-gpui` 和 `crates/`，阶段 0 实机验证已由用户确认。当前工程、共享业务模块、构建和全量验收见 [GPUI 全量候选](11-gpui-full-validation.md)。下文 Tauri 链路作为可独立构建的回退保留；旧前端测试不证明 GPUI 桌面行为通过。
+
 ## 0. 当前架构验收基线（2026-08）
 
 - 所有用户窗口均为 Tauri/WebView 预创建窗口：`main`、`selection`、`result`、`input`、`screenshot_overlay`。
@@ -307,3 +309,5 @@
 - 没有明显阻塞错误。
 - 更新当天开发日志。
 - 记录未完成事项。
+
+GPUI 外观候选须执行 [本轮视觉与预览矩阵](19-gpui-visual-replica.md)，fix2 的通过记录不能替代新版本的窗口、输入与截图交互回归。

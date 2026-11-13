@@ -154,6 +154,8 @@ README 截图生成脚本位于 `tools/capture-readme-screenshots.ps1`。
 
 前端负责设置页与 WebView 弹窗；Rust 负责贴近操作系统的能力、AI 请求和敏感状态管理。
 
+GPUI 全量候选位于 `apps/quickpick-gpui` 与 `crates`。阶段 0 Windows 实机验证已由用户确认；运行 `scripts/build-gpui.ps1 -Launch` 构建并启动，`-Package` 生成 NSIS/ZIP。完整命令和剩余发行验收见 [全量候选验收](docs/11-gpui-full-validation.md)，最终验收前保留旧版发行链路。 全界面外观复刻与即时预览候选见 [视觉实现与验收](docs/19-gpui-visual-replica.md)。
+
 ## 🤝 参与贡献
 
 欢迎提交代码、Issue、翻译和设计建议。创建 Pull Request 前请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)、[AGENTS.md](./AGENTS.md) 和 [docs/](./docs) 下的项目文档，并查看 [dev-logs/](./dev-logs) 了解当前进度与决策。

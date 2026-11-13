@@ -4,7 +4,7 @@
 
 ## 项目定位与当前进度
 
-QuickPick 是轻量划词、区域截图和输入翻译 AI 工具，使用 Tauri 2、Rust、React、TypeScript 和 Vite。
+QuickPick 是轻量划词、区域截图和输入翻译 AI 工具。GPUI/Rust 全量候选位于根 Cargo workspace；原 Tauri 2 / React / TypeScript / Vite 发行链路保留用于最终验收前回退。
 
 - 当前检出的代码面向 Windows 11 x64，版本为 `0.1.4`；Windows 正式发行提供 NSIS 安装包和便携 ZIP。
 - macOS `v0.1.3-macos` universal 预发布属于独立的 `feature/macos-port` 分支，尚未签名、公证或完成实体 Mac 人工验收，不能据此认定当前检出代码已支持 macOS。
@@ -12,8 +12,8 @@ QuickPick 是轻量划词、区域截图和输入翻译 AI 工具，使用 Tauri
 - 划词支持复制、翻译、总结和搜索；区域截图支持框选、复制、文字提取和图片翻译；输入翻译支持语言、方向切换及 `Ctrl+Enter` 提交。
 - 划词模型、截图模型和输入模型各自保存供应商、Base URL、模型和 API Key，请求不跨配置回退。
 - 设置持久化、Windows DPAPI 密钥保存、托盘、开机自启、快捷键映射、浅深主题、窗口效果、不透明度和八种界面语言均有实现。功能已实现不等于所有运行场景已验收。
-- 界面使用 Tauri/WebView，活动窗口 label 为 `main`（设置）、`selection`（划词）、`result`（结果）、`input`（输入翻译）和 `screenshot_overlay`（截图）。独立 `screenshot_preview` 不在当前活动窗口和前端路由中。
-- 截图链路由 Rust `xcap` 捕获、前端 `react-image-crop` 框选和 Rust `capture_region_rect` 处理组成。截图读取和上传的预期边界仍须遵守有效隐私约定，不能仅凭链路现状放宽。
+- 保留的旧发行界面使用 Tauri/WebView，活动窗口 label 为 `main`（设置）、`selection`（划词）、`result`（结果）、`input`（输入翻译）和 `screenshot_overlay`（截图）。独立 `screenshot_preview` 不在当前活动窗口和前端路由中。
+- 保留的旧截图链路由 Rust `xcap` 捕获、前端 `react-image-crop` 框选和 Rust `capture_region_rect` 处理组成。截图读取和上传的预期边界仍须遵守有效隐私约定，不能仅凭链路现状放宽。
 - 设置窗口默认及最小逻辑尺寸为 `420×600`；隐藏或最小化后重新打开时重置默认尺寸，`main` 不恢复窗口状态文件中的尺寸。不同 DPI 下的尺寸与最小拖动限制仍有人工验收待办。
 - 仓库提供前端测试、Rust 单元测试和 Windows 热键事件链验证脚本；现有 GitHub Actions 运行依赖安全审计，不能当作构建、功能测试或实机验收通过的证据。
 
@@ -32,6 +32,7 @@ QuickPick 是轻量划词、区域截图和输入翻译 AI 工具，使用 Tauri
 - 开发工作流：`docs/06-dev-workflow.md`
 - 参考代码移植：`docs/07-reference-migration-spec.md`
 - Snow Shot 截图审计：`docs/08-snow-shot-screenshot-audit.md`
+- GPUI 迁移目标：`docs/09-gpui-refactor-plan.md`；阶段 0 记录：`docs/10-gpui-stage0-validation.md`；全量候选验收：`docs/11-gpui-full-validation.md`。用户已确认阶段 0 通过；fix1 的 49 项 Windows 测试/Release/热键/重新打包复测通过，见 `docs/14-windows-fix1-retest-2026-11-11.md`；剩余全量闸门与工具见 `docs/15-gpui-stage5-validation.md`。S5-01 在 fix2 Windows 复测中已闭环：52 项测试、真实剪贴板回读与指定合成画面的 GUI 复制通过，见 `docs/18-windows-fix2-retest-2026-11-12.md`。取消不改剪贴板的受控证据仍待复核。本轮全界面外观候选见 `docs/19-gpui-visual-replica.md`；第 20 号 Windows 报告确认 V-01 英语残留/V-03 还原裁切，修复候选和 V-02 待核实边界见 `docs/21-gpui-visual-fixes.md`。第 28 号报告确认 visual-fix4 的按钮等高和英语重置/首次回滚修复在已测路径通过，68 项 Windows 测试及重打包通过。应用基线保持 visual-fix4，完整矩阵仍未通过；剩余验收见 `docs/29-gpui-remaining-acceptance-2026-11-13.md`。阶段 5 验收前保留旧 GUI。
 - 贡献流程与漏洞报告：`CONTRIBUTING.md`、`SECURITY.md`
 - 开发日志：`dev-logs/YYYY-MM-DD.md`
 
@@ -97,13 +98,15 @@ QuickPick 是轻量划词、区域截图和输入翻译 AI 工具，使用 Tauri
 
 | 范围 | 命令与环境 |
 | --- | --- |
+| GPUI Windows 检查、测试与 release | `powershell -ExecutionPolicy Bypass -File scripts\build-gpui.ps1 -Launch` |
+| GPUI NSIS/ZIP | `powershell -ExecutionPolicy Bypass -File scripts\build-gpui.ps1 -Package` |
 | 前端测试 | 根目录执行 `pnpm test` |
 | TypeScript 与前端构建 | 根目录执行 `pnpm build` |
 | Rust 检查与测试 | 在 Windows 执行 `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`、`cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` |
 | 桌面开发 | 根目录执行 `pnpm desktop:dev` |
 | Windows release 可执行文件 | `pnpm --filter quickpick-desktop exec tauri build --no-bundle --ci` |
 | Windows NSIS 安装包 | `pnpm --filter quickpick-desktop exec tauri build --bundles nsis --ci --no-sign` |
-| Windows 热键事件链 | 在已运行 QuickPick 的 Windows 环境执行 `powershell -ExecutionPolicy Bypass -File scripts\verify-hotkeys.ps1` |
+| Windows GPUI 热键事件链（旧版附加 `-Legacy`） | 在已运行 QuickPick 的 Windows 环境执行 `powershell -ExecutionPolicy Bypass -File scripts\verify-hotkeys.ps1` |
 | 发布前依赖安全审计 | Windows 执行 `powershell -ExecutionPolicy Bypass -File scripts\security-audit.ps1` |
 
 - Node.js 要求 22+；pnpm 版本以根目录 `package.json` 的 `packageManager` 为准；Rust 与平台依赖按 Tauri 2 要求配置。

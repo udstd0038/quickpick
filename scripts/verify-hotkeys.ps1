@@ -1,162 +1,70 @@
-$ErrorActionPreference = "Stop"
-
-Add-Type @'
+﻿param([int]$ProcessId = 0, [switch]$Legacy)
+$ErrorActionPreference = 'Stop'
+if ($Legacy) { & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify-hotkeys-tauri.ps1'); exit $LASTEXITCODE }
+$process = if ($ProcessId) { Get-Process -Id $ProcessId } else { Get-Process -Name quickpick -ErrorAction Stop | Select-Object -First 1 }
+$start = [Diagnostics.ProcessStartInfo]::new()
+$start.FileName = $process.Path
+$start.Arguments = '--hotkey-bindings'
+$start.UseShellExecute = $false
+$start.CreateNoWindow = $true
+$start.RedirectStandardOutput = $true
+$start.StandardOutputEncoding = [Text.UTF8Encoding]::new($false)
+$reportProcess = [Diagnostics.Process]::Start($start)
+$report = $reportProcess.StandardOutput.ReadToEnd() | ConvertFrom-Json
+$reportProcess.WaitForExit()
+if ($reportProcess.ExitCode -ne 0 -or -not $report.bindings) { throw '需要支持 --hotkey-bindings 的 GPUI 候选程序。旧版使用 -Legacy。' }
+Add-Type -ReferencedAssemblies System.Windows.Forms @'
 using System;
-using System.Text;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
-public static class QuickPickHotkeyVerifier {
-  public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-  [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
-  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
-  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
-  [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-  [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+using System.Windows.Forms;
+public static class QuickPickNativeVerifier {
+ [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort vk, scan; public uint flags, time; public IntPtr extra; }
+ [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int x,y; public uint mouseData,flags,time; public IntPtr extra; }
+ [StructLayout(LayoutKind.Explicit)] public struct UNION { [FieldOffset(0)] public KEYBDINPUT key; [FieldOffset(0)] public MOUSEINPUT mouse; }
+ [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public UNION data; }
+ [DllImport("user32.dll",SetLastError=true)] static extern uint SendInput(uint n, INPUT[] inputs, int size);
+ [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+ public delegate bool Visitor(IntPtr h,IntPtr p);
+ [DllImport("user32.dll")] static extern bool EnumWindows(Visitor visitor,IntPtr p);
+ [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h,out uint pid);
+ [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h,System.Text.StringBuilder text,int size);
+ public static string[] Titles(uint pid) { var titles=new List<string>(); EnumWindows((h,p)=>{uint owner;GetWindowThreadProcessId(h,out owner);if(owner==pid&&IsWindowVisible(h)){var text=new System.Text.StringBuilder(512);GetWindowText(h,text,512);titles.Add(text.ToString());}return true;},IntPtr.Zero);return titles.ToArray(); }
+ public static void Keys(int[] codes) { var inputs=new List<INPUT>();foreach(int key in codes){inputs.Add(new INPUT{type=1,data=new UNION{key=new KEYBDINPUT{vk=(ushort)key}}});}for(int i=codes.Length-1;i>=0;i--){inputs.Add(new INPUT{type=1,data=new UNION{key=new KEYBDINPUT{vk=(ushort)codes[i],flags=2}}});}var array=inputs.ToArray();if(SendInput((uint)array.Length,array,Marshal.SizeOf(typeof(INPUT)))!=array.Length)throw new Exception("SendInput failed"); }
+ public static Form Fixture() { var form=new Form{Text="QuickPick hotkey verification",Width=480,Height=220};var text=new TextBox{Multiline=true,Dock=DockStyle.Fill,Text="QuickPick synthetic selection fixture"};form.Controls.Add(text);form.Show();text.Focus();text.SelectAll();Application.DoEvents();SetForegroundWindow(form.Handle);return form; }
+ public static void Pump() { Application.DoEvents(); }
 }
 '@
-
-$process = Get-Process -Name quickpick -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $process) {
-  throw "QuickPick is not running"
-}
-
-$pidValue = [uint32]$process.Id
-$hotkeyHwnd = [IntPtr]::Zero
-
-[QuickPickHotkeyVerifier]::EnumWindows({
-  param($h, $l)
-  [uint32]$wpid = 0
-  [QuickPickHotkeyVerifier]::GetWindowThreadProcessId($h, [ref]$wpid) | Out-Null
-  if ($wpid -eq $pidValue) {
-    $class = [Text.StringBuilder]::new(256)
-    [QuickPickHotkeyVerifier]::GetClassName($h, $class, 256) | Out-Null
-    if ($class.ToString() -eq "global_hotkey_app") {
-      $script:hotkeyHwnd = $h
+$fixture = [QuickPickNativeVerifier]::Fixture()
+try {
+    foreach ($role in @('settings','selection','input','screenshot')) {
+        [QuickPickNativeVerifier]::SetForegroundWindow($fixture.Handle) | Out-Null
+        [QuickPickNativeVerifier]::Pump()
+        Start-Sleep -Milliseconds 250
+        $binding = $report.bindings | Where-Object role -eq $role
+        if (-not $binding -or -not $binding.press) { throw "无法读取 $role 快捷键" }
+        [QuickPickNativeVerifier]::Keys([int[]]$binding.press)
+        $expected = $report.titles.$role
+        $deadline = [DateTime]::UtcNow.AddSeconds(5)
+        do {
+            [QuickPickNativeVerifier]::Pump()
+            $titles = [QuickPickNativeVerifier]::Titles([uint32]$process.Id)
+            if ($titles -contains $expected) { break }
+            Start-Sleep -Milliseconds 50
+        } while ([DateTime]::UtcNow -lt $deadline)
+        if ($titles -notcontains $expected) { throw "$role 快捷键未显示预期窗口；请检查占用、权限和焦点。" }
+        Write-Host "$role 路由和窗口显示通过"
+        if ($role -eq 'settings') {
+            [QuickPickNativeVerifier]::SetForegroundWindow($fixture.Handle) | Out-Null
+        } else {
+            [QuickPickNativeVerifier]::Keys([int[]]@(0x1b))
+            Start-Sleep -Milliseconds 200
+            if ([QuickPickNativeVerifier]::Titles([uint32]$process.Id) -contains $expected) { throw "$role Esc 关闭未完成" }
+        }
     }
-  }
-  return $true
-}, [IntPtr]::Zero) | Out-Null
-
-if ($hotkeyHwnd -eq [IntPtr]::Zero) {
-  throw "global_hotkey_app window was not found"
+    Write-Host '检查完成：仅使用合成测试文本，无 AI 上传。真实跨应用选区、剪贴板恢复、DPI 和截图像素仍需按验收矩阵确认。'
+} finally {
+    $fixture.Close()
+    $fixture.Dispose()
 }
-
-function Get-VisibleQuickPickTitles {
-  $script:rows = [System.Collections.Generic.List[string]]::new()
-  [QuickPickHotkeyVerifier]::EnumWindows({
-    param($h, $l)
-    [uint32]$wpid = 0
-    [QuickPickHotkeyVerifier]::GetWindowThreadProcessId($h, [ref]$wpid) | Out-Null
-    if ($wpid -eq $script:pidValue -and [QuickPickHotkeyVerifier]::IsWindowVisible($h)) {
-      $title = [Text.StringBuilder]::new(512)
-      [QuickPickHotkeyVerifier]::GetWindowText($h, $title, 512) | Out-Null
-      $script:rows.Add($title.ToString())
-    }
-    return $true
-  }, [IntPtr]::Zero) | Out-Null
-  return $script:rows
-}
-
-function Hide-QuickPickPopups {
-  [QuickPickHotkeyVerifier]::EnumWindows({
-    param($h, $l)
-    [uint32]$wpid = 0
-    [QuickPickHotkeyVerifier]::GetWindowThreadProcessId($h, [ref]$wpid) | Out-Null
-    if ($wpid -eq $script:pidValue) {
-      $current = [Text.StringBuilder]::new(512)
-      [QuickPickHotkeyVerifier]::GetWindowText($h, $current, 512) | Out-Null
-      if ($current.ToString().StartsWith("QuickPick ")) {
-        [QuickPickHotkeyVerifier]::ShowWindow($h, 0) | Out-Null
-      }
-    }
-    return $true
-  }, [IntPtr]::Zero) | Out-Null
-}
-
-# Alt+2 selection needs the app itself to be foreground so the WebView window can keep focus.
-$selectionTitle = "QuickPick " + [char]0x5212 + [char]0x8BCD
-$settingsTitle = "QuickPick " + [char]0x8BBE + [char]0x7F6E
-$settingsHwnd = [IntPtr]::Zero
-
-[QuickPickHotkeyVerifier]::EnumWindows({
-  param($h, $l)
-  [uint32]$wpid = 0
-  [QuickPickHotkeyVerifier]::GetWindowThreadProcessId($h, [ref]$wpid) | Out-Null
-  if ($wpid -eq $script:pidValue) {
-    $title = [Text.StringBuilder]::new(512)
-    [QuickPickHotkeyVerifier]::GetWindowText($h, $title, 512) | Out-Null
-    if ($title.ToString() -eq $settingsTitle) {
-      $script:settingsHwnd = $h
-    }
-  }
-  return $true
-}, [IntPtr]::Zero) | Out-Null
-
-if ($settingsHwnd -ne [IntPtr]::Zero) {
-  [QuickPickHotkeyVerifier]::ShowWindow($settingsHwnd, 5) | Out-Null
-  [QuickPickHotkeyVerifier]::SetForegroundWindow($settingsHwnd) | Out-Null
-  Start-Sleep -Milliseconds 300
-}
-
-Hide-QuickPickPopups
-Start-Sleep -Milliseconds 200
-
-# Alt+0 settings id: (Modifiers::ALT = 1) << 16 | Code::Digit0 = 5
-[QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65541, [IntPtr]0x00300000) | Out-Null
-Start-Sleep -Milliseconds 900
-$titles = Get-VisibleQuickPickTitles
-Write-Output ("Alt+0 visible titles: " + ($titles -join ", "))
-if ($titles -notcontains $settingsTitle) {
-  Write-Output "WARNING: Alt+0 is unavailable or already in use by another program; continuing."
-}
-Hide-QuickPickPopups
-
-if ($settingsHwnd -ne [IntPtr]::Zero) {
-  [QuickPickHotkeyVerifier]::ShowWindow($settingsHwnd, 5) | Out-Null
-  [QuickPickHotkeyVerifier]::SetForegroundWindow($settingsHwnd) | Out-Null
-  Start-Sleep -Milliseconds 300
-}
-
-# Alt+2 selection id: (Modifiers::ALT = 1) << 16 | Code::Digit2 = 7
-[QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65543, [IntPtr]0x00320000) | Out-Null
-Start-Sleep -Milliseconds 900
-$titles = Get-VisibleQuickPickTitles
-Write-Output ("Alt+2 visible titles: " + ($titles -join ", "))
-if ($titles -notcontains $selectionTitle) {
-  throw "Alt+2 event did not open the selection window"
-}
-$consoleWindow = [QuickPickHotkeyVerifier]::GetConsoleWindow()
-if ($consoleWindow -ne [IntPtr]::Zero) {
-  [QuickPickHotkeyVerifier]::SetForegroundWindow($consoleWindow) | Out-Null
-  Start-Sleep -Milliseconds 500
-  $titles = Get-VisibleQuickPickTitles
-  if ($titles -contains $selectionTitle) {
-    throw "Alt+2 selection window did not hide after focus loss"
-  }
-}
-Hide-QuickPickPopups
-
-# Alt+4 input translate id: (Modifiers::ALT = 1) << 16 | Code::Digit4 = 9
-[QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65545, [IntPtr]0x00340000) | Out-Null
-Start-Sleep -Milliseconds 900
-$titles = Get-VisibleQuickPickTitles
-Write-Output ("Alt+4 visible titles: " + ($titles -join ", "))
-if (@($titles | Where-Object { $_ -like "QuickPick *" }).Count -eq 0) {
-  throw "Alt+4 event did not open the input translation window"
-}
-Hide-QuickPickPopups
-
-# Alt+3 screenshot overlay id: (Modifiers::ALT = 1) << 16 | Code::Digit3 = 8
-[QuickPickHotkeyVerifier]::PostMessageW($hotkeyHwnd, 0x0312, [IntPtr]65544, [IntPtr]0x00330000) | Out-Null
-Start-Sleep -Milliseconds 900
-$titles = Get-VisibleQuickPickTitles
-Write-Output ("Alt+3 visible titles: " + ($titles -join ", "))
-if (@($titles | Where-Object { $_ -like "QuickPick *" }).Count -eq 0) {
-  throw "Alt+3 event did not open the screenshot overlay"
-}
-Hide-QuickPickPopups
-
-Write-Output "hotkey event chain verified: Alt+0 settings, Alt+2 selection, Alt+4 input, Alt+3 screenshot"

@@ -1,0 +1,9 @@
+{
+  "name": "simd_helpers",
+  "version": "0.1.0",
+  "license": "MIT",
+  "authors": [
+    "Luca Barbato <lu_zero@gentoo.org>"
+  ],
+  "repository": "https://github.com/lu-zero/simd_helpers"
+}

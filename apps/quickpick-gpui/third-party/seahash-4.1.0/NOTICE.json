@@ -1,0 +1,10 @@
+{
+  "name": "seahash",
+  "version": "4.1.0",
+  "license": "MIT",
+  "authors": [
+    "ticki <ticki@users.noreply.github.com>",
+    "Tom Almeida <tom@tommoa.me>"
+  ],
+  "repository": "https://gitlab.redox-os.org/redox-os/seahash"
+}

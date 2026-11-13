@@ -1,5 +1,7 @@
 # QuickPick 技术架构规范
 
+GPUI 全量候选位于根 Cargo workspace 的 `apps/quickpick-gpui` 和 `crates/`，阶段 0 实机验证已由用户确认。当前工程、共享业务模块、构建和全量验收见 [GPUI 全量候选](11-gpui-full-validation.md)。下文 Tauri 链路作为可独立构建的回退保留；旧前端测试不证明 GPUI 桌面行为通过。
+
 ## 0. 当前架构快照（2026-08）
 
 - 设置页、划词、结果、输入、截图遮罩全部使用 Tauri/WebView 预创建窗口，`App.tsx` 根据窗口 label 渲染对应前端组件。

@@ -1,0 +1,25 @@
+[workspace]
+members = ["crates/quickpick-core", "crates/quickpick-platform", "apps/quickpick-gpui"]
+exclude = ["apps/desktop/src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.4"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/udstd0038/quickpick"
+
+[workspace.dependencies]
+quickpick-core = { path = "crates/quickpick-core" }
+quickpick-platform = { path = "crates/quickpick-platform" }
+gpui-kit = { version = "=0.9.1", default-features = false, features = ["component", "assets"] }
+
+[profile.release]
+opt-level = "z"
+strip = true
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+debug = 0
